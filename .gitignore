@@ -1,0 +1,29 @@
+﻿# Environment files
+.env
+*.env
+!*.env.example
+
+# Java / Spring Boot
+target/
+*.class
+
+# Node / React
+node_modules/
+dist/
+build/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Generated uploads
+backend/uploads/*
+!backend/uploads/.gitkeep

@@ -1,0 +1,16 @@
+﻿services:
+  database:
+    image: postgres:16
+    container_name: buildtrack_ai_db
+    environment:
+      POSTGRES_DB: buildtrack_ai
+      POSTGRES_USER: buildtrack
+      POSTGRES_PASSWORD: buildtrack_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - buildtrack_ai_data:/var/lib/postgresql/data
+
+volumes:
+  buildtrack_ai_data:
+
