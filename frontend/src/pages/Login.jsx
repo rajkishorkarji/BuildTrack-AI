@@ -28,7 +28,6 @@ export default function Login() {
     setMessage({ text: '', type: '' });
 
     if (isSignUp) {
-      // Direct Registration + Auto-Login Flow
       if (formData.password !== formData.confirmPassword) {
         setMessage({ text: 'Passwords do not match!', type: 'error' });
         setLoading(false);
@@ -36,7 +35,6 @@ export default function Login() {
       }
 
       try {
-        // Step 1: Register User
         const regRes = await fetch('http://localhost:8080/api/auth/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -46,20 +44,16 @@ export default function Login() {
         const regData = await regRes.json();
 
         if (regData.success && regData.data) {
-          // Step 2: Auto-verify Email Token
           await fetch(`http://localhost:8080/api/auth/verify-email?token=${regData.data}`);
         }
 
-        // Step 3: Direct login into system
         login(formData.email, formData.password, formData.role, `${formData.firstName} ${formData.lastName}`);
         navigate('/dashboard');
       } catch (err) {
-        // Direct seamless entrance for demo
         login(formData.email, formData.password, formData.role, `${formData.firstName} ${formData.lastName}`);
         navigate('/dashboard');
       }
     } else {
-      // Login Flow
       try {
         const loginRes = await fetch('http://localhost:8080/api/auth/login', {
           method: 'POST',
@@ -74,7 +68,7 @@ export default function Login() {
           localStorage.setItem('refreshToken', loginData.data.refreshToken);
         }
       } catch (err) {
-        // Fallthrough to frontend session login
+        // Fallthrough
       }
 
       login(formData.email, formData.password);
@@ -88,8 +82,29 @@ export default function Login() {
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', padding: '20px' }}>
       <div className="panel" style={{ width: '100%', maxWidth: '480px', padding: '36px', borderRadius: '16px', border: '1px solid var(--border)' }}>
         <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '56px', height: '56px', borderRadius: '16px', background: 'var(--bg-accent-1)', color: 'var(--blue)', marginBottom: '14px' }}>
-            <Building2 size={30} />
+          <div style={{ marginBottom: '14px', display: 'flex', justifyContent: 'center' }}>
+            <svg width="64" height="64" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" style={{ borderRadius: '14px', boxShadow: '0 8px 20px rgba(37, 99, 235, 0.25)' }}>
+              <defs>
+                <linearGradient id="bt-bg-login" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#0B1739"/>
+                  <stop offset="100%" stopColor="#2563EB"/>
+                </linearGradient>
+                <filter id="bt-glow-login" x="-150%" y="-150%" width="400%" height="400%">
+                  <feGaussianBlur stdDeviation="12" result="blur"/>
+                  <feMerge>
+                    <feMergeNode in="blur"/>
+                    <feMergeNode in="SourceGraphic"/>
+                  </feMerge>
+                </filter>
+              </defs>
+
+              <rect x="28" y="28" width="456" height="456" rx="100" fill="url(#bt-bg-login)"/>
+              <rect x="144" y="308" width="44" height="67"  rx="18" fill="#F8FAFC"/>
+              <rect x="204" y="266" width="44" height="109" rx="18" fill="#F8FAFC"/>
+              <rect x="264" y="224" width="44" height="151" rx="18" fill="#F8FAFC"/>
+              <rect x="324" y="178" width="44" height="197" rx="18" fill="#F8FAFC"/>
+              <circle cx="346" cy="107" r="26" fill="#F59E0B" filter="url(#bt-glow-login)"/>
+            </svg>
           </div>
           <h1 style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text)' }}>BuildTrack AI</h1>
           <p style={{ fontSize: '14px', color: 'var(--muted)', marginTop: '4px' }}>

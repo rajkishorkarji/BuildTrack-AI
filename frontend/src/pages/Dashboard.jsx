@@ -27,21 +27,6 @@ export default function Dashboard() {
           <h1>Welcome, {user?.fullName || 'Rajkishor Karji'}</h1>
         </div>
         <div className="hero-actions">
-          <span
-            style={{
-              padding: '6px 14px',
-              borderRadius: '20px',
-              fontWeight: 700,
-              fontSize: '13px',
-              background: 'rgba(78, 132, 247, 0.15)',
-              color: 'var(--blue)',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-            }}
-          >
-            Role: {user?.roleLabel || 'Super Admin'}
-          </span>
           <button type="button" className="date-chip">
             Jun 21, 2025
           </button>

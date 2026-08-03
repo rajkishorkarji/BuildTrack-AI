@@ -1,17 +1,9 @@
 package com.buildtrack.ai.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 
-@Getter
-@Setter
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
 @Entity
 @Table(name = "projects")
 public class Project {
@@ -23,40 +15,48 @@ public class Project {
     @Column(nullable = false)
     private String name;
 
-    @Column(nullable = false)
     private String location;
 
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    @Column(nullable = false)
     private BigDecimal budget;
+    private BigDecimal spent = BigDecimal.ZERO;
+    private Integer progressPercentage = 0;
 
     @Column(nullable = false)
-    private BigDecimal spentAmount;
+    private String status = "In Progress"; // In Progress, On Hold, Completed
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private ProjectStatus status;
-
-    @Column(nullable = false)
     private LocalDate startDate;
+    private LocalDate estEndDate;
 
-    @Column(nullable = false)
-    private LocalDate estimatedEndDate;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "company_id", nullable = false)
+    private Company company;
 
-    @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    public Project() {}
 
-    @PrePersist
-    void onCreate() {
-        createdAt = LocalDateTime.now();
-        if (status == null) status = ProjectStatus.IN_PROGRESS;
-        if (budget == null) budget = BigDecimal.ZERO;
-        if (spentAmount == null) spentAmount = BigDecimal.ZERO;
-    }
-
-    public enum ProjectStatus {
-        PLANNED, IN_PROGRESS, ON_HOLD, COMPLETED
-    }
+    // Getters & Setters
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+    public String getLocation() { return location; }
+    public void setLocation(String location) { this.location = location; }
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
+    public BigDecimal getBudget() { return budget; }
+    public void setBudget(BigDecimal budget) { this.budget = budget; }
+    public BigDecimal getSpent() { return spent; }
+    public void setSpent(BigDecimal spent) { this.spent = spent; }
+    public Integer getProgressPercentage() { return progressPercentage; }
+    public void setProgressPercentage(Integer progressPercentage) { this.progressPercentage = progressPercentage; }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+    public LocalDate getStartDate() { return startDate; }
+    public void setStartDate(LocalDate startDate) { this.startDate = startDate; }
+    public LocalDate getEstEndDate() { return estEndDate; }
+    public void setEstEndDate(LocalDate estEndDate) { this.estEndDate = estEndDate; }
+    public Company getCompany() { return company; }
+    public void setCompany(Company company) { this.company = company; }
 }

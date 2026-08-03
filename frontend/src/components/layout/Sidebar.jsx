@@ -24,6 +24,10 @@ import {
   Camera,
   Bot,
   User,
+  Activity,
+  Database,
+  Zap,
+  Folder,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -31,76 +35,89 @@ const roleMenus = {
   SUPER_ADMIN: [
     { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { to: '/companies', label: 'Companies', icon: Building2 },
-    { to: '/projects', label: 'Projects', icon: FolderKanban },
     { to: '/users', label: 'Users', icon: Users },
+    { to: '/projects', label: 'Projects', icon: FolderKanban },
+    { to: '/ai-insights', label: 'Analytics', icon: Bot },
     { to: '/subscriptions', label: 'Subscriptions', icon: CreditCard },
-    { to: '/finance', label: 'Payments', icon: Receipt },
-    { to: '/support', label: 'Support Tickets', icon: LifeBuoy },
-    { to: '/settings', label: 'System Settings', icon: Settings },
-    { to: '/roles', label: 'Roles & Permissions', icon: ShieldCheck },
-    { to: '/reports', label: 'Reports', icon: Gauge },
-    { to: '/audit-logs', label: 'Audit Logs', icon: FileCheck },
-    { to: '/ai-insights', label: 'AI Analytics', icon: Bot },
     { to: '/notifications', label: 'Notifications', icon: Bell },
+    { to: '/audit-logs', label: 'Audit Logs', icon: FileCheck },
+    { to: '/security', label: 'Security Center', icon: ShieldCheck },
+    { to: '/settings', label: 'Platform Settings', icon: Settings },
+    { to: '/files', label: 'File Manager', icon: Folder },
+    { to: '/integrations', label: 'Integrations', icon: Zap },
+    { to: '/system-monitoring', label: 'System Monitoring', icon: Activity },
+    { to: '/backup', label: 'Backup & Restore', icon: Database },
+    { to: '/reports', label: 'Reports', icon: Gauge },
+    { to: '/profile', label: 'Profile', icon: User },
   ],
   COMPANY_ADMIN: [
     { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { to: '/projects', label: 'Projects', icon: FolderKanban },
+    { to: '/company-profile', label: 'Company Profile', icon: Building2 },
     { to: '/workforce', label: 'Employees', icon: Users },
-    { to: '/departments', label: 'Departments', icon: Building2 },
+    { to: '/projects', label: 'Projects', icon: FolderKanban },
+    { to: '/task-management', label: 'Tasks', icon: CheckSquare },
+    { to: '/site-workforce', label: 'Workforce', icon: HardHat },
     { to: '/attendance', label: 'Attendance', icon: ClipboardList },
-    { to: '/equipment', label: 'Equipment', icon: HardHat },
+    { to: '/equipment', label: 'Equipment', icon: ShieldCheck },
+    { to: '/materials', label: 'Materials', icon: Truck },
     { to: '/finance', label: 'Finance', icon: Receipt },
     { to: '/documents', label: 'Documents', icon: FileText },
     { to: '/reports', label: 'Reports', icon: Gauge },
+    { to: '/notifications', label: 'Notifications', icon: Bell },
     { to: '/ai-insights', label: 'AI Insights', icon: Bot },
-    { to: '/settings', label: 'Settings', icon: Settings },
+    { to: '/company-settings', label: 'Settings', icon: Settings },
+    { to: '/profile', label: 'Profile', icon: User },
   ],
   PROJECT_MANAGER: [
     { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { to: '/projects', label: 'My Projects', icon: FolderKanban },
-    { to: '/task-management', label: 'Tasks', icon: ShieldCheck },
-    { to: '/workforce', label: 'Workers', icon: Users },
+    { to: '/projects', label: 'My Project', icon: FolderKanban },
+    { to: '/task-management', label: 'Tasks', icon: CheckSquare },
+    { to: '/team-management', label: 'Team Management', icon: Users },
     { to: '/attendance', label: 'Attendance', icon: ClipboardList },
     { to: '/equipment', label: 'Equipment', icon: HardHat },
     { to: '/materials', label: 'Materials', icon: Truck },
     { to: '/documents', label: 'Documents', icon: FileText },
-    { to: '/reports', label: 'Site Reports', icon: Gauge },
-    { to: '/ai-insights', label: 'AI Insights', icon: Bot },
+    { to: '/reports', label: 'Reports', icon: Gauge },
     { to: '/notifications', label: 'Notifications', icon: Bell },
+    { to: '/ai-insights', label: 'AI Insights', icon: Bot },
+    { to: '/profile', label: 'Profile', icon: User },
   ],
   SITE_ENGINEER: [
     { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { to: '/task-management', label: 'Tasks', icon: CheckSquare },
-    { to: '/daily-report', label: 'Daily Report', icon: FileText },
+    { to: '/task-management', label: 'Daily Tasks', icon: CheckSquare },
+    { to: '/site-workforce', label: 'Workers', icon: Users },
     { to: '/attendance', label: 'Attendance', icon: ClipboardList },
-    { to: '/inspection', label: 'Inspection', icon: Camera },
+    { to: '/daily-report', label: 'Site Progress', icon: FileText },
     { to: '/equipment', label: 'Equipment', icon: HardHat },
     { to: '/materials', label: 'Materials', icon: Truck },
-    { to: '/documents', label: 'Documents', icon: FileText },
-    { to: '/safety', label: 'Safety', icon: ShieldAlert },
+    { to: '/documents', label: 'Site Documents', icon: Folder },
+    { to: '/inspection', label: 'Site Images', icon: Camera },
+    { to: '/safety', label: 'Issues', icon: ShieldAlert },
     { to: '/notifications', label: 'Notifications', icon: Bell },
+    { to: '/profile', label: 'Profile', icon: User },
   ],
   CONTRACTOR: [
     { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { to: '/workforce', label: 'Workers', icon: Users },
+    { to: '/task-management', label: 'My Tasks', icon: CheckSquare },
+    { to: '/site-workforce', label: 'My Workers', icon: Users },
     { to: '/attendance', label: 'Attendance', icon: ClipboardList },
-    { to: '/task-management', label: 'Tasks', icon: CheckSquare },
-    { to: '/finance', label: 'Payments', icon: DollarSign },
-    { to: '/invoices', label: 'Invoices', icon: Receipt },
-    { to: '/equipment-requests', label: 'Equipment Requests', icon: HardHat },
-    { to: '/documents', label: 'Documents', icon: FileText },
+    { to: '/daily-report', label: 'Work Progress', icon: FileText },
+    { to: '/equipment', label: 'Equipment', icon: HardHat },
+    { to: '/materials', label: 'Materials', icon: Truck },
+    { to: '/documents', label: 'Documents', icon: Folder },
+    { to: '/safety', label: 'Issues', icon: ShieldAlert },
     { to: '/notifications', label: 'Notifications', icon: Bell },
+    { to: '/profile', label: 'Profile', icon: User },
   ],
   WORKER: [
-    { to: '/dashboard', label: 'Home', icon: LayoutDashboard },
+    { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { to: '/task-management', label: 'My Tasks', icon: CheckSquare },
     { to: '/attendance', label: 'Attendance', icon: ClipboardList },
-    { to: '/leave', label: 'Leave', icon: Briefcase },
-    { to: '/salary', label: 'Salary', icon: DollarSign },
-    { to: '/documents', label: 'Documents', icon: FileText },
+    { to: '/daily-report', label: 'Work Progress', icon: FileText },
+    { to: '/materials', label: 'Materials', icon: Truck },
+    { to: '/documents', label: 'Documents', icon: Folder },
     { to: '/notifications', label: 'Notifications', icon: Bell },
-    { to: '/settings', label: 'Profile', icon: User },
+    { to: '/profile', label: 'Profile', icon: User },
   ],
 };
 
@@ -121,13 +138,6 @@ export default function Sidebar() {
         <img className="brand-mark brand-mark--wide" src="/logo.png" alt="BuildTrack AI" />
       </div>
 
-      <div className="project-switcher">
-        <div className="project-badge">{currentRole[0]}</div>
-        <div className="project-switcher-text">
-          <strong>{user?.companyName || 'BuildTrack AI'}</strong>
-          <span>{user?.roleLabel || 'Active Session'}</span>
-        </div>
-      </div>
 
       <nav className="sidebar-nav">
         {menuItems.map(({ to, label, icon: Icon }) => (
@@ -142,18 +152,7 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      <div className="sidebar-footer">
-        <div className="user-card" style={{ cursor: 'pointer' }} onClick={handleLogout} title="Click to Logout">
-          <div className="user-avatar">{user?.avatar || 'SA'}</div>
-          <div style={{ flex: 1 }}>
-            <div className="user-name">{user?.fullName || 'Super Admin'}</div>
-            <div className="user-role" style={{ color: 'var(--blue)', fontWeight: 600 }}>{user?.roleLabel || 'Super Admin'}</div>
-          </div>
-          <button type="button" className="user-more" title="Logout" onClick={handleLogout}>
-            <LogOut size={16} style={{ color: 'var(--red)' }} />
-          </button>
-        </div>
-      </div>
+
     </aside>
   );
 }

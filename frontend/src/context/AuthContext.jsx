@@ -6,7 +6,7 @@ export const roleUsers = {
   SUPER_ADMIN: {
     id: 1,
     fullName: 'System Master Admin',
-    email: 'superadmin@buildtrack.ai',
+    email: 'raj@buildtrack.ai',
     role: 'SUPER_ADMIN',
     roleLabel: 'Super Admin',
     avatar: 'SA',
