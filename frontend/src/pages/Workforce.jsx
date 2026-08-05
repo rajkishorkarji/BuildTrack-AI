@@ -1,162 +1,192 @@
 import { useState } from 'react';
-import { Users, UserPlus, Search, Phone, HardHat, CheckCircle2, QrCode } from 'lucide-react';
-
-const initialWorkers = [
-  { id: 1, name: 'Rose Smith', trade: 'Senior Mason', dailyWage: '$85', status: 'Active', site: 'Metro Tower', phone: '+91 9876543210', qr: 'QR-WRK-001' },
-  { id: 2, name: 'Robert Fox', trade: 'Structural Welder', dailyWage: '$95', status: 'Active', site: 'Metro Tower', phone: '+91 9876543211', qr: 'QR-WRK-002' },
-  { id: 3, name: 'Theresa Webb', trade: 'Electrician', dailyWage: '$90', status: 'On Leave', site: 'Skyview Residency', phone: '+91 9876543212', qr: 'QR-WRK-003' },
-  { id: 4, name: 'Ronald Richards', trade: 'Heavy Equipment Operator', dailyWage: '$120', status: 'Active', site: 'Metro Tower', phone: '+91 9876543213', qr: 'QR-WRK-004' },
-  { id: 5, name: 'Josh Wilson', trade: 'Site Supervisor', dailyWage: '$110', status: 'Active', site: 'Skyview Residency', phone: '+91 9876543214', qr: 'QR-WRK-005' },
-];
+import { useData } from '../context/DataContext';
+import { useAuth } from '../context/AuthContext';
+import {
+  Users,
+  UserPlus,
+  Search,
+  HardHat,
+  ShieldCheck,
+  CheckCircle2,
+  Trash2,
+  Phone,
+  Mail,
+  Building2,
+  MapPin,
+  Calendar,
+} from 'lucide-react';
 
 export default function Workforce() {
+  const { workers, addWorker, deleteWorker } = useData();
+  const { user } = useAuth();
   const [search, setSearch] = useState('');
-  const [workers, setWorkers] = useState(initialWorkers);
-  const [showModal, setShowModal] = useState(false);
-  const [newWorker, setNewWorker] = useState({ name: '', trade: '', dailyWage: '', phone: '', site: 'Metro Tower' });
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newWorker, setNewWorker] = useState({
+    fullName: '',
+    trade: 'Masonry',
+    phone: '',
+    companyName: user?.companyName || 'Solviontech Infrastructure Ltd',
+    projectName: 'Metro Tower Site',
+    dailyWage: '$50/day',
+  });
 
-  const filtered = workers.filter(
-    (w) => w.name.toLowerCase().includes(search.toLowerCase()) || w.trade.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const handleAdd = (e) => {
+  const handleAddWorker = (e) => {
     e.preventDefault();
-    if (!newWorker.name) return;
-    const added = {
-      id: workers.length + 1,
-      ...newWorker,
-      dailyWage: `$${newWorker.dailyWage}`,
-      status: 'Active',
-      qr: `QR-WRK-00${workers.length + 1}`,
-    };
-    setWorkers([added, ...workers]);
-    setShowModal(false);
-    setNewWorker({ name: '', trade: '', dailyWage: '', phone: '', site: 'Metro Tower' });
+    if (!newWorker.fullName.trim()) return;
+
+    addWorker({
+      fullName: newWorker.fullName.trim(),
+      role: `${newWorker.trade} Specialist`,
+      trade: newWorker.trade,
+      companyName: newWorker.companyName,
+      projectName: newWorker.projectName,
+      phone: newWorker.phone || '+91 9876543210',
+      dailyWage: newWorker.dailyWage,
+    });
+
+    setShowAddModal(false);
+    setNewWorker({
+      fullName: '',
+      trade: 'Masonry',
+      phone: '',
+      companyName: user?.companyName || 'Solviontech Infrastructure Ltd',
+      projectName: 'Metro Tower Site',
+      dailyWage: '$50/day',
+    });
   };
+
+  const filteredWorkers = workers.filter(
+    (w) =>
+      (w.fullName || '').toLowerCase().includes(search.toLowerCase()) ||
+      (w.trade || '').toLowerCase().includes(search.toLowerCase()) ||
+      (w.companyName || '').toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <div className="dashboard-page">
+      {/* Page Header */}
       <section className="hero-row">
         <div>
-          <p className="eyebrow">Workforce Management</p>
-          <h1>Site Workers & Crew Directory</h1>
+          <p className="eyebrow">Workforce Management Suite</p>
+          <h1>Site Personnel & Crews ({workers.length})</h1>
         </div>
-        <button type="button" className="primary-button" onClick={() => setShowModal(true)}>
-          <UserPlus size={16} /> Register Worker
+
+        <button type="button" className="primary-button" onClick={() => setShowAddModal(true)}>
+          <UserPlus size={16} /> Onboard New Worker
         </button>
       </section>
 
-      <div className="panel" style={{ padding: '16px 20px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <Search size={18} style={{ color: 'var(--muted)' }} />
-        <input
-          type="text"
-          placeholder="Filter by worker name or skill trade (e.g. Mason, Electrician)..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={{ width: '100%', background: 'transparent', border: 'none', outline: 'none', color: 'var(--text)', fontSize: '14px' }}
-        />
+      {/* Controls */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px' }}>
+        <div className="search-box" style={{ width: '320px' }}>
+          <Search size={16} style={{ color: 'var(--muted)' }} />
+          <input placeholder="Search worker name, trade, or company..." value={search} onChange={(e) => setSearch(e.target.value)} />
+        </div>
       </div>
 
-      <div className="panel" style={{ padding: '0', overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14px' }}>
-          <thead>
-            <tr style={{ background: 'var(--panel-soft)', borderBottom: '1px solid var(--border)', color: 'var(--muted)' }}>
-              <th style={{ padding: '16px 20px' }}>Worker Name</th>
-              <th style={{ padding: '16px 20px' }}>Skill Trade</th>
-              <th style={{ padding: '16px 20px' }}>Assigned Site</th>
-              <th style={{ padding: '16px 20px' }}>Daily Rate</th>
-              <th style={{ padding: '16px 20px' }}>Status</th>
-              <th style={{ padding: '16px 20px' }}>QR Code Token</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((w) => (
-              <tr key={w.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                <td style={{ padding: '16px 20px', fontWeight: 600, color: 'var(--text)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div style={{ width: '34px', height: '34px', borderRadius: '50%', background: 'var(--bg-accent-1)', color: 'var(--blue)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
-                      {w.name.split(' ').map((n) => n[0]).join('')}
-                    </div>
-                    <div>
-                      <div>{w.name}</div>
-                      <small style={{ color: 'var(--muted)' }}>{w.phone}</small>
-                    </div>
-                  </div>
-                </td>
-                <td style={{ padding: '16px 20px' }}>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'var(--panel-soft)', padding: '4px 10px', borderRadius: '6px' }}>
-                    <HardHat size={14} style={{ color: 'var(--orange)' }} /> {w.trade}
+      {/* Workers Grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', marginTop: '20px' }}>
+        {filteredWorkers.length === 0 ? (
+          <div className="panel" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '48px 24px', color: 'var(--muted)' }}>
+            <HardHat size={36} style={{ marginBottom: '12px', color: 'var(--muted)' }} />
+            <h3 style={{ fontSize: '16px', color: 'var(--text)', margin: '0 0 6px 0' }}>No Field Workers Onboarded Yet</h3>
+            <p style={{ fontSize: '13px', margin: 0 }}>Click &quot;Onboard New Worker&quot; above to add personnel and update Total Workers.</p>
+          </div>
+        ) : (
+          filteredWorkers.map((w) => (
+            <div key={w.id} className="panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <span className="schedule-pill" style={{ background: 'rgba(36, 196, 107, 0.15)', color: 'var(--green)' }}>
+                    Active Duty
                   </span>
-                </td>
-                <td style={{ padding: '16px 20px', color: 'var(--muted)' }}>{w.site}</td>
-                <td style={{ padding: '16px 20px', fontWeight: 600 }}>{w.dailyWage} / day</td>
-                <td style={{ padding: '16px 20px' }}>
-                  <span
-                    style={{
-                      padding: '4px 10px',
-                      borderRadius: '20px',
-                      fontSize: '12px',
-                      fontWeight: 600,
-                      background: w.status === 'Active' ? 'rgba(36, 196, 107, 0.15)' : 'rgba(239, 82, 82, 0.15)',
-                      color: w.status === 'Active' ? 'var(--green)' : 'var(--red)',
-                    }}
-                  >
-                    {w.status}
-                  </span>
-                </td>
-                <td style={{ padding: '16px 20px', fontFamily: 'monospace', color: 'var(--blue)' }}>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                    <QrCode size={14} /> {w.qr}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                  <span style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600 }}>{w.trade || 'General'}</span>
+                </div>
+                <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text)', marginBottom: '4px' }}>{w.fullName}</h3>
+                <span style={{ fontSize: '12px', color: 'var(--blue)', fontWeight: 600, display: 'block', marginBottom: '12px' }}>
+                  {w.companyName}
+                </span>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px', color: 'var(--muted)' }}>
+                  <span><Phone size={14} style={{ display: 'inline', marginRight: '6px' }} />{w.phone}</span>
+                  <span><MapPin size={14} style={{ display: 'inline', marginRight: '6px' }} />{w.projectName}</span>
+                  <span>Wage: <strong style={{ color: 'var(--text)' }}>{w.dailyWage}</strong></span>
+                </div>
+              </div>
+
+              <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '12px', color: 'var(--green)', fontWeight: 600 }}>Attendance: 100%</span>
+                <button type="button" className="secondary-button" onClick={() => deleteWorker(w.id)} style={{ color: 'var(--red)', padding: '6px 10px' }}>
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
-      {showModal && (
+      {/* ADD WORKER MODAL */}
+      {showAddModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
-          <div className="panel" style={{ width: '100%', maxWidth: '450px', padding: '28px' }}>
-            <h2 style={{ fontSize: '20px', marginBottom: '16px' }}>Register New Worker</h2>
-            <form onSubmit={handleAdd} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <input
-                type="text"
-                placeholder="Full Name"
-                value={newWorker.name}
-                onChange={(e) => setNewWorker({ ...newWorker, name: e.target.value })}
-                required
-                style={{ padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--text)' }}
-              />
-              <input
-                type="text"
-                placeholder="Skill Trade (e.g. Mason, Electrician)"
-                value={newWorker.trade}
-                onChange={(e) => setNewWorker({ ...newWorker, trade: e.target.value })}
-                required
-                style={{ padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--text)' }}
-              />
-              <input
-                type="number"
-                placeholder="Daily Wage ($)"
-                value={newWorker.dailyWage}
-                onChange={(e) => setNewWorker({ ...newWorker, dailyWage: e.target.value })}
-                required
-                style={{ padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--text)' }}
-              />
-              <input
-                type="text"
-                placeholder="Phone Number"
-                value={newWorker.phone}
-                onChange={(e) => setNewWorker({ ...newWorker, phone: e.target.value })}
-                style={{ padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--text)' }}
-              />
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '10px' }}>
-                <button type="button" onClick={() => setShowModal(false)} style={{ padding: '10px 18px', borderRadius: '8px', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', cursor: 'pointer' }}>
+          <div className="panel" style={{ width: '100%', maxWidth: '480px', padding: '28px', borderRadius: '16px' }}>
+            <h2 style={{ fontSize: '20px', marginBottom: '16px', color: 'var(--text)' }}>Onboard New Site Worker</h2>
+            <form onSubmit={handleAddWorker} style={{ display: 'flex', flexDirection: 'column', gap: '14px', fontSize: '13px' }}>
+              <div>
+                <label style={{ color: 'var(--muted)', display: 'block', marginBottom: '4px' }}>Worker Full Name *</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Ramesh Kumar"
+                  value={newWorker.fullName}
+                  onChange={(e) => setNewWorker({ ...newWorker, fullName: e.target.value })}
+                  required
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--text)' }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ color: 'var(--muted)', display: 'block', marginBottom: '4px' }}>Trade Specialization</label>
+                  <select
+                    value={newWorker.trade}
+                    onChange={(e) => setNewWorker({ ...newWorker, trade: e.target.value })}
+                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--text)' }}
+                  >
+                    <option value="Masonry">Masonry</option>
+                    <option value="Steel Framing">Steel Framing</option>
+                    <option value="Carpentry">Carpentry</option>
+                    <option value="Plumbing">Plumbing</option>
+                    <option value="Electrical">Electrical</option>
+                    <option value="Crane Operator">Crane Operator</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ color: 'var(--muted)', display: 'block', marginBottom: '4px' }}>Phone Number</label>
+                  <input
+                    type="text"
+                    placeholder="+91 9876543210"
+                    value={newWorker.phone}
+                    onChange={(e) => setNewWorker({ ...newWorker, phone: e.target.value })}
+                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--text)' }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ color: 'var(--muted)', display: 'block', marginBottom: '4px' }}>Company Tenant</label>
+                <input
+                  type="text"
+                  value={newWorker.companyName}
+                  onChange={(e) => setNewWorker({ ...newWorker, companyName: e.target.value })}
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--text)' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
+                <button type="button" className="secondary-button" onClick={() => setShowAddModal(false)}>
                   Cancel
                 </button>
                 <button type="submit" className="primary-button">
-                  Register
+                  Onboard Worker
                 </button>
               </div>
             </form>

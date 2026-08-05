@@ -1,0 +1,13 @@
+{
+  "model_type": "Heuristic Skill Affinity Matrix v1.0",
+  "dataset_size": 500,
+  "trained_trades": [
+    "Mason",
+    "Electrician",
+    "Carpenter",
+    "Structural Welder",
+    "Plumber",
+    "Crane Operator"
+  ],
+  "sample_rule": "Base 50.0 + Trade Match 35.0 + Active Status 10.0 + Exp Bonus (max 15.0)"
+}

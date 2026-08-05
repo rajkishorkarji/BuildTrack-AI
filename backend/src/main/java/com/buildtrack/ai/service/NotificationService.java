@@ -1,5 +1,9 @@
 package com.buildtrack.ai.service;
 
-public class NotificationService {
-    
+import com.buildtrack.ai.entity.Notification;
+import java.util.List;
+
+public interface NotificationService {
+    List<Notification> getNotifications();
+    void markAllAsRead();
 }

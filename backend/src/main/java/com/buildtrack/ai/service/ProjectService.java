@@ -4,18 +4,20 @@ import com.buildtrack.ai.entity.Company;
 import com.buildtrack.ai.entity.Project;
 import com.buildtrack.ai.repository.CompanyRepository;
 import com.buildtrack.ai.repository.ProjectRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.util.List;
 
 @Service
 public class ProjectService {
 
-    @Autowired
-    private ProjectRepository projectRepository;
+    private final ProjectRepository projectRepository;
 
-    @Autowired
-    private CompanyRepository companyRepository;
+    private final CompanyRepository companyRepository;
+
+    ProjectService(ProjectRepository projectRepository, CompanyRepository companyRepository) {
+        this.projectRepository = projectRepository;
+        this.companyRepository = companyRepository;
+    }
 
     public List<Project> getAllProjects() {
         return projectRepository.findAll();

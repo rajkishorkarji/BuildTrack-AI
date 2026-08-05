@@ -1,22 +1,24 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, Mail, Lock, User, Phone, CheckCircle2, AlertCircle, ArrowRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useData } from '../context/DataContext';
 
 export default function Login() {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, registerUser } = useAuth();
+  const { addCompany } = useData();
 
   const [isSignUp, setIsSignUp] = useState(false);
   const [formData, setFormData] = useState({
-    firstName: 'Rajkishor',
-    lastName: 'Karji',
-    email: 'rajkishor@buildtrack.ai',
-    phone: '+91 9876543210',
-    password: 'password123',
-    confirmPassword: 'password123',
-    companyName: 'Solviontech Pvt Ltd',
-    role: 'PROJECT_MANAGER',
+    firstName: '',
+    lastName: '',
+    email: 'raj@buildtrack.ai',
+    phone: '',
+    password: '',
+    confirmPassword: '',
+    companyName: '',
+    role: 'COMPANY_ADMIN',
   });
 
   const [message, setMessage] = useState({ text: '', type: '' });
@@ -34,41 +36,30 @@ export default function Login() {
         return;
       }
 
-      try {
-        const regRes = await fetch('http://localhost:8080/api/auth/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData),
-        });
-
-        const regData = await regRes.json();
-
-        if (regData.success && regData.data) {
-          await fetch(`http://localhost:8080/api/auth/verify-email?token=${regData.data}`);
-        }
-
-        login(formData.email, formData.password, formData.role, `${formData.firstName} ${formData.lastName}`);
-        navigate('/dashboard');
-      } catch (err) {
-        login(formData.email, formData.password, formData.role, `${formData.firstName} ${formData.lastName}`);
-        navigate('/dashboard');
+      if (!formData.email || !formData.firstName) {
+        setMessage({ text: 'Please fill in all required fields.', type: 'error' });
+        setLoading(false);
+        return;
       }
-    } else {
-      try {
-        const loginRes = await fetch('http://localhost:8080/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: formData.email, password: formData.password }),
+
+      // Register real user
+      registerUser(formData);
+
+      // Register company tenant if specified
+      if (formData.companyName.trim()) {
+        addCompany({
+          name: formData.companyName.trim(),
+          adminName: `${formData.firstName} ${formData.lastName}`.trim(),
+          adminEmail: formData.email,
         });
+      }
 
-        const loginData = await loginRes.json();
-
-        if (loginData.success && loginData.data) {
-          localStorage.setItem('accessToken', loginData.data.accessToken);
-          localStorage.setItem('refreshToken', loginData.data.refreshToken);
-        }
-      } catch (err) {
-        // Fallthrough
+      navigate('/dashboard');
+    } else {
+      if (!formData.email) {
+        setMessage({ text: 'Please enter your email address.', type: 'error' });
+        setLoading(false);
+        return;
       }
 
       login(formData.email, formData.password);
@@ -106,28 +97,24 @@ export default function Login() {
               <circle cx="346" cy="107" r="26" fill="#F59E0B" filter="url(#bt-glow-login)"/>
             </svg>
           </div>
-          <h1 style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text)' }}>BuildTrack AI</h1>
+          <h1 style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text)', margin: 0 }}>BuildTrack AI</h1>
           <p style={{ fontSize: '14px', color: 'var(--muted)', marginTop: '4px' }}>
-            {isSignUp ? 'Register your account to access the platform' : 'Welcome back! Sign in to enter the system'}
+            {isSignUp ? 'Register Real Account & Tenant Company' : 'Sign in to access your role-based workspace'}
           </p>
         </div>
 
         {message.text && (
           <div
             style={{
-              padding: '12px 16px',
+              padding: '10px 14px',
               borderRadius: '8px',
               marginBottom: '16px',
               fontSize: '13px',
               fontWeight: 600,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              background: message.type === 'success' ? 'rgba(36, 196, 107, 0.15)' : 'rgba(239, 82, 82, 0.15)',
-              color: message.type === 'success' ? 'var(--green)' : 'var(--red)',
+              background: message.type === 'error' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(36, 196, 107, 0.15)',
+              color: message.type === 'error' ? 'var(--red)' : 'var(--green)',
             }}
           >
-            {message.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
             {message.text}
           </div>
         )}
@@ -137,7 +124,7 @@ export default function Login() {
             <>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
-                  <label style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, display: 'block', marginBottom: '4px' }}>First Name</label>
+                  <label style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, display: 'block', marginBottom: '4px' }}>First Name *</label>
                   <input
                     type="text"
                     placeholder="First Name"
@@ -154,28 +141,16 @@ export default function Login() {
                     placeholder="Last Name"
                     value={formData.lastName}
                     onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                    required
                     style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--text)' }}
                   />
                 </div>
               </div>
 
               <div>
-                <label style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Phone Number</label>
-                <input
-                  type="text"
-                  placeholder="Phone Number"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--text)' }}
-                />
-              </div>
-
-              <div>
                 <label style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Company Name</label>
                 <input
                   type="text"
-                  placeholder="Company Name"
+                  placeholder="Company / Enterprise Name"
                   value={formData.companyName}
                   onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
                   style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--text)' }}
@@ -189,22 +164,22 @@ export default function Login() {
                   onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                   style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--text)' }}
                 >
-                  <option value="SUPER_ADMIN">Super Admin</option>
                   <option value="COMPANY_ADMIN">Company Admin</option>
                   <option value="PROJECT_MANAGER">Project Manager</option>
                   <option value="SITE_ENGINEER">Site Engineer</option>
                   <option value="CONTRACTOR">Contractor</option>
                   <option value="WORKER">Worker</option>
+                  <option value="SUPER_ADMIN">Super Admin</option>
                 </select>
               </div>
             </>
           )}
 
           <div>
-            <label style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Email Address</label>
+            <label style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Email Address *</label>
             <input
               type="email"
-              placeholder="Email Address"
+              placeholder="e.g. raj@buildtrack.ai"
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               required
@@ -216,10 +191,9 @@ export default function Login() {
             <label style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Password</label>
             <input
               type="password"
-              placeholder="Password"
+              placeholder="Enter password"
               value={formData.password}
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              required
               style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--text)' }}
             />
           </div>
@@ -229,7 +203,7 @@ export default function Login() {
               <label style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Confirm Password</label>
               <input
                 type="password"
-                placeholder="Confirm Password"
+                placeholder="Confirm password"
                 value={formData.confirmPassword}
                 onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                 required
@@ -239,7 +213,7 @@ export default function Login() {
           )}
 
           <button type="submit" className="primary-button full-width" style={{ marginTop: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }} disabled={loading}>
-            {loading ? 'Entering System...' : isSignUp ? 'Register & Enter System' : 'Sign In & Enter System'} <ArrowRight size={16} />
+            {loading ? 'Entering System...' : isSignUp ? 'Register & Enter Workspace' : 'Sign In & Enter Workspace'} <ArrowRight size={16} />
           </button>
         </form>
 
@@ -248,9 +222,9 @@ export default function Login() {
           <button
             type="button"
             onClick={() => setIsSignUp(!isSignUp)}
-            style={{ background: 'transparent', border: 'none', color: 'var(--blue)', fontWeight: 700, cursor: 'pointer' }}
+            style={{ background: 'transparent', border: 'none', color: 'var(--primary)', fontWeight: 700, cursor: 'pointer' }}
           >
-            {isSignUp ? 'Sign In' : 'Register Now'}
+            {isSignUp ? 'Sign In' : 'Register Real Account'}
           </button>
         </div>
       </div>

@@ -1,5 +1,9 @@
 package com.buildtrack.ai.service;
 
-public class ReportService {
-    
+import java.util.List;
+import java.util.Map;
+
+public interface ReportService {
+    List<Map<String, Object>> getReports();
+    Map<String, Object> createReport(Map<String, Object> reportData);
 }

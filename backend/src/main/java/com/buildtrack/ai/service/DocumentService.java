@@ -1,5 +1,8 @@
 package com.buildtrack.ai.service;
 
-public class DocumentService {
-    
+import com.buildtrack.ai.entity.Document;
+import java.util.List;
+
+public interface DocumentService {
+    List<Document> getDocuments();
 }

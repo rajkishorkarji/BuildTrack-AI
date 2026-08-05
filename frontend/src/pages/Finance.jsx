@@ -1,138 +1,163 @@
 import { useState } from 'react';
-import { Receipt, Plus, DollarSign, FileText, CheckCircle2 } from 'lucide-react';
-
-const initialInvoices = [
-  { id: 1, invNo: 'INV-2025-001', vendor: 'Ultratech Cement Ltd.', category: 'Raw Materials', amount: 45000, gst: 8100, total: 53100, status: 'Paid', dueDate: '2025-06-15' },
-  { id: 2, invNo: 'INV-2025-002', vendor: 'Tata Steel Ltd.', category: 'Structural Steel', amount: 78000, gst: 14040, total: 92040, status: 'Approved', dueDate: '2025-07-05' },
-  { id: 3, invNo: 'INV-2025-003', vendor: 'Mahindra Heavy Power', category: 'Fuel & Generators', amount: 18500, gst: 3330, total: 21830, status: 'Pending', dueDate: '2025-07-12' },
-];
+import { useData } from '../context/DataContext';
+import { useAuth } from '../context/AuthContext';
+import {
+  CreditCard,
+  Plus,
+  Search,
+  DollarSign,
+  TrendingUp,
+  FileText,
+  Building2,
+  Calendar,
+} from 'lucide-react';
 
 export default function Finance() {
-  const [invoices, setInvoices] = useState(initialInvoices);
-  const [showModal, setShowModal] = useState(false);
-  const [inv, setInv] = useState({ vendor: '', category: 'Raw Materials', amount: '' });
+  const { finances, addFinance } = useData();
+  const { user } = useAuth();
+  const [search, setSearch] = useState('');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newInvoice, setNewInvoice] = useState({
+    amount: '',
+    contractor: '',
+    projectName: 'Metro Tower Site',
+    companyName: user?.companyName || 'Solviontech Infrastructure Ltd',
+  });
 
-  const handleAdd = (e) => {
+  const totalRevenue = finances.reduce((sum, f) => sum + (parseFloat(f.amount) || 0), 0);
+
+  const handleCreateInvoice = (e) => {
     e.preventDefault();
-    if (!inv.vendor || !inv.amount) return;
-    const baseAmt = parseFloat(inv.amount);
-    const gstAmt = baseAmt * 0.18;
-    const newInv = {
-      id: invoices.length + 1,
-      invNo: `INV-2025-00${invoices.length + 1}`,
-      vendor: inv.vendor,
-      category: inv.category,
-      amount: baseAmt,
-      gst: gstAmt,
-      total: baseAmt + gstAmt,
-      status: 'Pending',
-      dueDate: new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0],
-    };
-    setInvoices([newInv, ...invoices]);
-    setShowModal(false);
-    setInv({ vendor: '', category: 'Raw Materials', amount: '' });
+    if (!newInvoice.amount) return;
+
+    addFinance({
+      amount: parseFloat(newInvoice.amount),
+      contractor: newInvoice.contractor || 'Subcontractor Crew',
+      projectName: newInvoice.projectName,
+      companyName: newInvoice.companyName,
+      status: 'Paid',
+    });
+
+    setShowAddModal(false);
+    setNewInvoice({
+      amount: '',
+      contractor: '',
+      projectName: 'Metro Tower Site',
+      companyName: user?.companyName || 'Solviontech Infrastructure Ltd',
+    });
   };
 
-  const totalSpent = invoices.reduce((acc, i) => acc + i.total, 0);
+  const filtered = finances.filter(
+    (f) =>
+      (f.invoiceNo || '').toLowerCase().includes(search.toLowerCase()) ||
+      (f.contractor || '').toLowerCase().includes(search.toLowerCase()) ||
+      (f.companyName || '').toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <div className="dashboard-page">
       <section className="hero-row">
         <div>
-          <p className="eyebrow">Financial Controls & Invoicing</p>
-          <h1>Budget Analytics & GST Reports</h1>
+          <p className="eyebrow">Financial Governance & Billing</p>
+          <h1>Finance & Invoices (${totalRevenue.toLocaleString()})</h1>
         </div>
-        <button type="button" className="primary-button" onClick={() => setShowModal(true)}>
-          <Plus size={16} /> Create Invoice
+
+        <button type="button" className="primary-button" onClick={() => setShowAddModal(true)}>
+          <Plus size={16} /> Create Invoice Entry
         </button>
       </section>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', marginBottom: '24px' }}>
+      {/* KPI Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginTop: '20px' }}>
         <div className="panel" style={{ padding: '20px' }}>
-          <span style={{ color: 'var(--muted)', fontSize: '13px' }}>Allocated Project Budget</span>
-          <h2 style={{ fontSize: '26px', marginTop: '6px' }}>$162,600.00</h2>
+          <span style={{ color: 'var(--muted)', fontSize: '13px', fontWeight: 600 }}>Total Billed Revenue</span>
+          <h2 style={{ fontSize: '28px', color: 'var(--green)', marginTop: '4px' }}>${totalRevenue.toLocaleString()}</h2>
         </div>
         <div className="panel" style={{ padding: '20px' }}>
-          <span style={{ color: 'var(--muted)', fontSize: '13px' }}>Total Invoiced Expenses</span>
-          <h2 style={{ fontSize: '26px', color: 'var(--blue)', marginTop: '6px' }}>${totalSpent.toLocaleString()}</h2>
-        </div>
-        <div className="panel" style={{ padding: '20px' }}>
-          <span style={{ color: 'var(--muted)', fontSize: '13px' }}>GST Tax Audit Credit (18%)</span>
-          <h2 style={{ fontSize: '26px', color: 'var(--purple)', marginTop: '6px' }}>
-            ${invoices.reduce((acc, i) => acc + i.gst, 0).toLocaleString()}
-          </h2>
+          <span style={{ color: 'var(--muted)', fontSize: '13px', fontWeight: 600 }}>Total Invoices Logged</span>
+          <h2 style={{ fontSize: '28px', color: 'var(--blue)', marginTop: '4px' }}>{finances.length}</h2>
         </div>
       </div>
 
-      <div className="panel" style={{ padding: '0', overflow: 'hidden' }}>
-        <div style={{ padding: '20px', borderBottom: '1px solid var(--border)', fontWeight: 600 }}>Vendor Invoice Ledger</div>
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14px' }}>
-          <thead>
-            <tr style={{ background: 'var(--panel-soft)', color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
-              <th style={{ padding: '14px 20px' }}>Invoice Number</th>
-              <th style={{ padding: '14px 20px' }}>Vendor Name</th>
-              <th style={{ padding: '14px 20px' }}>Category</th>
-              <th style={{ padding: '14px 20px' }}>Base Amount</th>
-              <th style={{ padding: '14px 20px' }}>GST (18%)</th>
-              <th style={{ padding: '14px 20px' }}>Total Billing</th>
-              <th style={{ padding: '14px 20px' }}>Payment Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {invoices.map((i) => (
-              <tr key={i.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                <td style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--blue)', fontFamily: 'monospace' }}>{i.invNo}</td>
-                <td style={{ padding: '14px 20px', fontWeight: 600, color: 'var(--text)' }}>{i.vendor}</td>
-                <td style={{ padding: '14px 20px', color: 'var(--muted)' }}>{i.category}</td>
-                <td style={{ padding: '14px 20px' }}>${i.amount.toLocaleString()}</td>
-                <td style={{ padding: '14px 20px', color: 'var(--purple)' }}>${i.gst.toLocaleString()}</td>
-                <td style={{ padding: '14px 20px', fontWeight: 700 }}>${i.total.toLocaleString()}</td>
-                <td style={{ padding: '14px 20px' }}>
-                  <span
-                    style={{
-                      padding: '4px 10px',
-                      borderRadius: '20px',
-                      fontSize: '12px',
-                      fontWeight: 600,
-                      background: i.status === 'Paid' ? 'rgba(36, 196, 107, 0.15)' : i.status === 'Approved' ? 'rgba(78, 132, 247, 0.15)' : 'rgba(245, 154, 22, 0.15)',
-                      color: i.status === 'Paid' ? 'var(--green)' : i.status === 'Approved' ? 'var(--blue)' : 'var(--orange)',
-                    }}
-                  >
-                    {i.status}
-                  </span>
-                </td>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px' }}>
+        <div className="search-box" style={{ width: '320px' }}>
+          <Search size={16} style={{ color: 'var(--muted)' }} />
+          <input placeholder="Search invoice # or contractor..." value={search} onChange={(e) => setSearch(e.target.value)} />
+        </div>
+      </div>
+
+      {/* Invoices Table */}
+      <div className="panel" style={{ marginTop: '20px', padding: 0, overflow: 'hidden' }}>
+        {filtered.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '48px 24px', color: 'var(--muted)' }}>
+            <CreditCard size={36} style={{ marginBottom: '12px', color: 'var(--muted)' }} />
+            <h3 style={{ fontSize: '16px', color: 'var(--text)', margin: '0 0 6px 0' }}>No Invoices Logged Yet</h3>
+            <p style={{ fontSize: '13px', margin: 0 }}>Click &quot;Create Invoice Entry&quot; above to add financial records.</p>
+          </div>
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+            <thead>
+              <tr style={{ background: 'var(--panel-soft)', borderBottom: '1px solid var(--border)', color: 'var(--muted)' }}>
+                <th style={{ padding: '14px 20px' }}>Invoice Number</th>
+                <th style={{ padding: '14px' }}>Amount ($)</th>
+                <th style={{ padding: '14px' }}>Company / Subcontractor</th>
+                <th style={{ padding: '14px' }}>Date Logged</th>
+                <th style={{ padding: '14px' }}>Status</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filtered.map((item) => (
+                <tr key={item.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                  <td style={{ padding: '16px 20px', fontWeight: 600, color: 'var(--text)' }}>
+                    <code>{item.invoiceNo}</code>
+                  </td>
+                  <td style={{ padding: '16px', fontWeight: 700, color: 'var(--green)' }}>
+                    ${(parseFloat(item.amount) || 0).toLocaleString()}
+                  </td>
+                  <td style={{ padding: '16px' }}>{item.contractor || item.companyName}</td>
+                  <td style={{ padding: '16px' }}>{item.date || 'Today'}</td>
+                  <td style={{ padding: '16px' }}>
+                    <span className="schedule-pill" style={{ background: 'rgba(36, 196, 107, 0.15)', color: 'var(--green)' }}>
+                      {item.status || 'Paid'}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
 
-      {showModal && (
+      {showAddModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
-          <div className="panel" style={{ width: '100%', maxWidth: '450px', padding: '28px' }}>
-            <h2 style={{ fontSize: '20px', marginBottom: '16px' }}>Create Vendor Invoice</h2>
-            <form onSubmit={handleAdd} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <input
-                type="text"
-                placeholder="Vendor Name (e.g. Tata Steel Ltd)"
-                value={inv.vendor}
-                onChange={(e) => setInv({ ...inv, vendor: e.target.value })}
-                required
-                style={{ padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--text)' }}
-              />
-              <input
-                type="number"
-                placeholder="Base Amount ($)"
-                value={inv.amount}
-                onChange={(e) => setInv({ ...inv, amount: e.target.value })}
-                required
-                style={{ padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--text)' }}
-              />
-              <div style={{ fontSize: '13px', color: 'var(--muted)', background: 'var(--panel-soft)', padding: '10px', borderRadius: '8px' }}>
-                Note: 18% GST (${(parseFloat(inv.amount || 0) * 0.18).toFixed(2)}) will be automatically added.
+          <div className="panel" style={{ width: '100%', maxWidth: '480px', padding: '28px', borderRadius: '16px' }}>
+            <h2 style={{ fontSize: '20px', marginBottom: '16px', color: 'var(--text)' }}>Create Invoice Entry</h2>
+            <form onSubmit={handleCreateInvoice} style={{ display: 'flex', flexDirection: 'column', gap: '14px', fontSize: '13px' }}>
+              <div>
+                <label style={{ color: 'var(--muted)', display: 'block', marginBottom: '4px' }}>Invoice Amount ($) *</label>
+                <input
+                  type="number"
+                  placeholder="e.g. 45000"
+                  value={newInvoice.amount}
+                  onChange={(e) => setNewInvoice({ ...newInvoice, amount: e.target.value })}
+                  required
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--text)' }}
+                />
               </div>
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '10px' }}>
-                <button type="button" onClick={() => setShowModal(false)} style={{ padding: '10px 18px', borderRadius: '8px', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', cursor: 'pointer' }}>
+
+              <div>
+                <label style={{ color: 'var(--muted)', display: 'block', marginBottom: '4px' }}>Contractor / Entity Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Fox Steel Constructors"
+                  value={newInvoice.contractor}
+                  onChange={(e) => setNewInvoice({ ...newInvoice, contractor: e.target.value })}
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--text)' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
+                <button type="button" className="secondary-button" onClick={() => setShowAddModal(false)}>
                   Cancel
                 </button>
                 <button type="submit" className="primary-button">

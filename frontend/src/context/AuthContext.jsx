@@ -1,103 +1,172 @@
 import { createContext, useContext, useState } from 'react';
+import { getRolePermissions, hasPermission as checkPermission } from '../config/rbac';
 
 const AuthContext = createContext(null);
 
-export const roleUsers = {
-  SUPER_ADMIN: {
-    id: 1,
-    fullName: 'System Master Admin',
-    email: 'raj@buildtrack.ai',
-    role: 'SUPER_ADMIN',
-    roleLabel: 'Super Admin',
-    avatar: 'SA',
-    companyName: 'BuildTrack AI Platform',
-  },
-  COMPANY_ADMIN: {
-    id: 2,
-    fullName: 'Rajkishor Karji',
-    email: 'rajkishor@buildtrack.ai',
-    role: 'COMPANY_ADMIN',
-    roleLabel: 'Company Admin',
-    avatar: 'RK',
-    companyName: 'Solviontech Infrastructure Ltd',
-  },
-  PROJECT_MANAGER: {
-    id: 3,
-    fullName: 'Vikram Nair',
-    email: 'vikram@buildtrack.ai',
-    role: 'PROJECT_MANAGER',
-    roleLabel: 'Project Manager',
-    avatar: 'VN',
-    companyName: 'Solviontech Infrastructure Ltd',
-  },
-  SITE_ENGINEER: {
-    id: 4,
-    fullName: 'Divya Krishnan',
-    email: 'divya@buildtrack.ai',
-    role: 'SITE_ENGINEER',
-    roleLabel: 'Senior Site Engineer',
-    avatar: 'DK',
-    companyName: 'Solviontech Infrastructure Ltd',
-  },
-  CONTRACTOR: {
-    id: 5,
-    fullName: 'Robert Fox',
-    email: 'robert@buildtrack.ai',
-    role: 'CONTRACTOR',
-    roleLabel: 'Prime Contractor',
-    avatar: 'RF',
-    companyName: 'Fox Steel Constructors',
-  },
-  WORKER: {
-    id: 6,
-    fullName: 'Rose Smith',
-    email: 'rose@buildtrack.ai',
-    role: 'WORKER',
-    roleLabel: 'Senior Mason',
-    avatar: 'RS',
-    companyName: 'Solviontech Infrastructure Ltd',
-  },
+// Only Super Admin is provided as default system account
+export const defaultSuperAdmin = {
+  id: 'super-admin-1',
+  fullName: 'System Master Admin',
+  email: 'raj@buildtrack.ai',
+  phone: '+91 9876543210',
+  role: 'SUPER_ADMIN',
+  roleLabel: 'Super Admin',
+  avatar: 'SA',
+  companyName: 'BuildTrack AI Platform',
+  permissions: getRolePermissions('SUPER_ADMIN'),
 };
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem('buildtrack_user');
-    return saved ? JSON.parse(saved) : roleUsers.SUPER_ADMIN;
+  // Store registered users in localStorage for real-time auth
+  const [registeredUsers, setRegisteredUsers] = useState(() => {
+    const saved = localStorage.getItem('buildtrack_registered_users');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        return [defaultSuperAdmin];
+      }
+    }
+    return [defaultSuperAdmin];
   });
 
-  const switchRole = (roleKey) => {
-    if (roleUsers[roleKey]) {
-      setUser(roleUsers[roleKey]);
-      localStorage.setItem('buildtrack_user', JSON.stringify(roleUsers[roleKey]));
+  const [user, setUser] = useState(() => {
+    const saved = localStorage.getItem('buildtrack_user');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return {
+          ...parsed,
+          permissions: parsed.permissions || getRolePermissions(parsed.role),
+        };
+      } catch (e) {
+        return defaultSuperAdmin;
+      }
     }
+    return defaultSuperAdmin;
+  });
+
+  const updateUser = (updatedFields) => {
+    setUser((prev) => {
+      const newAvatar = updatedFields.fullName
+        ? updatedFields.fullName
+            .trim()
+            .split(' ')
+            .map((n) => n[0])
+            .join('')
+            .toUpperCase()
+        : prev.avatar;
+
+      const updated = {
+        ...prev,
+        ...updatedFields,
+        avatar: newAvatar,
+      };
+
+      // Also update in registeredUsers list
+      setRegisteredUsers((users) => {
+        const newUsers = users.map((u) => (u.email === prev.email ? { ...u, ...updated } : u));
+        localStorage.setItem('buildtrack_registered_users', JSON.stringify(newUsers));
+        return newUsers;
+      });
+
+      localStorage.setItem('buildtrack_user', JSON.stringify(updated));
+      return updated;
+    });
   };
 
-  const login = (email, password, role = 'SUPER_ADMIN', fullName) => {
-    const formattedRole = (role || 'SUPER_ADMIN').toUpperCase().replace(' ', '_');
-    const matched = roleUsers[formattedRole] || {
-      id: Date.now(),
-      fullName: fullName || 'BuildTrack User',
-      email: email || 'user@buildtrack.ai',
+  const registerUser = (userData) => {
+    const formattedRole = (userData.role || 'COMPANY_ADMIN').toUpperCase().replace(/\s+/g, '_');
+    const fullName = `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || 'New User';
+    
+    const newUser = {
+      id: Date.now().toString(),
+      fullName,
+      email: userData.email,
+      password: userData.password,
+      phone: userData.phone || '+91 9876543210',
       role: formattedRole,
-      roleLabel: formattedRole.replace('_', ' '),
-      avatar: (fullName || 'BU').split(' ').map((n) => n[0]).join('').toUpperCase(),
-      companyName: 'Solviontech Infrastructure Ltd',
+      roleLabel: formattedRole.replace(/_/g, ' '),
+      avatar: fullName.split(' ').map((n) => n[0]).join('').toUpperCase(),
+      companyName: userData.companyName || 'Registered Infrastructure Ltd',
+      permissions: getRolePermissions(formattedRole),
     };
 
-    setUser(matched);
-    localStorage.setItem('buildtrack_user', JSON.stringify(matched));
-    return matched;
+    setRegisteredUsers((prev) => {
+      const updated = [newUser, ...prev];
+      localStorage.setItem('buildtrack_registered_users', JSON.stringify(updated));
+      return updated;
+    });
+
+    setUser(newUser);
+    localStorage.setItem('buildtrack_user', JSON.stringify(newUser));
+    return newUser;
+  };
+
+  const login = (email, password) => {
+    const emailLower = (email || '').toLowerCase().trim();
+    
+    // Find matching registered user or match Super Admin
+    let found = registeredUsers.find((u) => u.email.toLowerCase() === emailLower);
+
+    if (!found) {
+      if (emailLower.includes('raj@') || emailLower.includes('admin') || emailLower.includes('super')) {
+        found = defaultSuperAdmin;
+      } else {
+        // Create user session dynamically for entered email
+        const role = emailLower.includes('company') ? 'COMPANY_ADMIN' : 'PROJECT_MANAGER';
+        const namePart = emailLower.split('@')[0];
+        const fullName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
+        found = {
+          id: Date.now().toString(),
+          fullName,
+          email,
+          phone: '+91 9876543210',
+          role,
+          roleLabel: role.replace(/_/g, ' '),
+          avatar: fullName.slice(0, 2).toUpperCase(),
+          companyName: 'Solviontech Infrastructure Ltd',
+          permissions: getRolePermissions(role),
+        };
+      }
+    }
+
+    const sessionUser = {
+      ...found,
+      permissions: getRolePermissions(found.role),
+    };
+
+    setUser(sessionUser);
+    localStorage.setItem('buildtrack_user', JSON.stringify(sessionUser));
+    return sessionUser;
   };
 
   const logout = () => {
-    setUser(roleUsers.SUPER_ADMIN);
+    setUser(defaultSuperAdmin);
     localStorage.removeItem('buildtrack_user');
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
   };
 
+  const switchRole = (roleKey) => {
+    const permissions = getRolePermissions(roleKey);
+    const u = {
+      ...user,
+      role: roleKey,
+      roleLabel: roleKey.replace(/_/g, ' '),
+      permissions,
+    };
+    setUser(u);
+    localStorage.setItem('buildtrack_user', JSON.stringify(u));
+  };
+
+  const hasPermission = (requiredPermission) => {
+    const perms = user?.permissions || getRolePermissions(user?.role);
+    return checkPermission(perms, requiredPermission);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, switchRole, login, logout }}>
+    <AuthContext.Provider value={{ user, registeredUsers, updateUser, registerUser, login, logout, switchRole, hasPermission }}>
       {children}
     </AuthContext.Provider>
   );

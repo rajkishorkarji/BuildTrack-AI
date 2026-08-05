@@ -11,13 +11,7 @@ import {
   Star,
 } from 'lucide-react';
 
-const initialWorkforce = [
-  { id: 1, name: 'Rose Smith', trade: 'Senior Mason', project: 'Metro Tower Complex', contractor: 'Fox Steel Constructors', dailyWage: '$85.00', performanceScore: 9.6, status: 'ACTIVE' },
-  { id: 2, name: 'Robert Fox', trade: 'Structural Welder', project: 'Metro Tower Complex', contractor: 'Fox Steel Constructors', dailyWage: '$95.00', performanceScore: 9.2, status: 'ACTIVE' },
-  { id: 3, name: 'Ronald Richards', trade: 'Heavy Crane Operator', project: 'Skyview Residency', contractor: 'Apex Machinery Crew', dailyWage: '$120.00', performanceScore: 9.8, status: 'ACTIVE' },
-  { id: 4, name: 'Theresa Webb', trade: 'Master Electrician', project: 'Bhubaneswar Smart Bypass', contractor: 'Odisha Power Tech', dailyWage: '$90.00', performanceScore: 8.9, status: 'ACTIVE' },
-  { id: 5, name: 'Arjun Das', trade: 'Carpentry Foreman', project: 'Metro Tower Complex', contractor: 'Fox Steel Constructors', dailyWage: '$80.00', performanceScore: 9.1, status: 'ACTIVE' },
-];
+const initialWorkforce = [];
 
 export default function SiteWorkforce() {
   const [workers, setWorkers] = useState(initialWorkforce);
@@ -102,12 +96,12 @@ export default function SiteWorkforce() {
         </div>
         <div className="panel" style={{ padding: '18px' }}>
           <span style={{ color: 'var(--muted)', fontSize: '13px' }}>Subcontractor Firms</span>
-          <h2 style={{ fontSize: '26px', color: 'var(--purple)', marginTop: '4px' }}>4 Contractors</h2>
+          <h2 style={{ fontSize: '26px', color: 'var(--purple)', marginTop: '4px' }}>0 Contractors</h2>
           <small style={{ color: 'var(--muted)' }}>Active Labor Contracts</small>
         </div>
         <div className="panel" style={{ padding: '18px' }}>
           <span style={{ color: 'var(--muted)', fontSize: '13px' }}>Avg Performance Rating</span>
-          <h2 style={{ fontSize: '26px', color: 'var(--green)', marginTop: '4px' }}>9.3 / 10</h2>
+          <h2 style={{ fontSize: '26px', color: 'var(--green)', marginTop: '4px' }}>0.0 / 10</h2>
           <small style={{ color: 'var(--green)' }}>Top Site Efficiency</small>
         </div>
       </div>
@@ -142,6 +136,13 @@ export default function SiteWorkforce() {
               </tr>
             </thead>
             <tbody>
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan="6" style={{ textAlign: 'center', padding: '32px', color: 'var(--muted)', fontSize: '13px' }}>
+                    No records found
+                  </td>
+                </tr>
+              )}
               {filtered.map((w) => (
                 <tr key={w.id} style={{ borderBottom: '1px solid var(--border)' }}>
                   <td style={{ padding: '14px 12px' }}>

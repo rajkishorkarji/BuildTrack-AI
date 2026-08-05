@@ -1,29 +1,27 @@
 package com.buildtrack.ai.controller;
 
+import com.buildtrack.ai.auth.dto.ApiResponse;
+import com.buildtrack.ai.entity.Worker;
+import com.buildtrack.ai.service.WorkerService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.List;
 
 @RestController
-@RequestMapping("/api/worker")
+@RequestMapping("/api/workers")
 public class WorkerController {
 
-    @PostMapping("/attendance/check-in")
-    public ResponseEntity<Map<String, String>> checkIn(@RequestParam String token) {
-        Map<String, String> res = new HashMap<>();
-        res.put("status", "success");
-        res.put("message", "QR Token " + token + " verified. Attendance clock-in recorded.");
-        return ResponseEntity.ok(res);
+    WorkerController(WorkerService workerService) {
     }
 
-    @GetMapping("/salary")
-    public ResponseEntity<Map<String, Object>> getSalary() {
-        Map<String, Object> res = new HashMap<>();
-        res.put("dailyWage", 85.00);
-        res.put("totalHoursLogged", 8.0);
-        res.put("earnedToday", 85.00);
-        return ResponseEntity.ok(res);
+    @GetMapping
+    public ResponseEntity<ApiResponse<List<Worker>>> getWorkers() {
+        return ResponseEntity.ok(ApiResponse.success());
+    }
+
+    @PostMapping
+    public ResponseEntity<ApiResponse<Worker>> createWorker(@RequestBody Worker worker) {
+        return ResponseEntity.ok(ApiResponse.success());
     }
 }

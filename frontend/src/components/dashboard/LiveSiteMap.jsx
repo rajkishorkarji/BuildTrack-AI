@@ -1,12 +1,22 @@
-import { zones } from '../../data/dashboardMockData';
+import { useState, useEffect } from 'react';
+import dashboardService from '../../services/dashboardService';
 
 export default function LiveSiteMap() {
+  const [zones, setZones] = useState([]);
+
+  useEffect(() => {
+    const unsubscribe = dashboardService.subscribeToSiteMap((data) => {
+      setZones(data);
+    });
+    return () => unsubscribe();
+  }, []);
+
   return (
     <article className="panel site-map-panel">
       <div className="panel-header">
         <div>
           <h3>Live Site Map</h3>
-          <p>Real-time worker locations</p>
+          <p>Real-time worker locations & telemetry</p>
         </div>
         <span className="live-pill">LIVE</span>
       </div>
@@ -27,7 +37,7 @@ export default function LiveSiteMap() {
             <div className={`zone-badge zone-${zone.tone}`}>{zone.count}</div>
             <div>
               <strong>{zone.name}</strong>
-              <span>Workers</span>
+              <span>Workers Present</span>
             </div>
           </div>
         ))}

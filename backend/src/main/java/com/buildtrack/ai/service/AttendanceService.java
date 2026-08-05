@@ -1,5 +1,9 @@
 package com.buildtrack.ai.service;
 
-public class AttendanceService {
-    
+import com.buildtrack.ai.entity.Attendance;
+import java.util.List;
+
+public interface AttendanceService {
+    List<Attendance> getAllAttendance();
+    Attendance checkInWorker(Attendance attendance);
 }

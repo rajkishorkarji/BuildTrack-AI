@@ -1,303 +1,125 @@
 import { useState } from 'react';
-import {
-  Truck,
-  Plus,
-  Search,
-  AlertTriangle,
-  ArrowUpRight,
-  ArrowDownLeft,
-  CheckCircle2,
-  Package,
-} from 'lucide-react';
-
-const initialMaterials = [
-  { id: 1, name: 'Ultratech OPC 53 Grade Cement', code: 'MAT-CEM-01', unit: 'Bags', stock: 1450, minThreshold: 300, location: 'Central Storage Yard A', status: 'IN_STOCK' },
-  { id: 2, name: 'Tata TMT Fe 550D Steel Rebar (16mm)', code: 'MAT-STL-16', unit: 'Metric Tons', stock: 18, minThreshold: 25, location: 'Metro Tower Site Yard', status: 'LOW_STOCK' },
-  { id: 3, name: 'Coarse Aggregate (20mm Gravel)', code: 'MAT-AGG-20', unit: 'Cu. Meters', stock: 480, minThreshold: 100, location: 'Skyview Residency Yard', status: 'IN_STOCK' },
-  { id: 4, name: 'Crushed River Sand (Zone II)', code: 'MAT-SND-02', unit: 'Cu. Meters', stock: 65, minThreshold: 80, location: 'Central Storage Yard B', status: 'LOW_STOCK' },
-  { id: 5, name: 'Red AAC Bricks (600x200x150mm)', code: 'MAT-BRK-AAC', unit: 'Blocks', stock: 12000, minThreshold: 2000, location: 'Central Storage Yard A', status: 'IN_STOCK' },
-];
+import { useData } from '../context/DataContext';
+import { Truck, Plus, Search, CheckCircle2, AlertTriangle } from 'lucide-react';
 
 export default function Materials() {
-  const [materials, setMaterials] = useState(initialMaterials);
+  const { materials, addMaterial } = useData();
   const [search, setSearch] = useState('');
-  const [notice, setNotice] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newMat, setNewMat] = useState({ name: '', unit: 'Bags', stock: '', minThreshold: '100', location: 'Central Yard A' });
-
-  const notify = (msg) => {
-    setNotice(msg);
-    setTimeout(() => setNotice(''), 3500);
-  };
-
-  const handleIssueMaterial = (id, name) => {
-    setMaterials((prev) =>
-      prev.map((m) => {
-        if (m.id === id) {
-          const newQty = Math.max(0, m.stock - 50);
-          return {
-            ...m,
-            stock: newQty,
-            status: newQty < m.minThreshold ? 'LOW_STOCK' : 'IN_STOCK',
-          };
-        }
-        return m;
-      })
-    );
-    notify(`Issued 50 units of ${name} to Metro Tower Site.`);
-  };
-
-  const handleReceiveShipment = (id, name) => {
-    setMaterials((prev) =>
-      prev.map((m) => {
-        if (m.id === id) {
-          const newQty = m.stock + 200;
-          return {
-            ...m,
-            stock: newQty,
-            status: newQty < m.minThreshold ? 'LOW_STOCK' : 'IN_STOCK',
-          };
-        }
-        return m;
-      })
-    );
-    notify(`Received shipment of +200 units for ${name}. Stock replenished!`);
-  };
+  const [newMat, setNewMat] = useState({
+    name: '',
+    quantity: '100 Bags',
+    unit: 'Bags',
+    projectName: 'Metro Tower Site',
+  });
 
   const handleAddMaterial = (e) => {
     e.preventDefault();
-    if (!newMat.name) return;
-    const stockNum = Number(newMat.stock) || 0;
-    const minNum = Number(newMat.minThreshold) || 100;
-    setMaterials([
-      ...materials,
-      {
-        id: Date.now(),
-        name: newMat.name,
-        code: `MAT-${newMat.name.substring(0, 3).toUpperCase()}-0${materials.length + 1}`,
-        unit: newMat.unit,
-        stock: stockNum,
-        minThreshold: minNum,
-        location: newMat.location,
-        status: stockNum < minNum ? 'LOW_STOCK' : 'IN_STOCK',
-      },
-    ]);
+    if (!newMat.name.trim()) return;
+
+    addMaterial({
+      name: newMat.name.trim(),
+      quantity: newMat.quantity,
+      unit: newMat.unit,
+      projectName: newMat.projectName,
+      status: 'In Stock',
+    });
+
     setShowAddModal(false);
-    setNewMat({ name: '', unit: 'Bags', stock: '', minThreshold: '100', location: 'Central Yard A' });
-    notify(`Added material catalog item "${newMat.name}"`);
+    setNewMat({ name: '', quantity: '100 Bags', unit: 'Bags', projectName: 'Metro Tower Site' });
   };
 
-  const filteredMaterials = materials.filter(
-    (m) =>
-      m.name.toLowerCase().includes(search.toLowerCase()) ||
-      m.code.toLowerCase().includes(search.toLowerCase()) ||
-      m.location.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const lowStockCount = materials.filter((m) => m.status === 'LOW_STOCK').length;
+  const filtered = materials.filter((m) => (m.name || '').toLowerCase().includes(search.toLowerCase()));
 
   return (
-    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+    <div className="dashboard-page">
+      <section className="hero-row">
         <div>
-          <p className="eyebrow" style={{ color: 'var(--blue)', fontWeight: 600 }}>INVENTORY & LOGISTICS</p>
-          <h1 style={{ fontSize: '24px', fontWeight: 700 }}>Construction Materials & Stock Management</h1>
-          <p style={{ color: 'var(--muted)', fontSize: '14px', marginTop: '4px' }}>
-            Company Admin stock control: track cement, steel rebar, aggregates, issue materials to sites, and monitor low stock alerts.
-          </p>
+          <p className="eyebrow">Inventory & Supply Chain</p>
+          <h1>Site Materials Inventory ({materials.length})</h1>
         </div>
 
-        <button
-          type="button"
-          className="primary-button"
-          style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-          onClick={() => setShowAddModal(true)}
-        >
-          <Plus size={16} /> Add New Material
+        <button type="button" className="primary-button" onClick={() => setShowAddModal(true)}>
+          <Plus size={16} /> Log Material Delivery
         </button>
-      </div>
+      </section>
 
-      {notice && (
-        <div style={{ background: 'rgba(36, 196, 107, 0.15)', border: '1px solid var(--green)', color: 'var(--green)', padding: '12px 18px', borderRadius: '10px', fontWeight: 600, fontSize: '14px' }}>
-          {notice}
-        </div>
-      )}
-
-      {/* Metric Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
-        <div className="panel" style={{ padding: '18px' }}>
-          <span style={{ color: 'var(--muted)', fontSize: '13px' }}>Total Material Types</span>
-          <h2 style={{ fontSize: '26px', color: 'var(--blue)', marginTop: '4px' }}>{materials.length} Items</h2>
-          <small style={{ color: 'var(--muted)' }}>Across 3 Central Storage Yards</small>
-        </div>
-        <div className="panel" style={{ padding: '18px' }}>
-          <span style={{ color: 'var(--muted)', fontSize: '13px' }}>Low Stock Alerts</span>
-          <h2 style={{ fontSize: '26px', color: lowStockCount > 0 ? 'var(--orange)' : 'var(--green)', marginTop: '4px' }}>
-            {lowStockCount} Items Below Threshold
-          </h2>
-          <small style={{ color: 'var(--orange)' }}>Re-order recommended</small>
-        </div>
-        <div className="panel" style={{ padding: '18px' }}>
-          <span style={{ color: 'var(--muted)', fontSize: '13px' }}>Active Warehouses</span>
-          <h2 style={{ fontSize: '26px', color: 'var(--purple)', marginTop: '4px' }}>3 Yards</h2>
-          <small style={{ color: 'var(--green)' }}>Operational 24/7</small>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px' }}>
+        <div className="search-box" style={{ width: '320px' }}>
+          <Search size={16} style={{ color: 'var(--muted)' }} />
+          <input placeholder="Search material item..." value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
       </div>
 
-      {/* Materials Table Panel */}
-      <div className="panel" style={{ padding: '24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '16px' }}>
-          <h3 style={{ fontSize: '18px', fontWeight: 600, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Truck size={20} style={{ color: 'var(--blue)' }} /> Material Stock Inventory Ledger
-          </h3>
-
-          <div className="search-box" style={{ width: '280px' }}>
-            <Search size={16} />
-            <input
-              placeholder="Search material or location..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+      <div className="panel" style={{ marginTop: '20px', padding: 0, overflow: 'hidden' }}>
+        {filtered.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '48px 24px', color: 'var(--muted)' }}>
+            <Truck size={36} style={{ marginBottom: '12px', color: 'var(--muted)' }} />
+            <h3 style={{ fontSize: '16px', color: 'var(--text)', margin: '0 0 6px 0' }}>No Material Inventory Logged</h3>
+            <p style={{ fontSize: '13px', margin: 0 }}>Click &quot;Log Material Delivery&quot; above to add inventory.</p>
           </div>
-        </div>
-
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
             <thead>
-              <tr style={{ color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
-                <th style={{ padding: '12px' }}>Material & Code</th>
-                <th style={{ padding: '12px' }}>Storage Location</th>
-                <th style={{ padding: '12px' }}>Current Stock</th>
-                <th style={{ padding: '12px' }}>Min Threshold</th>
-                <th style={{ padding: '12px' }}>Status</th>
-                <th style={{ padding: '12px', textAlign: 'right' }}>Stock Actions</th>
+              <tr style={{ background: 'var(--panel-soft)', borderBottom: '1px solid var(--border)', color: 'var(--muted)' }}>
+                <th style={{ padding: '14px 20px' }}>Material Item</th>
+                <th style={{ padding: '14px' }}>Quantity</th>
+                <th style={{ padding: '14px' }}>Project Site</th>
+                <th style={{ padding: '14px' }}>Status</th>
               </tr>
             </thead>
             <tbody>
-              {filteredMaterials.map((m) => (
-                <tr key={m.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                  <td style={{ padding: '14px 12px' }}>
-                    <strong style={{ fontSize: '14px', display: 'block' }}>{m.name}</strong>
-                    <span style={{ fontSize: '12px', color: 'var(--muted)' }}>SKU: {m.code}</span>
-                  </td>
-                  <td style={{ padding: '14px 12px', color: 'var(--muted)' }}>{m.location}</td>
-                  <td style={{ padding: '14px 12px', fontWeight: 700, fontSize: '14px', color: 'var(--blue)' }}>
-                    {m.stock} {m.unit}
-                  </td>
-                  <td style={{ padding: '14px 12px', color: 'var(--muted)' }}>{m.minThreshold} {m.unit}</td>
-                  <td style={{ padding: '14px 12px' }}>
-                    <span
-                      style={{
-                        padding: '4px 10px',
-                        borderRadius: '12px',
-                        fontSize: '12px',
-                        fontWeight: 700,
-                        background: m.status === 'IN_STOCK' ? 'rgba(36, 196, 107, 0.15)' : 'rgba(242, 153, 74, 0.15)',
-                        color: m.status === 'IN_STOCK' ? 'var(--green)' : 'var(--orange)',
-                      }}
-                    >
-                      {m.status === 'IN_STOCK' ? 'In Stock' : '⚠️ LOW STOCK'}
+              {filtered.map((item) => (
+                <tr key={item.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                  <td style={{ padding: '16px 20px', fontWeight: 600, color: 'var(--text)' }}>{item.name}</td>
+                  <td style={{ padding: '16px', fontWeight: 700 }}>{item.quantity}</td>
+                  <td style={{ padding: '16px' }}>{item.projectName}</td>
+                  <td style={{ padding: '16px' }}>
+                    <span className="schedule-pill" style={{ background: 'rgba(36, 196, 107, 0.15)', color: 'var(--green)' }}>
+                      {item.status}
                     </span>
-                  </td>
-                  <td style={{ padding: '14px 12px', textAlign: 'right' }}>
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                      <button
-                        type="button"
-                        className="secondary-button"
-                        style={{ padding: '4px 10px', fontSize: '12px', color: 'var(--blue)' }}
-                        onClick={() => handleIssueMaterial(m.id, m.name)}
-                      >
-                        <ArrowUpRight size={14} /> Issue to Site
-                      </button>
-                      <button
-                        type="button"
-                        className="secondary-button"
-                        style={{ padding: '4px 10px', fontSize: '12px', color: 'var(--green)' }}
-                        onClick={() => handleReceiveShipment(m.id, m.name)}
-                      >
-                        <ArrowDownLeft size={14} /> Receive Stock
-                      </button>
-                    </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
+        )}
       </div>
 
-      {/* Modal: Add Material */}
       {showAddModal && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 999,
-          }}
-        >
-          <div className="panel" style={{ width: '420px', padding: '24px', borderRadius: '16px' }}>
-            <h3 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '16px' }}>Add New Construction Material</h3>
-            <form onSubmit={handleAddMaterial} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
+          <div className="panel" style={{ width: '100%', maxWidth: '480px', padding: '28px', borderRadius: '16px' }}>
+            <h2 style={{ fontSize: '20px', marginBottom: '16px', color: 'var(--text)' }}>Log Material Delivery</h2>
+            <form onSubmit={handleAddMaterial} style={{ display: 'flex', flexDirection: 'column', gap: '14px', fontSize: '13px' }}>
               <div>
-                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--muted)' }}>Material Name</label>
+                <label style={{ color: 'var(--muted)', display: 'block', marginBottom: '4px' }}>Material Item Name *</label>
                 <input
-                  required
                   type="text"
-                  placeholder="e.g. Waterproofing Chemical Compound"
+                  placeholder="e.g. Portland Cement Grade 53"
                   value={newMat.name}
                   onChange={(e) => setNewMat({ ...newMat, name: e.target.value })}
-                  style={{ width: '100%', padding: '10px', marginTop: '4px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--panel-soft)', color: 'var(--text)' }}
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--muted)' }}>Unit of Measurement</label>
-                <select
-                  value={newMat.unit}
-                  onChange={(e) => setNewMat({ ...newMat, unit: e.target.value })}
-                  style={{ width: '100%', padding: '10px', marginTop: '4px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--panel-soft)', color: 'var(--text)' }}
-                >
-                  <option value="Bags">Bags</option>
-                  <option value="Metric Tons">Metric Tons</option>
-                  <option value="Cu. Meters">Cu. Meters</option>
-                  <option value="Blocks">Blocks</option>
-                  <option value="Liters">Liters</option>
-                </select>
-              </div>
-
-              <div>
-                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--muted)' }}>Initial Stock Quantity</label>
-                <input
                   required
-                  type="number"
-                  placeholder="e.g. 500"
-                  value={newMat.stock}
-                  onChange={(e) => setNewMat({ ...newMat, stock: e.target.value })}
-                  style={{ width: '100%', padding: '10px', marginTop: '4px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--panel-soft)', color: 'var(--text)' }}
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--text)' }}
                 />
               </div>
 
               <div>
-                <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--muted)' }}>Minimum Threshold Alert Level</label>
+                <label style={{ color: 'var(--muted)', display: 'block', marginBottom: '4px' }}>Quantity Delivered</label>
                 <input
-                  type="number"
-                  value={newMat.minThreshold}
-                  onChange={(e) => setNewMat({ ...newMat, minThreshold: e.target.value })}
-                  style={{ width: '100%', padding: '10px', marginTop: '4px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--panel-soft)', color: 'var(--text)' }}
+                  type="text"
+                  placeholder="e.g. 250 Bags"
+                  value={newMat.quantity}
+                  onChange={(e) => setNewMat({ ...newMat, quantity: e.target.value })}
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--text)' }}
                 />
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
                 <button type="button" className="secondary-button" onClick={() => setShowAddModal(false)}>
                   Cancel
                 </button>
                 <button type="submit" className="primary-button">
-                  Add Material
+                  Save Material
                 </button>
               </div>
             </form>

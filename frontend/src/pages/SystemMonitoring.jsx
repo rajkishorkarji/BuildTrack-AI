@@ -12,14 +12,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 
-const servicesStatus = [
-  { name: 'PostgreSQL Database Cluster (Primary)', type: 'Database', status: 'HEALTHY', latency: '4ms', uptime: '99.99%', connections: '42 / 200' },
-  { name: 'MongoDB NoSQL Document Store', type: 'Database', status: 'HEALTHY', latency: '6ms', uptime: '99.98%', connections: '18 / 100' },
-  { name: 'Redis Cache & Session Broker', type: 'In-Memory Cache', status: 'HEALTHY', latency: '1ms', uptime: '100%', memory: '1.2 GB / 8 GB' },
-  { name: 'Apache Kafka Event Streaming Engine', type: 'Message Bus', status: 'HEALTHY', latency: '12ms', uptime: '99.95%', topics: '14 Active Topics' },
-  { name: 'WebSocket Real-Time Gateway', type: 'Sockets Server', status: 'HEALTHY', latency: '8ms', uptime: '99.99%', activeSockets: '1,420 Connections' },
-  { name: 'API Gateway & Reverse Proxy (Nginx)', type: 'API Router', status: 'HEALTHY', latency: '2ms', uptime: '100%', reqPerSec: '850 req/s' },
-];
+const servicesStatus = [];
 
 export default function SystemMonitoring() {
   const [refreshing, setRefreshing] = useState(false);
@@ -70,11 +63,11 @@ export default function SystemMonitoring() {
             <span style={{ color: 'var(--muted)', fontSize: '13px' }}>CPU Core Load</span>
             <Cpu size={18} style={{ color: 'var(--blue)' }} />
           </div>
-          <h2 style={{ fontSize: '28px', color: 'var(--blue)', marginTop: '8px' }}>24.6%</h2>
+          <h2 style={{ fontSize: '28px', color: 'var(--blue)', marginTop: '8px' }}>0%</h2>
           <div style={{ background: 'var(--panel-soft)', height: '6px', borderRadius: '4px', overflow: 'hidden', marginTop: '8px' }}>
-            <div style={{ background: 'var(--blue)', width: '24.6%', height: '100%' }} />
+            <div style={{ background: 'var(--blue)', width: '0%', height: '100%' }} />
           </div>
-          <small style={{ color: 'var(--muted)', marginTop: '6px', display: 'block' }}>16 vCPU Cores Active</small>
+          <small style={{ color: 'var(--muted)', marginTop: '6px', display: 'block' }}>— vCPU Cores Active</small>
         </div>
 
         <div className="panel" style={{ padding: '20px' }}>
@@ -82,11 +75,11 @@ export default function SystemMonitoring() {
             <span style={{ color: 'var(--muted)', fontSize: '13px' }}>RAM Allocation</span>
             <Server size={18} style={{ color: 'var(--purple)' }} />
           </div>
-          <h2 style={{ fontSize: '28px', color: 'var(--purple)', marginTop: '8px' }}>38.2 GB / 64 GB</h2>
+          <h2 style={{ fontSize: '28px', color: 'var(--purple)', marginTop: '8px' }}>0 GB / 0 GB</h2>
           <div style={{ background: 'var(--panel-soft)', height: '6px', borderRadius: '4px', overflow: 'hidden', marginTop: '8px' }}>
-            <div style={{ background: 'var(--purple)', width: '59.6%', height: '100%' }} />
+            <div style={{ background: 'var(--purple)', width: '0%', height: '100%' }} />
           </div>
-          <small style={{ color: 'var(--muted)', marginTop: '6px', display: 'block' }}>59.6% Usage Target</small>
+          <small style={{ color: 'var(--muted)', marginTop: '6px', display: 'block' }}>— Usage Target</small>
         </div>
 
         <div className="panel" style={{ padding: '20px' }}>
@@ -94,11 +87,11 @@ export default function SystemMonitoring() {
             <span style={{ color: 'var(--muted)', fontSize: '13px' }}>Storage Volume (NVMe)</span>
             <HardDrive size={18} style={{ color: 'var(--green)' }} />
           </div>
-          <h2 style={{ fontSize: '28px', color: 'var(--green)', marginTop: '8px' }}>1.4 TB / 10 TB</h2>
+          <h2 style={{ fontSize: '28px', color: 'var(--green)', marginTop: '8px' }}>0 TB / 0 TB</h2>
           <div style={{ background: 'var(--panel-soft)', height: '6px', borderRadius: '4px', overflow: 'hidden', marginTop: '8px' }}>
-            <div style={{ background: 'var(--green)', width: '14%', height: '100%' }} />
+            <div style={{ background: 'var(--green)', width: '0%', height: '100%' }} />
           </div>
-          <small style={{ color: 'var(--green)', marginTop: '6px', display: 'block' }}>8.6 TB Available</small>
+          <small style={{ color: 'var(--green)', marginTop: '6px', display: 'block' }}>— TB Available</small>
         </div>
 
         <div className="panel" style={{ padding: '20px' }}>
@@ -106,11 +99,11 @@ export default function SystemMonitoring() {
             <span style={{ color: 'var(--muted)', fontSize: '13px' }}>Network Bandwidth</span>
             <Radio size={18} style={{ color: 'var(--orange)' }} />
           </div>
-          <h2 style={{ fontSize: '28px', color: 'var(--orange)', marginTop: '8px' }}>1.2 Gbps</h2>
+          <h2 style={{ fontSize: '28px', color: 'var(--orange)', marginTop: '8px' }}>0 Gbps</h2>
           <div style={{ background: 'var(--panel-soft)', height: '6px', borderRadius: '4px', overflow: 'hidden', marginTop: '8px' }}>
-            <div style={{ background: 'var(--orange)', width: '12%', height: '100%' }} />
+            <div style={{ background: 'var(--orange)', width: '0%', height: '100%' }} />
           </div>
-          <small style={{ color: 'var(--muted)', marginTop: '6px', display: 'block' }}>10 Gbps Pipeline</small>
+          <small style={{ color: 'var(--muted)', marginTop: '6px', display: 'block' }}>— Gbps Pipeline</small>
         </div>
       </div>
 
@@ -133,6 +126,13 @@ export default function SystemMonitoring() {
               </tr>
             </thead>
             <tbody>
+              {servicesStatus.length === 0 && (
+                <tr>
+                  <td colSpan="6" style={{ textAlign: 'center', padding: '32px', color: 'var(--muted)', fontSize: '13px' }}>
+                    No records found
+                  </td>
+                </tr>
+              )}
               {servicesStatus.map((s, idx) => (
                 <tr key={idx} style={{ borderBottom: '1px solid var(--border)' }}>
                   <td style={{ padding: '14px 12px', fontWeight: 600 }}>{s.name}</td>

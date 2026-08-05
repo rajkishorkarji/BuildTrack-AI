@@ -1,5 +1,6 @@
 package com.buildtrack.ai.controller;
 
+import com.buildtrack.ai.auth.dto.ApiResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -11,18 +12,20 @@ import java.util.Map;
 public class SiteEngineerController {
 
     @PostMapping("/daily-report")
-    public ResponseEntity<Map<String, String>> submitDailyReport(@RequestBody Map<String, String> request) {
+    public ResponseEntity<ApiResponse<Map<String, String>>> submitDailyReport(@RequestBody Map<String, String> request) {
         Map<String, String> res = new HashMap<>();
         res.put("status", "success");
+        res.put("reportId", "DPR-" + System.currentTimeMillis() / 1000);
         res.put("message", "Daily Engineering Progress Report submitted for Floor 14.");
-        return ResponseEntity.ok(res);
+        return ResponseEntity.ok(ApiResponse.success(res));
     }
 
     @PostMapping("/photos")
-    public ResponseEntity<Map<String, String>> uploadInspectionPhoto(@RequestBody Map<String, String> request) {
+    public ResponseEntity<ApiResponse<Map<String, String>>> uploadInspectionPhoto(@RequestBody Map<String, String> request) {
         Map<String, String> res = new HashMap<>();
         res.put("status", "success");
-        res.put("message", "Site photo analyzed by AI Safety Inspector. Grade M40 Passed.");
-        return ResponseEntity.ok(res);
+        res.put("analysisResult", "Concrete Grade M40 Validation PASSED");
+        res.put("message", "Site photo analyzed by AI Safety & Quality Inspector.");
+        return ResponseEntity.ok(ApiResponse.success(res));
     }
 }

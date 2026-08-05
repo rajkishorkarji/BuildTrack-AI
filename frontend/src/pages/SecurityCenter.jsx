@@ -13,21 +13,9 @@ import {
   Eye,
 } from 'lucide-react';
 
-const activeSessions = [
-  { id: 1, user: 'System Master Admin (superadmin@buildtrack.ai)', ip: '103.24.120.44', location: 'Bhubaneswar, IN', device: 'Chrome on Windows 11', time: 'Active now' },
-  { id: 2, user: 'Rajkishor Karji (rajkishor@buildtrack.ai)', ip: '182.73.44.12', location: 'Bhubaneswar, IN', device: 'Firefox on macOS', time: '12 mins ago' },
-  { id: 3, user: 'Vikram Nair (vikram@buildtrack.ai)', ip: '49.36.210.99', location: 'Bengaluru, IN', device: 'Safari on iPhone 15 Pro', time: '45 mins ago' },
-];
-
-const failedLogins = [
-  { id: 101, attemptedEmail: 'admin@buildtrack.ai', ip: '198.51.100.22', location: 'Frankfurt, DE', reason: 'Invalid Password (3 attempts)', timestamp: '2026-08-03 08:30:14' },
-  { id: 102, attemptedEmail: 'root@buildtrack.ai', ip: '203.0.113.88', location: 'Moscow, RU', reason: 'User Not Found (Automated Bot)', timestamp: '2026-08-03 07:15:02' },
-];
-
-const blockedIPs = [
-  { id: 201, ip: '198.51.100.22', origin: 'Frankfurt, DE', reason: 'Brute Force Attack Detected', addedOn: '2026-08-03' },
-  { id: 202, ip: '203.0.113.88', origin: 'Moscow, RU', reason: 'Credential Stuffing Bot', addedOn: '2026-08-03' },
-];
+const activeSessions = [];
+const failedLogins = [];
+const blockedIPs = [];
 
 export default function SecurityCenter() {
   const [sessions, setSessions] = useState(activeSessions);
@@ -85,22 +73,22 @@ export default function SecurityCenter() {
         <div className="panel" style={{ padding: '18px' }}>
           <span style={{ color: 'var(--muted)', fontSize: '13px' }}>Active User Sessions</span>
           <h2 style={{ fontSize: '26px', color: 'var(--green)', marginTop: '4px' }}>{sessions.length} Sessions</h2>
-          <small style={{ color: 'var(--muted)' }}>Zero suspicious activity</small>
+          <small style={{ color: 'var(--muted)' }}>—</small>
         </div>
         <div className="panel" style={{ padding: '18px' }}>
           <span style={{ color: 'var(--muted)', fontSize: '13px' }}>Failed Logins (24h)</span>
           <h2 style={{ fontSize: '26px', color: 'var(--orange)', marginTop: '4px' }}>{failedLogins.length} Attempts</h2>
-          <small style={{ color: 'var(--orange)' }}>Blocked by WAF</small>
+          <small style={{ color: 'var(--orange)' }}>—</small>
         </div>
         <div className="panel" style={{ padding: '18px' }}>
           <span style={{ color: 'var(--muted)', fontSize: '13px' }}>Firewall Blocked IPs</span>
           <h2 style={{ fontSize: '26px', color: 'var(--red)', marginTop: '4px' }}>{blocked.length} IPs</h2>
-          <small style={{ color: 'var(--red)' }}>Auto-banned</small>
+          <small style={{ color: 'var(--red)' }}>—</small>
         </div>
         <div className="panel" style={{ padding: '18px' }}>
           <span style={{ color: 'var(--muted)', fontSize: '13px' }}>SSL / TLS Compliance</span>
-          <h2 style={{ fontSize: '26px', color: 'var(--blue)', marginTop: '4px' }}>TLS v1.3</h2>
-          <small style={{ color: 'var(--green)' }}>256-bit Encryption</small>
+          <h2 style={{ fontSize: '26px', color: 'var(--blue)', marginTop: '4px' }}>—</h2>
+          <small style={{ color: 'var(--green)' }}>—</small>
         </div>
       </div>
 
@@ -124,6 +112,13 @@ export default function SecurityCenter() {
                   </tr>
                 </thead>
                 <tbody>
+                  {sessions.length === 0 && (
+                    <tr>
+                      <td colSpan="5" style={{ textAlign: 'center', padding: '32px', color: 'var(--muted)', fontSize: '13px' }}>
+                        No records found
+                      </td>
+                    </tr>
+                  )}
                   {sessions.map((s) => (
                     <tr key={s.id} style={{ borderBottom: '1px solid var(--border)' }}>
                       <td style={{ padding: '12px 10px', fontWeight: 600 }}>{s.user}</td>
@@ -165,6 +160,13 @@ export default function SecurityCenter() {
                   </tr>
                 </thead>
                 <tbody>
+                  {failedLogins.length === 0 && (
+                    <tr>
+                      <td colSpan="4" style={{ textAlign: 'center', padding: '32px', color: 'var(--muted)', fontSize: '13px' }}>
+                        No records found
+                      </td>
+                    </tr>
+                  )}
                   {failedLogins.map((f) => (
                     <tr key={f.id} style={{ borderBottom: '1px solid var(--border)' }}>
                       <td style={{ padding: '12px 10px', fontWeight: 600, color: 'var(--red)' }}>{f.attemptedEmail}</td>
@@ -244,6 +246,11 @@ export default function SecurityCenter() {
               <AlertOctagon size={18} style={{ color: 'var(--red)' }} /> Blocked IP Firewall
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '13px' }}>
+              {blocked.length === 0 && (
+                <div style={{ textAlign: 'center', padding: '32px', color: 'var(--muted)' }}>
+                  No records found
+                </div>
+              )}
               {blocked.map((b) => (
                 <div key={b.id} style={{ padding: '12px', borderRadius: '8px', background: 'var(--panel-soft)', border: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
