@@ -5,6 +5,7 @@ import com.buildtrack.ai.entity.Company;
 import com.buildtrack.ai.entity.Project;
 import com.buildtrack.ai.repository.CompanyRepository;
 import com.buildtrack.ai.service.ProjectService;
+import com.buildtrack.ai.service.RealtimePublisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -21,6 +22,9 @@ public class ProjectController {
     @Autowired
     private CompanyRepository companyRepository;
 
+
+    @Autowired
+    private RealtimePublisher realtimePublisher;
     @GetMapping
     public ResponseEntity<ApiResponse<List<Project>>> getProjects() {
         return ResponseEntity.ok(ApiResponse.success(projectService.getAllProjects()));
@@ -31,9 +35,11 @@ public class ProjectController {
         Company comp = companyRepository.findAll().stream().findFirst().orElseGet(() -> {
             Company c = new Company();
             c.setName("Default Company");
+            c.setEmail("admin@default.buildtrack.ai");
             return companyRepository.save(c);
         });
         Project created = projectService.createProject(comp.getId(), projectData);
+        realtimePublisher.publish("projects", "created", created.getId());
         return ResponseEntity.ok(ApiResponse.success(created));
     }
 }

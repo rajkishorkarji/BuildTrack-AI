@@ -38,6 +38,9 @@ public class Attendance {
     @Column(nullable = false)
     private AttendanceStatus status;
 
+    private String verificationStatus = "PENDING";
+    private String verifiedBy;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

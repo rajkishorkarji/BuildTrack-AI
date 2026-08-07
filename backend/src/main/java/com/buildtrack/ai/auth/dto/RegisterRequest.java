@@ -26,6 +26,8 @@ public record RegisterRequest(
 
     String companyName,
 
+    String companyCode,
+
     @NotBlank(message = "Role is required")
     String role
 ) {}

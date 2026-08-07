@@ -22,6 +22,11 @@ public class EquipmentController {
         return ResponseEntity.ok(ApiResponse.success(equipmentService.getAllEquipment()));
     }
 
+    @PostMapping
+    public ResponseEntity<ApiResponse<Equipment>> createEquipment(@RequestBody Equipment equipment) {
+        return ResponseEntity.ok(ApiResponse.success(equipmentService.createEquipment(equipment)));
+    }
+
     @PatchMapping("/{id}/status")
     public ResponseEntity<ApiResponse<Equipment>> updateStatus(@PathVariable Long id, @RequestBody Map<String, String> body) {
         String newStatus = body.getOrDefault("status", "ACTIVE");

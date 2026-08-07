@@ -1,24 +1,130 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useCallback, useContext, useState, useEffect, useRef } from 'react';
 import notificationService from '../services/notificationService';
+import api, { realtimeBus } from '../services/api';
+import { realtimeClient } from '../services/realtimeClient';
+
 
 const DataContext = createContext(null);
 
 const INITIAL_DATA = {
-  companies: [],
-  projects: [],
-  workers: [],
-  equipment: [],
-  finances: [],
-  tasks: [],
-  issues: [],
-  materials: [],
-  progressReports: [],
-  usersList: [],
-  teamMembers: [],
-  documents: [],
-  attendanceLogs: [],
-  subscriptions: [],
-  auditLogs: [],
+  companies: [
+    { id: 'c1', name: 'Solviontech Infrastructure Ltd', code: 'SOLV-CO', gstNo: '21AAACS0000F1Z9', address: 'Bhubaneswar, Odisha', status: 'Active' },
+  ],
+  projects: [
+    {
+      id: 101,
+      name: 'Metro Tower Site A',
+      companyName: 'Solviontech Infrastructure Ltd',
+      location: 'Sector 5, Metro Zone',
+      budget: 1500000,
+      progress: 68,
+      status: 'Active',
+      startDate: '2026-01-15',
+      deadline: '2026-12-31',
+      pmName: 'Rajesh Verma (Project Manager)',
+      seName: 'Amit Kumar (Site Engineer)',
+      contractorName: 'BuildCorp Contractors',
+      assignedWorkers: ['Ramesh Mason', 'Suresh Welder', 'Karan Loader'],
+    },
+    {
+      id: 102,
+      name: 'Highway Overpass Project',
+      companyName: 'Solviontech Infrastructure Ltd',
+      location: 'Outer Ring Road',
+      budget: 2800000,
+      progress: 42,
+      status: 'Active',
+      startDate: '2026-03-01',
+      deadline: '2027-04-30',
+      pmName: 'Rajesh Verma (Project Manager)',
+      seName: 'Priya Singh (Site Engineer)',
+      contractorName: 'Apex Foundations',
+      assignedWorkers: ['Sunil Mason', 'Vikram Operator'],
+    },
+  ],
+  usersList: [
+    { id: 'u1', fullName: 'Rajkishor Karji', email: 'raj@buildtrack.ai', role: 'SUPER_ADMIN', companyName: 'BuildTrack AI Platform' },
+    { id: 'u2', fullName: 'Solvion Admin', email: 'admin@solviontech.com', role: 'COMPANY_ADMIN', companyName: 'Solviontech Infrastructure Ltd' },
+    { id: 'u3', fullName: 'Company Manager', email: 'manager@solviontech.com', role: 'COMPANY_MANAGER', companyName: 'Solviontech Infrastructure Ltd' },
+    { id: 'u4', fullName: 'Rajesh Verma', email: 'pm@solviontech.com', role: 'PROJECT_MANAGER', companyName: 'Solviontech Infrastructure Ltd' },
+    { id: 'u5', fullName: 'Amit Kumar', email: 'se@solviontech.com', role: 'SITE_ENGINEER', companyName: 'Solviontech Infrastructure Ltd' },
+    { id: 'u6', fullName: 'BuildCorp Contractors', email: 'contractor@buildcorp.com', role: 'CONTRACTOR', companyName: 'Solviontech Infrastructure Ltd' },
+    { id: 'u7', fullName: 'Ramesh Mason', email: 'worker@solviontech.com', role: 'WORKER', companyName: 'Solviontech Infrastructure Ltd' },
+  ],
+  workers: [
+    { id: 'w1', fullName: 'Ramesh Mason', role: 'Mason', contractorName: 'BuildCorp Contractors', projectName: 'Metro Tower Site A', status: 'Active' },
+    { id: 'w2', fullName: 'Suresh Welder', role: 'Welder', contractorName: 'BuildCorp Contractors', projectName: 'Metro Tower Site A', status: 'Active' },
+    { id: 'w3', fullName: 'Karan Loader', role: 'Loader', contractorName: 'BuildCorp Contractors', projectName: 'Metro Tower Site A', status: 'Active' },
+  ],
+  tasks: [
+    {
+      id: 't1',
+      title: 'Foundation Slab Concreting',
+      project: 'Metro Tower Site A',
+      createdBy: 'Rajesh Verma (Project Manager)',
+      assignedSE: 'Amit Kumar (Site Engineer)',
+      assignedContractor: 'BuildCorp Contractors',
+      assignedWorker: 'Ramesh Mason',
+      priority: 'High',
+      status: 'In Progress',
+      progress: 75,
+      deadline: '2026-08-15',
+    },
+    {
+      id: 't2',
+      title: 'Steel Rebar Binding & Alignment',
+      project: 'Metro Tower Site A',
+      createdBy: 'Rajesh Verma (Project Manager)',
+      assignedSE: 'Amit Kumar (Site Engineer)',
+      assignedContractor: 'BuildCorp Contractors',
+      assignedWorker: 'Suresh Welder',
+      priority: 'Medium',
+      status: 'Assigned',
+      progress: 30,
+      deadline: '2026-08-20',
+    },
+  ],
+  attendanceLogs: [
+    {
+      id: 'att1',
+      workerName: 'Ramesh Mason',
+      workerRole: 'Mason',
+      contractorName: 'BuildCorp Contractors',
+      siteName: 'Metro Tower Site A',
+      date: new Date().toISOString().split('T')[0],
+      checkInTime: '08:30 AM',
+      checkOutTime: '05:30 PM',
+      status: 'Present',
+      contractorMarked: true,
+      seVerified: 'Verified',
+      pmReviewed: 'Reviewed',
+      caApproved: 'Approved',
+    },
+  ],
+  equipment: [
+    { id: 'eq1', name: 'Tower Crane TC-500', category: 'Heavy Machinery', status: 'Operational', operator: 'Vikram Operator', projectName: 'Metro Tower Site A' },
+  ],
+  finances: [
+    { id: 'f1', invoiceNo: 'INV-9021', contractor: 'BuildCorp Contractors', projectName: 'Metro Tower Site A', amount: 45000, status: 'Paid' },
+  ],
+  materials: [
+    { id: 'm1', name: 'Cement Bags (Grade 53)', stock: '500 Bags', consumed: '320 Bags', siteName: 'Metro Tower Site A', status: 'Available' },
+  ],
+  issues: [
+    { id: 'is1', title: 'Hydraulic Hose Leakage on Excavator', severity: 'Medium', reportedBy: 'Amit Kumar', siteName: 'Metro Tower Site A', status: 'Open' },
+  ],
+  documents: [
+    { id: 'd1', name: 'Metro Tower Structural Drawing v3.pdf', type: 'Contracts & Drawings', size: '12.4 MB', uploadedBy: 'Amit Kumar', status: 'Approved' },
+  ],
+  progressReports: [
+    { id: 1, projectId: 101, projectName: 'Metro Tower Site A', workCompleted: 'Completed 240m³ concrete pouring on Column C4 with 2 boom pumps.', newTotalProgress: 68, submittedBy: 'Amit Kumar (Site Engineer)', date: '2026-08-05', weather: 'Sunny 28°C', photosCount: 4 },
+    { id: 2, projectId: 101, projectName: 'Metro Tower Site A', workCompleted: 'Inspected 16mm rebar spacing on Floor 12 retaining wall. Passed QC audit.', newTotalProgress: 65, submittedBy: 'Amit Kumar (Site Engineer)', date: '2026-08-04', weather: 'Clear 30°C', photosCount: 6 },
+  ],
+  teamMembers: [
+    { id: 'tm1', fullName: 'Rajesh Verma', email: 'pm@solviontech.com', role: 'Project Manager', phone: '+91 98765 00001', status: 'Active' },
+    { id: 'tm2', fullName: 'Amit Kumar', email: 'se@solviontech.com', role: 'Site Engineer', phone: '+91 98765 00002', status: 'Active' },
+    { id: 'tm3', fullName: 'BuildCorp Contractors', email: 'contractor@buildcorp.com', role: 'Contractor', phone: '+91 98765 00003', status: 'Active' },
+  ],
 };
 
 export function DataProvider({ children }) {
@@ -28,21 +134,19 @@ export function DataProvider({ children }) {
       try {
         const parsed = JSON.parse(saved);
         return {
-          companies: parsed.companies || [],
-          projects: parsed.projects || [],
-          workers: parsed.workers || [],
-          equipment: parsed.equipment || [],
-          finances: parsed.finances || [],
-          tasks: parsed.tasks || [],
-          issues: parsed.issues || [],
-          materials: parsed.materials || [],
-          progressReports: parsed.progressReports || [],
-          usersList: parsed.usersList || [],
-          teamMembers: parsed.teamMembers || [],
-          documents: parsed.documents || [],
-          attendanceLogs: parsed.attendanceLogs || [],
-          subscriptions: parsed.subscriptions || [],
-          auditLogs: parsed.auditLogs || [],
+          companies: parsed.companies || INITIAL_DATA.companies,
+          projects: parsed.projects || INITIAL_DATA.projects,
+          usersList: parsed.usersList || INITIAL_DATA.usersList,
+          workers: parsed.workers || INITIAL_DATA.workers,
+          tasks: parsed.tasks || INITIAL_DATA.tasks,
+          attendanceLogs: parsed.attendanceLogs || INITIAL_DATA.attendanceLogs,
+          equipment: parsed.equipment || INITIAL_DATA.equipment,
+          finances: parsed.finances || INITIAL_DATA.finances,
+          materials: parsed.materials || INITIAL_DATA.materials,
+          issues: parsed.issues || INITIAL_DATA.issues,
+          documents: parsed.documents || INITIAL_DATA.documents,
+          progressReports: parsed.progressReports || INITIAL_DATA.progressReports,
+          teamMembers: parsed.teamMembers || INITIAL_DATA.teamMembers,
         };
       } catch (err) {
         return INITIAL_DATA;
@@ -55,448 +159,405 @@ export function DataProvider({ children }) {
     localStorage.setItem('buildtrack_app_data', JSON.stringify(data));
   }, [data]);
 
-  // Company Actions
-  const addCompany = (company) => {
-    const newCompany = {
-      id: Date.now(),
-      name: company.name || 'New Infrastructure Co',
-      code: company.code || `${(company.name || 'CO').substring(0, 4).toUpperCase()}-CO`,
-      gstNo: company.gstNo || '21AAACS0000F1Z9',
-      address: company.address || 'Bhubaneswar, Odisha',
-      adminName: company.adminName || 'Company Admin',
-      adminEmail: company.adminEmail || 'admin@co.com',
-      shiftTemplate: company.shiftTemplate || '2 Shifts (Day & Night)',
-      status: 'Active',
-      projectsCount: 0,
-      workersCount: 0,
-      createdAt: new Date().toISOString(),
-      ...company,
-    };
-    setData((prev) => ({
-      ...prev,
-      companies: [newCompany, ...prev.companies],
-    }));
+  const [realtimeStatus, setRealtimeStatus] = useState({ connected: false, lastSyncedAt: null });
+  const refreshInFlight = useRef(false);
 
-    notificationService.pushAlert({
-      title: 'New Tenant Onboarded',
-      message: `Tenant company "${newCompany.name}" registered in platform.`,
-      type: 'INFO',
+  // Every role uses this shared mutation path. It updates the active screen immediately,
+  // persists the offline fallback, and shares the same snapshot with other open tabs.
+  const updateData = useCallback((updater, event = {}) => {
+    setData((current) => {
+      const next = typeof updater === 'function' ? updater(current) : updater;
+      realtimeClient.emitUpdate({ ...event, snapshot: next });
+      return next;
     });
+  }, []);
 
-    return newCompany;
-  };
+  const refreshFromServer = useCallback(async () => {
+    if (!localStorage.getItem('accessToken')) return;
 
-  // Project Actions
-  const addProject = (project) => {
-    const newProject = {
-      id: Date.now(),
-      name: project.name || 'New Construction Site',
-      companyName: project.companyName || 'Solviontech Infrastructure Ltd',
-      location: project.location || 'Site Location',
-      budget: parseFloat(project.budget) || 0,
-      progress: parseInt(project.progress, 10) || 0,
-      status: project.status || 'Active',
-      startDate: project.startDate || new Date().toISOString().split('T')[0],
-      pmName: project.pmName || 'Unassigned',
-      createdAt: new Date().toISOString(),
-      ...project,
+    if (refreshInFlight.current) return;
+    refreshInFlight.current = true;
+
+    try {
+      const endpoints = ['/superadmin/companies/all', '/projects', '/workers', '/tasks', '/attendance', '/equipment', '/finance/invoices', '/documents', '/reports'];
+      const responses = await Promise.allSettled(endpoints.map((url) => api.get(url)));
+      const payload = (index) => responses[index].status === 'fulfilled' ? responses[index].value.data?.data : undefined;
+
+      setData((current) => ({
+      ...current,
+      companies: Array.isArray(payload(0)) ? payload(0).map((company) => ({
+        ...company,
+        status: String(company.status || 'ACTIVE').toUpperCase() === 'ACTIVE' ? 'Active' : 'Suspended',
+      })) : current.companies,
+      projects: Array.isArray(payload(1)) ? payload(1).map((project) => ({
+        ...project,
+        progress: project.progressPercentage ?? project.progress ?? 0,
+        deadline: project.estEndDate || project.deadline,
+        companyName: project.company?.name || project.companyName,
+      })) : current.projects,
+      workers: Array.isArray(payload(2)) ? payload(2).map((worker) => ({
+        ...worker,
+        name: worker.fullName || worker.name,
+        role: worker.skillTrade || worker.role || 'Worker',
+        projectName: worker.assignedProject?.name || worker.projectName,
+        assignedProject: worker.assignedProject?.name || worker.assignedProject,
+        status: String(worker.status || 'ACTIVE').replace(/_/g, ' '),
+      })) : current.workers,
+      tasks: Array.isArray(payload(3)) ? payload(3).map((task) => ({
+        ...task,
+        project: task.project?.name || task.project,
+        progress: task.completionPercentage ?? task.progress ?? 0,
+        deadline: task.dueDate || task.deadline,
+      })) : current.tasks,
+      attendanceLogs: Array.isArray(payload(4)) ? payload(4).map((entry) => ({
+        ...entry,
+        workerName: entry.worker?.fullName || entry.workerName,
+        siteName: entry.project?.name || entry.siteName,
+        checkInTime: entry.checkIn ? new Date(entry.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : entry.checkInTime,
+        checkOutTime: entry.checkOut ? new Date(entry.checkOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : entry.checkOutTime || 'Active On Site',
+      })) : current.attendanceLogs,
+      equipment: Array.isArray(payload(5)) ? payload(5).map((item) => ({
+        ...item,
+        projectName: item.project?.name || item.projectName,
+        status: String(item.status || 'OPERATIONAL').replace(/_/g, ' '),
+      })) : current.equipment,
+      finances: Array.isArray(payload(6)) ? payload(6).map((finance) => ({
+        ...finance,
+        invoiceNo: finance.invoiceNumber || finance.invoiceNo,
+        contractor: finance.vendorName || finance.contractor,
+        projectName: finance.project?.name || finance.projectName,
+      })) : current.finances,
+      documents: Array.isArray(payload(7)) ? payload(7).map((document) => ({
+        ...document,
+        name: document.title || document.name,
+        type: document.fileType || document.type,
+        projectName: document.project?.name || document.projectName,
+      })) : current.documents,
+        progressReports: Array.isArray(payload(8)) ? payload(8) : current.progressReports,
+      }));
+      setRealtimeStatus((status) => ({ ...status, lastSyncedAt: new Date().toISOString() }));
+    } finally {
+      refreshInFlight.current = false;
+    }
+  }, []);
+
+  useEffect(() => {
+    let refreshTimer;
+    const sync = (event) => {
+      if (event?.source === 'tab' && event.snapshot) {
+        setData(event.snapshot);
+        setRealtimeStatus((status) => ({ ...status, lastSyncedAt: new Date().toISOString() }));
+        return;
+      }
+      window.clearTimeout(refreshTimer);
+      refreshTimer = window.setTimeout(refreshFromServer, 120);
     };
+    realtimeClient.resume();
+    sync();
+    const unsubscribe = realtimeBus.subscribe('SERVER_UPDATE', sync);
+    const unsubscribeStatus = realtimeBus.subscribe('REALTIME_STATUS', setRealtimeStatus);
+    window.addEventListener('buildtrack:auth-changed', sync);
+    return () => {
+      window.clearTimeout(refreshTimer);
+      unsubscribe();
+      unsubscribeStatus();
+      window.removeEventListener('buildtrack:auth-changed', sync);
+    };
+  }, [refreshFromServer]);
 
-    setData((prev) => ({
-      ...prev,
-      projects: [newProject, ...prev.projects],
-    }));
-
+  // 1. User Creation Flow Actions
+  const addUser = (newUser) => {
+    const userObj = {
+      id: Date.now().toString(),
+      fullName: newUser.fullName,
+      email: newUser.email,
+      role: newUser.role,
+      companyName: newUser.companyName || 'Solviontech Infrastructure Ltd',
+      blocked: false,
+      createdAt: new Date().toISOString(),
+    };
+    updateData(prev => ({ ...prev, usersList: [userObj, ...prev.usersList] }), { domain: 'users', action: 'created' });
     notificationService.pushAlert({
-      title: 'New Project Launched',
-      message: `Project "${newProject.name}" created under ${newProject.companyName}.`,
+      title: 'User Created',
+      message: `User ${userObj.fullName} (${userObj.role}) created successfully.`,
       type: 'SUCCESS',
     });
-
-    return newProject;
+    return userObj;
   };
 
-  const updateProject = (id, updatedFields) => {
-    setData((prev) => ({
-      ...prev,
-      projects: prev.projects.map((p) => (p.id === id ? { ...p, ...updatedFields } : p)),
-    }));
-  };
-
-  const deleteProject = (id) => {
-    setData((prev) => ({
-      ...prev,
-      projects: prev.projects.filter((p) => p.id !== id),
-    }));
-  };
-
-  // Worker Actions
-  const addWorker = (worker) => {
-    const newWorker = {
+  // 2. Project Assignment Flow Actions
+  const addProject = (proj) => {
+    const newProj = {
       id: Date.now(),
-      fullName: worker.fullName || 'Field Worker',
-      role: worker.role || 'Mason',
-      trade: worker.trade || 'Masonry',
-      companyName: worker.companyName || 'Solviontech Infrastructure Ltd',
-      projectName: worker.projectName || 'Metro Tower Site',
-      phone: worker.phone || '+91 9876543210',
-      dailyWage: worker.dailyWage || '$45/day',
+      name: proj.name,
+      companyName: proj.companyName || 'Solviontech Infrastructure Ltd',
+      location: proj.location || 'Metro Site Zone',
+      budget: parseFloat(proj.budget) || 1000000,
+      progress: 0,
       status: 'Active',
-      attendanceRate: '100%',
-      ...worker,
+      startDate: new Date().toISOString().split('T')[0],
+      deadline: proj.deadline || '2026-12-31',
+      pmName: proj.pmName || 'Unassigned PM',
+      seName: proj.seName || 'Unassigned SE',
+      contractorName: proj.contractorName || 'Unassigned Contractor',
+      assignedWorkers: proj.assignedWorkers || [],
     };
-    setData((prev) => ({
-      ...prev,
-      workers: [newWorker, ...prev.workers],
-    }));
-
-    notificationService.pushAlert({
-      title: 'Worker Onboarded',
-      message: `${newWorker.fullName} (${newWorker.trade}) onboarded to ${newWorker.companyName}.`,
-      type: 'INFO',
-    });
-
-    return newWorker;
+    updateData(prev => ({ ...prev, projects: [newProj, ...prev.projects] }), { domain: 'projects', action: 'created' });
+    api.post('/projects', {
+      name: newProj.name,
+      location: newProj.location,
+      budget: newProj.budget,
+      startDate: newProj.startDate,
+      estEndDate: newProj.deadline,
+    }).then(refreshFromServer).catch(() => undefined);
+    return newProj;
   };
 
-  const deleteWorker = (id) => {
-    setData((prev) => ({
+  const assignPMToProject = (projectId, pmName) => {
+    updateData(prev => ({
       ...prev,
-      workers: prev.workers.filter((w) => w.id !== id),
-    }));
+      projects: prev.projects.map(p => p.id === projectId ? { ...p, pmName } : p)
+    }), { domain: 'projects', action: 'assigned' });
   };
 
-  // Equipment Actions
-  const addEquipment = (equip) => {
-    const newEquip = {
-      id: Date.now(),
-      name: equip.name || 'Heavy Equipment Asset',
-      type: equip.type || 'Lifting / Machinery',
-      code: equip.code || `EQP-${Date.now().toString().slice(-4)}`,
-      status: equip.status || 'Operational',
-      companyName: equip.companyName || 'Solviontech Infrastructure Ltd',
-      projectName: equip.projectName || 'Metro Tower Site',
-      operator: equip.operator || 'Assigned Driver',
-      ...equip,
-    };
-    setData((prev) => ({
+  const assignSEToProject = (projectId, seName) => {
+    updateData(prev => ({
       ...prev,
-      equipment: [newEquip, ...prev.equipment],
-    }));
-
-    notificationService.pushAlert({
-      title: 'Machinery Registered',
-      message: `${newEquip.name} deployed to ${newEquip.projectName}.`,
-      type: 'INFO',
-    });
-
-    return newEquip;
+      projects: prev.projects.map(p => p.id === projectId ? { ...p, seName } : p)
+    }), { domain: 'projects', action: 'assigned' });
   };
 
-  // Finance Actions
-  const addFinance = (fin) => {
-    const newFin = {
-      id: Date.now(),
-      invoiceNo: fin.invoiceNo || `INV-${Date.now().toString().slice(-4)}`,
-      amount: parseFloat(fin.amount) || 0,
-      companyName: fin.companyName || 'Solviontech Infrastructure Ltd',
-      projectName: fin.projectName || 'Metro Tower Site',
-      contractor: fin.contractor || 'Prime Subcontractor',
-      status: fin.status || 'Paid',
-      date: new Date().toISOString().split('T')[0],
-      ...fin,
-    };
-    setData((prev) => ({
+  const assignContractorToProject = (projectId, contractorName) => {
+    updateData(prev => ({
       ...prev,
-      finances: [newFin, ...prev.finances],
-    }));
-
-    notificationService.pushAlert({
-      title: 'Invoice Logged',
-      message: `Invoice #${newFin.invoiceNo} ($${newFin.amount.toLocaleString()}) approved and paid.`,
-      type: 'SUCCESS',
-    });
-
-    return newFin;
+      projects: prev.projects.map(p => p.id === projectId ? { ...p, contractorName } : p)
+    }), { domain: 'projects', action: 'assigned' });
   };
 
-  // Task Actions
+  const assignWorkersToProject = (projectId, workerNames) => {
+    updateData(prev => ({
+      ...prev,
+      projects: prev.projects.map(p => p.id === projectId ? { ...p, assignedWorkers: workerNames } : p)
+    }), { domain: 'projects', action: 'assigned' });
+  };
+
+  // 3. Task Assignment Flow Actions
   const addTask = (task) => {
     const newTask = {
-      id: Date.now(),
-      title: task.title || 'Construction Site Task',
-      projectName: task.projectName || 'Metro Tower Site',
-      assignedTo: task.assignedTo || 'Site Worker',
+      id: Date.now().toString(),
+      title: task.title,
+      project: task.project || 'Metro Tower Site A',
+      createdBy: task.createdBy || 'Project Manager',
+      assignedSE: task.assignedSE || 'Unassigned SE',
+      assignedContractor: task.assignedContractor || 'Unassigned Contractor',
+      assignedWorker: task.assignedWorker || 'Unassigned Worker',
       priority: task.priority || 'Medium',
-      status: task.status || 'In Progress',
-      dueDate: task.dueDate || new Date().toISOString().split('T')[0],
-      ...task,
+      status: 'Assigned',
+      progress: 0,
+      deadline: task.deadline || '2026-09-01',
     };
-    setData((prev) => ({
-      ...prev,
-      tasks: [newTask, ...prev.tasks],
-    }));
-
-    notificationService.pushAlert({
-      title: 'Task Assigned',
-      message: `Task "${newTask.title}" assigned to ${newTask.assignedTo}.`,
-      type: 'INFO',
-    });
-
+    updateData(prev => ({ ...prev, tasks: [newTask, ...prev.tasks] }), { domain: 'tasks', action: 'created' });
+    const project = data.projects.find((item) => String(item.id) === String(task.projectId) || item.name === newTask.project);
+    if (project?.id) {
+      api.post('/tasks', {
+        title: newTask.title,
+        priority: String(newTask.priority).toUpperCase(),
+        status: 'TODO',
+        completionPercentage: 0,
+        dueDate: newTask.deadline,
+        project: { id: project.id },
+      }).then(refreshFromServer).catch(() => undefined);
+    }
     return newTask;
   };
 
-  // Issue / Hazard Actions
-  const addIssue = (issue) => {
-    const newIssue = {
-      id: Date.now(),
-      title: issue.title || 'Site Hazard Alert',
-      severity: issue.severity || 'Medium',
-      status: 'Open',
-      projectName: issue.projectName || 'Metro Tower Site',
-      reportedBy: issue.reportedBy || 'Site Engineer',
-      date: new Date().toISOString().split('T')[0],
-      ...issue,
-    };
-    setData((prev) => ({
+  const updateTaskStatus = (taskId, status, progress) => {
+    updateData(prev => ({
       ...prev,
-      issues: [newIssue, ...prev.issues],
-    }));
-
-    notificationService.pushAlert({
-      title: 'Safety Hazard Alert',
-      message: `Hazard ticket "${newIssue.title}" reported by ${newIssue.reportedBy}.`,
-      type: 'WARNING',
-    });
-
-    return newIssue;
+      tasks: prev.tasks.map(t => t.id === taskId ? { ...t, status, progress: progress !== undefined ? progress : t.progress } : t)
+    }), { domain: 'tasks', action: 'updated' });
+    api.patch(`/tasks/${taskId}`, {
+      status: String(status || '').toUpperCase().replace(/\s+/g, '_'),
+      progress,
+    }).then(refreshFromServer).catch(() => undefined);
   };
 
-  // Material Actions
-  const addMaterial = (material) => {
-    const newMat = {
-      id: Date.now(),
-      name: material.name || 'Construction Raw Material',
-      quantity: material.quantity || '100 Bags',
-      unit: material.unit || 'Bags',
-      status: material.status || 'In Stock',
-      projectName: material.projectName || 'Metro Tower Site',
-      ...material,
+  // 4. Attendance Flow Actions
+  const logWorkerCheckIn = (workerName, siteName) => {
+    const today = new Date().toISOString().split('T')[0];
+    const newLog = {
+      id: Date.now().toString(),
+      workerName,
+      workerRole: 'Worker',
+      contractorName: 'BuildCorp Contractors',
+      siteName: siteName || 'Metro Tower Site A',
+      date: today,
+      checkInTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      checkOutTime: 'Active On Site',
+      status: 'Present',
+      contractorMarked: true,
+      seVerified: 'Pending',
+      pmReviewed: 'Pending',
+      caApproved: 'Pending',
     };
-    setData((prev) => ({
-      ...prev,
-      materials: [newMat, ...prev.materials],
-    }));
-
-    notificationService.pushAlert({
-      title: 'Material Delivery Logged',
-      message: `${newMat.quantity} of ${newMat.name} received at site.`,
-      type: 'INFO',
-    });
-
-    return newMat;
+    updateData(prev => ({ ...prev, attendanceLogs: [newLog, ...prev.attendanceLogs] }), { domain: 'attendance', action: 'checked_in' });
+    const worker = data.workers.find((item) => (item.fullName || item.name) === workerName);
+    const project = data.projects.find((item) => item.name === (siteName || newLog.siteName));
+    if (Number.isFinite(Number(worker?.id))) {
+      api.post('/attendance/check-in', {
+        worker: { id: Number(worker.id) },
+        ...(Number.isFinite(Number(project?.id)) ? { project: { id: Number(project.id) } } : {}),
+      }).then(refreshFromServer).catch(() => undefined);
+    }
+    return newLog;
   };
 
-  // Daily Progress Log Action
+  const logWorkerCheckOut = (logId) => {
+    const checkOutTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    updateData(prev => ({
+      ...prev,
+      attendanceLogs: prev.attendanceLogs.map((log) => String(log.id) === String(logId)
+        ? { ...log, checkOutTime, checkOut: new Date().toISOString() }
+        : log),
+    }), { domain: 'attendance', action: 'checked_out' });
+    if (Number.isFinite(Number(logId))) {
+      api.patch(`/attendance/${logId}/check-out`).then(refreshFromServer).catch(() => undefined);
+    }
+  };
+
+  const verifyAttendanceSE = (logId) => {
+    updateData(prev => ({
+      ...prev,
+      attendanceLogs: prev.attendanceLogs.map(l => l.id === logId ? { ...l, seVerified: 'Verified' } : l)
+    }), { domain: 'attendance', action: 'verified' });
+    if (Number.isFinite(Number(logId))) {
+      api.patch(`/attendance/${logId}/verification`, { verified: true }).then(refreshFromServer).catch(() => undefined);
+    }
+  };
+
+  const reviewAttendancePM = (logId) => {
+    updateData(prev => ({
+      ...prev,
+      attendanceLogs: prev.attendanceLogs.map(l => l.id === logId ? { ...l, pmReviewed: 'Reviewed' } : l)
+    }), { domain: 'attendance', action: 'reviewed' });
+  };
+
+  const approveAttendanceCA = (logId) => {
+    updateData(prev => ({
+      ...prev,
+      attendanceLogs: prev.attendanceLogs.map(l => l.id === logId ? { ...l, caApproved: 'Approved' } : l)
+    }), { domain: 'attendance', action: 'approved' });
+  };
+
+  // Generic helpers
+  const addWorker = (w) => {
+    updateData(prev => ({ ...prev, workers: [w, ...prev.workers] }), { domain: 'workers', action: 'created' });
+    api.post('/workers', {
+      fullName: w.fullName || w.name,
+      phone: w.phone,
+      skillTrade: w.skillTrade || w.role || 'Worker',
+      dailyWage: Number(w.dailyWage || 0),
+      qrCodeToken: w.qrCodeToken || `QR-${Date.now()}`,
+      status: String(w.status || 'ACTIVE').toUpperCase().replace(/\s+/g, '_'),
+      contractorName: w.contractorName,
+      siteEngineerName: w.siteEngineerName,
+      assignmentType: w.workerAssignmentType || w.assignmentType || 'DIRECT_PROJECT',
+    }).then(refreshFromServer).catch(() => undefined);
+  };
+  const addEquipment = (eq) => {
+    updateData(prev => ({ ...prev, equipment: [eq, ...prev.equipment] }), { domain: 'equipment', action: 'created' });
+    const project = data.projects.find((item) => item.name === eq.projectName);
+    api.post('/equipment', {
+      name: eq.name,
+      category: eq.category || 'General',
+      serialNumber: eq.equipmentId,
+      status: String(eq.status || 'OPERATIONAL').toUpperCase().replace(/\s+/g, '_'),
+      dailyCost: Number(eq.dailyCost || 0),
+      ...(Number.isFinite(Number(project?.id)) ? { project: { id: Number(project.id) } } : {}),
+    }).then(refreshFromServer).catch(() => undefined);
+  };
+  const deleteEquipment = (eqId) => updateData(prev => ({ ...prev, equipment: prev.equipment.filter(e => String(e.id) !== String(eqId)) }), { domain: 'equipment', action: 'deleted' });
+  const updateEquipmentStatus = (eqId, newStatus) => {
+    updateData(prev => ({ ...prev, equipment: prev.equipment.map(e => String(e.id) === String(eqId) ? { ...e, status: newStatus } : e) }), { domain: 'equipment', action: 'updated' });
+    if (Number.isFinite(Number(eqId))) {
+      api.patch(`/equipment/${eqId}/status`, { status: String(newStatus).toUpperCase().replace(/\s+/g, '_') })
+        .then(refreshFromServer).catch(() => undefined);
+    }
+  };
+  const addFinance = (f) => updateData(prev => ({ ...prev, finances: [f, ...prev.finances] }), { domain: 'finance', action: 'created' });
+  const addMaterial = (m) => updateData(prev => ({ ...prev, materials: [m, ...prev.materials] }), { domain: 'materials', action: 'created' });
+  const addIssue = (iss) => updateData(prev => ({ ...prev, issues: [iss, ...prev.issues] }), { domain: 'issues', action: 'created' });
+  const addDocument = (doc) => updateData(prev => ({ ...prev, documents: [doc, ...prev.documents] }), { domain: 'documents', action: 'created' });
+  const addCompany = (c) => {
+    updateData(prev => ({ ...prev, companies: [c, ...prev.companies] }), { domain: 'companies', action: 'created' });
+    api.post('/superadmin/companies', c).then(refreshFromServer).catch(() => undefined);
+  };
+  const deleteCompany = (cIdOrName) => {
+    updateData(prev => ({ ...prev, companies: prev.companies.filter(c => String(c.id) !== String(cIdOrName) && c.name !== cIdOrName) }), { domain: 'companies', action: 'deleted' });
+    if (Number.isFinite(Number(cIdOrName))) api.delete(`/superadmin/companies/${cIdOrName}`).then(refreshFromServer).catch(() => undefined);
+  };
+  const updateCompanyStatus = (cIdOrName, newStatus) => {
+    updateData(prev => ({ ...prev, companies: prev.companies.map(c => (String(c.id) === String(cIdOrName) || c.name === cIdOrName) ? { ...c, status: newStatus } : c) }), { domain: 'companies', action: 'updated' });
+    if (Number.isFinite(Number(cIdOrName))) api.patch(`/superadmin/companies/${cIdOrName}/status`, { status: newStatus }).then(refreshFromServer).catch(() => undefined);
+  };
+
   const addProgressReport = (report) => {
     const newReport = {
       id: Date.now(),
-      projectName: report.projectName || 'Metro Tower Site',
-      workCompleted: report.workCompleted || 'Rebar Pouring',
-      percentageDelta: parseInt(report.percentageDelta, 10) || 5,
-      submittedBy: report.submittedBy || 'Site Engineer',
-      date: new Date().toISOString().split('T')[0],
+      date: new Date().toISOString().slice(0, 10),
       ...report,
     };
-
-    if (report.projectId) {
-      updateProject(report.projectId, { progress: Math.min(100, Math.max(0, parseInt(report.newTotalProgress, 10) || 50)) });
-    }
-
-    setData((prev) => ({
-      ...prev,
-      progressReports: [newReport, ...prev.progressReports],
-    }));
-
-    notificationService.pushAlert({
-      title: 'Daily Progress Submitted',
-      message: `${newReport.projectName} progress updated to ${newReport.newTotalProgress || 50}%.`,
-      type: 'SUCCESS',
-    });
-
+    updateData(prev => {
+      const updatedProjects = prev.projects.map(p => {
+        if (String(p.id) === String(report.projectId) || p.name === report.projectName) {
+          return { ...p, progress: report.newTotalProgress || p.progress };
+        }
+        return p;
+      });
+      return {
+        ...prev,
+        projects: updatedProjects,
+        progressReports: [newReport, ...(prev.progressReports || [])],
+      };
+    }, { domain: 'reports', action: 'created' });
+    api.post('/reports', newReport).then(refreshFromServer).catch(() => undefined);
     return newReport;
   };
 
-  // Users List Actions
-  const addUser = (usr) => {
-    const newUser = {
-      id: Date.now(),
-      fullName: usr.fullName || 'System User',
-      email: usr.email || 'user@buildtrack.ai',
-      role: usr.role || 'COMPANY_ADMIN',
-      companyName: usr.companyName || 'Solviontech Infrastructure Ltd',
-      status: 'Active',
-      createdAt: new Date().toISOString().split('T')[0],
-      ...usr,
-    };
-    setData((prev) => ({
-      ...prev,
-      usersList: [newUser, ...prev.usersList],
-    }));
-
-    notificationService.pushAlert({
-      title: 'System Account Created',
-      message: `User account created for ${newUser.fullName} (${newUser.role}).`,
-      type: 'INFO',
-    });
-
-    return newUser;
-  };
-
-  // Team Members Actions
-  const addTeamMember = (member) => {
-    const newMem = {
-      id: Date.now(),
-      fullName: member.fullName || 'Team Member',
-      role: member.role || 'Site Supervisor',
-      email: member.email || 'member@buildtrack.ai',
-      companyName: member.companyName || 'Solviontech Infrastructure Ltd',
-      phone: member.phone || '+91 9876543210',
-      ...member,
-    };
-    setData((prev) => ({
-      ...prev,
-      teamMembers: [newMem, ...prev.teamMembers],
-    }));
-
-    notificationService.pushAlert({
-      title: 'Team Member Added',
-      message: `${newMem.fullName} added as ${newMem.role}.`,
-      type: 'INFO',
-    });
-
-    return newMem;
-  };
-
-  // Document Actions
-  const addDocument = (doc) => {
-    const newDoc = {
-      id: Date.now(),
-      name: doc.name || 'Blueprint_Plan.pdf',
-      type: doc.type || 'Blueprint',
-      size: doc.size || '2.4 MB',
-      uploadedBy: doc.uploadedBy || 'Site Engineer',
-      date: new Date().toISOString().split('T')[0],
-      ...doc,
-    };
-    setData((prev) => ({
-      ...prev,
-      documents: [newDoc, ...prev.documents],
-    }));
-
-    notificationService.pushAlert({
-      title: 'Document Uploaded',
-      message: `Document "${newDoc.name}" uploaded to vault.`,
-      type: 'INFO',
-    });
-
-    return newDoc;
-  };
-
-  // Attendance Log Action
-  const recordAttendance = (log) => {
-    const newLog = {
-      id: Date.now(),
-      workerName: log.workerName || 'Field Worker',
-      timeIn: log.timeIn || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      status: 'Present',
-      station: log.station || 'QR Station 1',
-      date: new Date().toISOString().split('T')[0],
-      ...log,
-    };
-    setData((prev) => ({
-      ...prev,
-      attendanceLogs: [newLog, ...prev.attendanceLogs],
-    }));
-
-    notificationService.pushAlert({
-      title: 'Shift Clock-In Verified',
-      message: `${newLog.workerName} clocked in at ${newLog.timeIn}.`,
-      type: 'SUCCESS',
-    });
-
-    return newLog;
-  };
-
-  // Subscription Actions
-  const addSubscription = (sub) => {
-    const newSub = {
-      id: Date.now(),
-      companyName: sub.companyName || 'Tenant Company',
-      plan: sub.plan || 'Enterprise SaaS ($4,999/mo)',
-      status: 'Active',
-      renewalDate: sub.renewalDate || '2027-01-01',
-      ...sub,
-    };
-    setData((prev) => ({
-      ...prev,
-      subscriptions: [newSub, ...prev.subscriptions],
-    }));
-    return newSub;
-  };
-
-  // Audit Log Action
-  const addAuditLog = (log) => {
-    const newLog = {
-      id: Date.now(),
-      action: log.action || 'System Action Logged',
-      performedBy: log.performedBy || 'Super Admin',
-      timestamp: new Date().toLocaleTimeString(),
-      ...log,
-    };
-    setData((prev) => ({
-      ...prev,
-      auditLogs: [newLog, ...prev.auditLogs],
-    }));
-    return newLog;
-  };
+  const addTeamMember = (tm) => updateData(prev => ({ ...prev, teamMembers: [tm, ...(prev.teamMembers || [])] }), { domain: 'team', action: 'created' });
 
   return (
     <DataContext.Provider
       value={{
-        companies: data.companies,
-        projects: data.projects,
-        workers: data.workers,
-        equipment: data.equipment,
-        finances: data.finances,
-        tasks: data.tasks,
-        issues: data.issues,
-        materials: data.materials,
-        progressReports: data.progressReports,
-        usersList: data.usersList,
-        teamMembers: data.teamMembers,
-        documents: data.documents,
-        attendanceLogs: data.attendanceLogs,
-        subscriptions: data.subscriptions,
-        auditLogs: data.auditLogs,
-        addCompany,
-        addProject,
-        updateProject,
-        deleteProject,
-        addWorker,
-        deleteWorker,
-        addEquipment,
-        addFinance,
-        addTask,
-        addIssue,
-        addMaterial,
-        addProgressReport,
+        ...data,
         addUser,
-        addTeamMember,
+        addProject,
+        assignPMToProject,
+        assignSEToProject,
+        assignContractorToProject,
+        assignWorkersToProject,
+        addTask,
+        updateTaskStatus,
+        logWorkerCheckIn,
+        logWorkerCheckOut,
+        verifyAttendanceSE,
+        reviewAttendancePM,
+        approveAttendanceCA,
+        addWorker,
+        addEquipment,
+        deleteEquipment,
+        updateEquipmentStatus,
+        addFinance,
+        addMaterial,
+        addIssue,
         addDocument,
-        recordAttendance,
-        addSubscription,
-        addAuditLog,
+        addCompany,
+        deleteCompany,
+        updateCompanyStatus,
+        addProgressReport,
+        addTeamMember,
+        refreshFromServer,
+        realtimeStatus,
       }}
     >
       {children}
@@ -505,9 +566,9 @@ export function DataProvider({ children }) {
 }
 
 export function useData() {
-  const ctx = useContext(DataContext);
-  if (!ctx) {
+  const context = useContext(DataContext);
+  if (!context) {
     throw new Error('useData must be used within a DataProvider');
   }
-  return ctx;
+  return context;
 }

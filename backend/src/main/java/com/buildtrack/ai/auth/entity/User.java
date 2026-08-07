@@ -13,10 +13,10 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "first_name", nullable = false)
+    @Column(name = "first_name")
     private String firstName;
 
-    @Column(name = "last_name", nullable = false)
+    @Column(name = "last_name")
     private String lastName;
 
     @Column(nullable = false, unique = true)
@@ -31,16 +31,27 @@ public class User {
     private boolean enabled;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private AuthProvider provider;
+    private AuthProvider provider = AuthProvider.LOCAL;
 
     @Column(name = "company_id")
     private Long companyId;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column(name = "company_code")
+    private String companyCode;
+
+    @Column(name = "assigned_project_id")
+    private Long assignedProjectId;
+
+    @Column(name = "assigned_contractor_id")
+    private Long assignedContractorId;
+
+    @Column(name = "assigned_se_id")
+    private Long assignedSeId;
+
+    @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at", nullable = false)
+    @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
     @ManyToMany(fetch = FetchType.EAGER)
@@ -107,6 +118,18 @@ public class User {
     public Long getCompanyId() { return companyId; }
     public void setCompanyId(Long companyId) { this.companyId = companyId; }
 
+    public String getCompanyCode() { return companyCode; }
+    public void setCompanyCode(String companyCode) { this.companyCode = companyCode; }
+
+    public Long getAssignedProjectId() { return assignedProjectId; }
+    public void setAssignedProjectId(Long assignedProjectId) { this.assignedProjectId = assignedProjectId; }
+
+    public Long getAssignedContractorId() { return assignedContractorId; }
+    public void setAssignedContractorId(Long assignedContractorId) { this.assignedContractorId = assignedContractorId; }
+
+    public Long getAssignedSeId() { return assignedSeId; }
+    public void setAssignedSeId(Long assignedSeId) { this.assignedSeId = assignedSeId; }
+
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 
@@ -130,6 +153,10 @@ public class User {
         private boolean enabled;
         private AuthProvider provider;
         private Long companyId;
+        private String companyCode;
+        private Long assignedProjectId;
+        private Long assignedContractorId;
+        private Long assignedSeId;
         private Set<Role> roles = new HashSet<>();
 
         public UserBuilder id(Long id) { this.id = id; return this; }
@@ -141,6 +168,10 @@ public class User {
         public UserBuilder enabled(boolean enabled) { this.enabled = enabled; return this; }
         public UserBuilder provider(AuthProvider provider) { this.provider = provider; return this; }
         public UserBuilder companyId(Long companyId) { this.companyId = companyId; return this; }
+        public UserBuilder companyCode(String companyCode) { this.companyCode = companyCode; return this; }
+        public UserBuilder assignedProjectId(Long assignedProjectId) { this.assignedProjectId = assignedProjectId; return this; }
+        public UserBuilder assignedContractorId(Long assignedContractorId) { this.assignedContractorId = assignedContractorId; return this; }
+        public UserBuilder assignedSeId(Long assignedSeId) { this.assignedSeId = assignedSeId; return this; }
         public UserBuilder roles(Set<Role> roles) { this.roles = roles; return this; }
 
         public User build() {
@@ -154,6 +185,10 @@ public class User {
             u.enabled = this.enabled;
             u.provider = this.provider;
             u.companyId = this.companyId;
+            u.companyCode = this.companyCode;
+            u.assignedProjectId = this.assignedProjectId;
+            u.assignedContractorId = this.assignedContractorId;
+            u.assignedSeId = this.assignedSeId;
             u.roles = this.roles != null ? this.roles : new HashSet<>();
             return u;
         }

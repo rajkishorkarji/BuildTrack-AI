@@ -41,6 +41,15 @@ public class Worker {
     @JoinColumn(name = "assigned_project_id")
     private Project assignedProject;
 
+    private Long companyId;
+
+    private String contractorName;
+
+    private String siteEngineerName;
+
+    // DIRECT_PROJECT, CONTRACTOR, SITE_ENGINEER
+    private String assignmentType = "DIRECT_PROJECT";
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

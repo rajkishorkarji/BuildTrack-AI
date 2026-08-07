@@ -40,10 +40,10 @@ export function AuthProvider({ children }) {
           permissions: parsed.permissions || getRolePermissions(parsed.role),
         };
       } catch (e) {
-        return defaultSuperAdmin;
+        return null;
       }
     }
-    return defaultSuperAdmin;
+    return null;
   });
 
   const updateUser = (updatedFields) => {
@@ -79,6 +79,28 @@ export function AuthProvider({ children }) {
     const formattedRole = (userData.role || 'COMPANY_ADMIN').toUpperCase().replace(/\s+/g, '_');
     const fullName = `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || 'New User';
     
+    // Look up company by companyCode if available in localStorage companies
+    let resolvedCompanyName = userData.companyName || 'Registered Infrastructure Ltd';
+    let resolvedCompanyCode = userData.companyCode || '';
+
+    try {
+      const storedData = localStorage.getItem('buildtrack_app_data');
+      if (storedData) {
+        const parsedData = JSON.parse(storedData);
+        if (parsedData.companies && userData.companyCode) {
+          const match = parsedData.companies.find(
+            c => (c.code || '').trim().toLowerCase() === userData.companyCode.trim().toLowerCase()
+          );
+          if (match) {
+            resolvedCompanyName = match.name;
+            resolvedCompanyCode = match.code;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Could not resolve company code:', e);
+    }
+
     const newUser = {
       id: Date.now().toString(),
       fullName,
@@ -88,7 +110,8 @@ export function AuthProvider({ children }) {
       role: formattedRole,
       roleLabel: formattedRole.replace(/_/g, ' '),
       avatar: fullName.split(' ').map((n) => n[0]).join('').toUpperCase(),
-      companyName: userData.companyName || 'Registered Infrastructure Ltd',
+      companyName: resolvedCompanyName,
+      companyCode: resolvedCompanyCode,
       permissions: getRolePermissions(formattedRole),
     };
 
@@ -104,13 +127,36 @@ export function AuthProvider({ children }) {
   };
 
   const login = (email, password) => {
+    if (typeof email === 'object' && email) {
+      const sessionUser = {
+        ...email,
+        roleLabel: email.roleLabel || String(email.role || 'WORKER').replace(/_/g, ' '),
+        avatar: email.avatar || String(email.fullName || email.email || 'U').split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase(),
+        permissions: email.permissions?.length ? email.permissions : getRolePermissions(email.role),
+      };
+      setUser(sessionUser);
+      localStorage.setItem('buildtrack_user', JSON.stringify(sessionUser));
+      window.dispatchEvent(new Event('buildtrack:auth-changed'));
+      return sessionUser;
+    }
     const emailLower = (email || '').toLowerCase().trim();
     
+    // Super Admin emails always resolve to defaultSuperAdmin
+    if (
+      emailLower === 'raj@buildtrack.ai' ||
+      emailLower === 'superadmin@buildtrack.ai' ||
+      emailLower === 'admin@buildtrack.ai'
+    ) {
+      setUser(defaultSuperAdmin);
+      localStorage.setItem('buildtrack_user', JSON.stringify(defaultSuperAdmin));
+      return defaultSuperAdmin;
+    }
+
     // Find matching registered user or match Super Admin
     let found = registeredUsers.find((u) => u.email.toLowerCase() === emailLower);
 
     if (!found) {
-      if (emailLower.includes('raj@') || emailLower.includes('admin') || emailLower.includes('super')) {
+      if (emailLower.includes('raj@') || emailLower.includes('super')) {
         found = defaultSuperAdmin;
       } else {
         // Create user session dynamically for entered email

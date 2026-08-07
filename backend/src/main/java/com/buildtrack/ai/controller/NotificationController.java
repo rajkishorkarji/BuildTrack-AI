@@ -21,6 +21,11 @@ public class NotificationController {
         return ResponseEntity.ok(ApiResponse.success(notificationService.getNotifications()));
     }
 
+    @PostMapping
+    public ResponseEntity<ApiResponse<Notification>> createNotification(@RequestBody Notification notification) {
+        return ResponseEntity.ok(ApiResponse.success(notificationService.createNotification(notification)));
+    }
+
     @PutMapping("/mark-read")
     public ResponseEntity<ApiResponse<String>> markRead() {
         notificationService.markAllAsRead();

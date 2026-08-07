@@ -31,6 +31,10 @@ public class ApiResponse<T> {
     public T getData() { return data; }
     public void setData(T data) { this.data = data; }
 
+    public static <T> ApiResponse<T> success() {
+        return new ApiResponse<>(true, "Operation Successful", null);
+    }
+
     public static <T> ApiResponse<T> success(T data) {
         return new ApiResponse<>(true, "Operation Successful", data);
     }

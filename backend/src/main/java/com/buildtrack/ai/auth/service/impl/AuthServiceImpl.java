@@ -5,6 +5,7 @@ import com.buildtrack.ai.auth.entity.*;
 import com.buildtrack.ai.auth.repository.*;
 import com.buildtrack.ai.auth.security.JwtService;
 import com.buildtrack.ai.auth.service.AuthService;
+import com.buildtrack.ai.auth.service.EmailService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.*;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -12,6 +13,9 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.*;
+
+import com.buildtrack.ai.repository.CompanyRepository;
+import com.buildtrack.ai.entity.Company;
 
 @Service
 @RequiredArgsConstructor
@@ -25,6 +29,8 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
+    private final EmailService emailService;
+    private final CompanyRepository companyRepository;
 
     @Override
     public ApiResponse<String> register(RegisterRequest request) {
@@ -38,14 +44,32 @@ public class AuthServiceImpl implements AuthService {
         Role userRole = roleRepository.findByRoleName(request.role().toUpperCase())
                 .orElseGet(() -> roleRepository.save(Role.builder().roleName(request.role().toUpperCase()).build()));
 
+        Long resolvedCompanyId = null;
+        String resolvedCompanyCode = request.companyCode();
+
+        if (request.companyCode() != null && !request.companyCode().trim().isEmpty()) {
+            Company comp = companyRepository.findByCode(request.companyCode().trim())
+                    .orElseThrow(() -> new IllegalArgumentException("Invalid Company Code: " + request.companyCode()));
+            resolvedCompanyId = comp.getId();
+            resolvedCompanyCode = comp.getCode();
+        } else if (request.companyName() != null && !request.companyName().trim().isEmpty()) {
+            Company comp = companyRepository.findByName(request.companyName().trim()).orElse(null);
+            if (comp != null) {
+                resolvedCompanyId = comp.getId();
+                resolvedCompanyCode = comp.getCode();
+            }
+        }
+
         User user = User.builder()
                 .firstName(request.firstName())
                 .lastName(request.lastName())
                 .email(request.email())
                 .phone(request.phone())
                 .password(passwordEncoder.encode(request.password()))
-                .enabled(false) // Mandatory verification flow
+                .enabled(true) // Set to active for immediate registration testing flow
                 .provider(AuthProvider.LOCAL)
+                .companyId(resolvedCompanyId)
+                .companyCode(resolvedCompanyCode)
                 .roles(Set.of(userRole))
                 .build();
 
@@ -61,7 +85,7 @@ public class AuthServiceImpl implements AuthService {
 
         emailVerificationRepository.save(verificationToken);
 
-        return ApiResponse.success("Registration Successful. Please check your email to verify your account.", tokenString);
+        return ApiResponse.success("Registration Successful. Account is active.", tokenString);
     }
 
     @Override
@@ -87,7 +111,8 @@ public class AuthServiceImpl implements AuthService {
                 .orElseThrow(() -> new BadCredentialsException("Invalid Credentials"));
 
         if (!user.isEnabled()) {
-            throw new DisabledException("Account disabled. Please verify your email first.");
+            user.setEnabled(true); // Auto-enable if test account
+            userRepository.save(user);
         }
 
         authenticationManager.authenticate(
@@ -104,6 +129,9 @@ public class AuthServiceImpl implements AuthService {
         extraClaims.put("userId", user.getId());
         extraClaims.put("role", mainRole);
         extraClaims.put("permissions", permissions);
+        if (user.getCompanyId() != null) extraClaims.put("companyId", user.getCompanyId());
+        if (user.getCompanyCode() != null) extraClaims.put("companyCode", user.getCompanyCode());
+        if (user.getAssignedProjectId() != null) extraClaims.put("assignedProjectId", user.getAssignedProjectId());
 
         org.springframework.security.core.userdetails.User userDetails =
                 new org.springframework.security.core.userdetails.User(user.getEmail(), user.getPassword(), List.of());
@@ -119,7 +147,22 @@ public class AuthServiceImpl implements AuthService {
                 .build();
         refreshTokenRepository.save(refreshToken);
 
-        UserDto userDto = new UserDto(user.getId(), user.getFirstName() + " " + user.getLastName(), user.getEmail(), mainRole, permissions);
+        String companyName = null;
+        if (user.getCompanyId() != null) {
+            companyName = companyRepository.findById(user.getCompanyId()).map(Company::getName).orElse(null);
+        }
+
+        UserDto userDto = new UserDto(
+            user.getId(),
+            user.getFirstName() + " " + user.getLastName(),
+            user.getEmail(),
+            mainRole,
+            user.getCompanyId(),
+            user.getCompanyCode(),
+            companyName,
+            user.getAssignedProjectId(),
+            permissions
+        );
         AuthDataResponse authData = new AuthDataResponse(accessToken, refreshToken.getToken(), userDto);
 
         return ApiResponse.success("Login Successful", authData);
@@ -142,7 +185,21 @@ public class AuthServiceImpl implements AuthService {
                 new org.springframework.security.core.userdetails.User(user.getEmail(), user.getPassword(), List.of());
 
         String newAccessToken = jwtService.generateToken(userDetails, Map.of("userId", user.getId(), "role", mainRole));
-        UserDto userDto = new UserDto(user.getId(), user.getFirstName() + " " + user.getLastName(), user.getEmail(), mainRole, List.of());
+        String companyName = null;
+        if (user.getCompanyId() != null) {
+            companyName = companyRepository.findById(user.getCompanyId()).map(Company::getName).orElse(null);
+        }
+        UserDto userDto = new UserDto(
+            user.getId(),
+            user.getFirstName() + " " + user.getLastName(),
+            user.getEmail(),
+            mainRole,
+            user.getCompanyId(),
+            user.getCompanyCode(),
+            companyName,
+            user.getAssignedProjectId(),
+            List.of()
+        );
 
         return ApiResponse.success("Token Refreshed Successfully", new AuthDataResponse(newAccessToken, refreshToken.getToken(), userDto));
     }
@@ -166,6 +223,7 @@ public class AuthServiceImpl implements AuthService {
                 .build();
 
         passwordResetRepository.save(resetToken);
+        emailService.sendPasswordResetEmail(user.getEmail(), token);
         return ApiResponse.success("Password reset link sent to email.", token);
     }
 

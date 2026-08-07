@@ -69,6 +69,10 @@ export const notificationService = {
     callback(notifications);
     return realtimeBus.subscribe('NOTIFICATION_UPDATE', callback);
   },
+
+  subscribe(callback) {
+    return this.subscribeToNotifications(callback);
+  },
 };
 
 export default notificationService;

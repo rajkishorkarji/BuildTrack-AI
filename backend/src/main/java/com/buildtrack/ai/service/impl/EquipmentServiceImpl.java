@@ -3,6 +3,7 @@ package com.buildtrack.ai.service.impl;
 import com.buildtrack.ai.entity.Equipment;
 import com.buildtrack.ai.repository.EquipmentRepository;
 import com.buildtrack.ai.service.EquipmentService;
+import com.buildtrack.ai.service.RealtimePublisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -14,9 +15,19 @@ public class EquipmentServiceImpl implements EquipmentService {
     @Autowired
     private EquipmentRepository equipmentRepository;
 
+    @Autowired
+    private RealtimePublisher realtimePublisher;
+
     @Override
     public List<Equipment> getAllEquipment() {
         return equipmentRepository.findAll();
+    }
+
+    @Override
+    public Equipment createEquipment(Equipment equipment) {
+        Equipment saved = equipmentRepository.save(equipment);
+        realtimePublisher.publish("equipment", "created", saved.getId());
+        return saved;
     }
 
     @Override
@@ -28,6 +39,8 @@ public class EquipmentServiceImpl implements EquipmentService {
         } catch (Exception e) {
             eq.setStatus(Equipment.EquipmentStatus.OPERATIONAL);
         }
-        return equipmentRepository.save(eq);
+        Equipment saved = equipmentRepository.save(eq);
+        realtimePublisher.publish("equipment", "updated", saved.getId());
+        return saved;
     }
 }

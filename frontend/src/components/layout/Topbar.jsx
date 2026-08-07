@@ -14,9 +14,11 @@ import {
   X,
   ChevronDown,
   Building2,
+  Radio,
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
+import { useData } from '../../context/DataContext';
 
 // Helper function to extract initials if avatar isn't explicitly set
 const getInitials = (name) => {
@@ -45,6 +47,7 @@ export default function Topbar() {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
+  const { realtimeStatus } = useData();
 
   const [query, setQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
@@ -87,143 +90,36 @@ export default function Topbar() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '12px 20px',
-        marginBottom: '20px',
+        padding: '6px 16px',
+        marginBottom: '16px',
         background: 'var(--panel)',
         color: 'var(--text)',
         border: '1px solid var(--border)',
-        borderRadius: '16px',
+        borderRadius: '12px',
         boxShadow: 'var(--shadow-soft)',
-        gap: '16px',
+        gap: '12px',
         flexWrap: 'nowrap',
       }}
     >
-      {/* Left: Global Search Input */}
-      <div style={{ position: 'relative', flex: '0 1 380px' }} ref={searchRef}>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            padding: '8px 14px',
-            background: 'var(--panel-soft)',
-            border: '1px solid var(--border)',
-            borderRadius: '12px',
-            transition: '0.2s ease',
-          }}
-        >
-          <Search size={16} style={{ color: 'var(--muted)', flexShrink: 0 }} />
-          <input
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              setSearchOpen(true);
-            }}
-            onFocus={() => setSearchOpen(true)}
-            placeholder="Search projects, workers, equipment, documents..."
-            style={{
-              border: 0,
-              outline: 0,
-              background: 'transparent',
-              color: 'var(--text)',
-              fontSize: '13px',
-              width: '100%',
-            }}
-          />
-          {query && (
-            <button
-              type="button"
-              onClick={() => {
-                setQuery('');
-                setSearchOpen(false);
-              }}
-              style={{ border: 'none', background: 'transparent', color: 'var(--muted)', cursor: 'pointer', display: 'flex', padding: 0 }}
-            >
-              <X size={14} />
-            </button>
-          )}
-        </div>
+      {/* Left: Empty Spacer for Flex Balance */}
+      <div style={{ flex: 1 }} />
 
-        {/* Global Live Search Dropdown */}
-        {searchOpen && query.trim() !== '' && (
-          <div
-            style={{
-              position: 'absolute',
-              top: 'calc(100% + 8px)',
-              left: 0,
-              width: '380px',
-              background: 'var(--panel)',
-              border: '1px solid var(--border)',
-              borderRadius: '12px',
-              boxShadow: 'var(--shadow)',
-              padding: '8px',
-              zIndex: 1000,
-              maxHeight: '320px',
-              overflowY: 'auto',
-            }}
-          >
-            {filteredSearch.length === 0 ? (
-              <div style={{ padding: '16px', textAlign: 'center', color: 'var(--muted)', fontSize: '13px' }}>
-                No matching results found for &quot;{query}&quot;
-              </div>
-            ) : (
-              filteredSearch.map((item) => {
-                const IconComponent = item.icon;
-                return (
-                  <div
-                    key={item.id}
-                    onClick={() => {
-                      navigate(item.link);
-                      setQuery('');
-                      setSearchOpen(false);
-                    }}
-                    style={{
-                      padding: '10px 12px',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '10px',
-                      marginBottom: '4px',
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--panel-soft)')}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                  >
-                    <div style={{ background: 'var(--panel-soft)', padding: '6px', borderRadius: '6px', display: 'flex', alignItems: 'center' }}>
-                      <IconComponent size={16} style={{ color: 'var(--blue)' }} />
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <strong style={{ fontSize: '13px', display: 'block', color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {item.title}
-                      </strong>
-                      <small style={{ color: 'var(--muted)', fontSize: '11px' }}>{item.type} • {item.sub}</small>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Right: Actions in a single unbroken horizontal line */}
+      {/* Center: Company Tenant Name Badge */}
       <div
         style={{
+          flex: 2,
           display: 'flex',
+          justifyContent: 'center',
           alignItems: 'center',
-          gap: '12px',
-          flexWrap: 'nowrap',
-          flexShrink: 0,
         }}
       >
-        {/* Company Tenant Name Badge */}
         <div
           style={{
-            fontSize: '12px',
+            fontSize: '13px',
             fontWeight: 700,
             color: 'var(--blue)',
             background: 'var(--panel-soft)',
-            padding: '7px 14px',
+            padding: '5px 16px',
             borderRadius: '20px',
             border: '1px solid var(--border)',
             display: 'inline-flex',
@@ -232,19 +128,38 @@ export default function Topbar() {
             whiteSpace: 'nowrap',
           }}
         >
-          <Building2 size={13} style={{ color: 'var(--blue)' }} />
+          <Building2 size={15} style={{ color: 'var(--blue)' }} />
           <span>{user?.companyName || 'Solviontech Infrastructure Ltd'}</span>
         </div>
+      </div>
 
+      {/* Right: Actions in a single unbroken horizontal line */}
+      <div
+        style={{
+          flex: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'flex-end',
+          gap: '8px',
+          flexWrap: 'nowrap',
+          flexShrink: 0,
+        }}
+      >
+        <span
+          title={realtimeStatus?.connected ? 'Live updates connected' : 'Working offline — changes will sync when the server is available'}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: realtimeStatus?.connected ? 'var(--green)' : 'var(--muted)', fontSize: '11px', fontWeight: 700, whiteSpace: 'nowrap' }}
+        >
+          <Radio size={13} /> {realtimeStatus?.connected ? 'Live' : 'Offline'}
+        </span>
         {/* Theme Toggle Button */}
         <button
           type="button"
           onClick={toggleTheme}
           aria-label="Switch Theme"
           style={{
-            width: '38px',
-            height: '38px',
-            borderRadius: '10px',
+            width: '32px',
+            height: '32px',
+            borderRadius: '8px',
             border: '1px solid var(--border)',
             background: 'var(--panel-soft)',
             color: 'var(--text)',
@@ -255,7 +170,7 @@ export default function Topbar() {
             flexShrink: 0,
           }}
         >
-          {theme === 'dark' ? <SunMedium size={16} /> : <MoonStar size={16} />}
+          {theme === 'dark' ? <SunMedium size={15} /> : <MoonStar size={15} />}
         </button>
 
         {/* Notifications Center Button */}
@@ -265,9 +180,9 @@ export default function Topbar() {
           onClick={() => navigate('/notifications')}
           style={{
             position: 'relative',
-            width: '38px',
-            height: '38px',
-            borderRadius: '10px',
+            width: '32px',
+            height: '32px',
+            borderRadius: '8px',
             border: '1px solid var(--border)',
             background: 'var(--panel-soft)',
             color: 'var(--text)',
@@ -278,17 +193,17 @@ export default function Topbar() {
             flexShrink: 0,
           }}
         >
-          <Bell size={16} />
+          <Bell size={15} />
           <span
             style={{
               position: 'absolute',
-              top: '8px',
-              right: '8px',
-              width: '7px',
-              height: '7px',
+              top: '6px',
+              right: '6px',
+              width: '6px',
+              height: '6px',
               borderRadius: '50%',
               background: 'var(--red)',
-              border: '2px solid var(--panel)',
+              border: '1.5px solid var(--panel)',
             }}
           />
         </button>
@@ -300,11 +215,11 @@ export default function Topbar() {
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '10px',
-              padding: '5px 12px 5px 6px',
+              gap: '8px',
+              padding: '3px 10px 3px 4px',
               background: 'var(--panel-soft)',
               border: '1px solid var(--border)',
-              borderRadius: '24px',
+              borderRadius: '20px',
               cursor: 'pointer',
               userSelect: 'none',
               transition: '0.2s ease',
@@ -312,13 +227,13 @@ export default function Topbar() {
           >
             <div
               style={{
-                width: '34px',
-                height: '34px',
+                width: '28px',
+                height: '28px',
                 borderRadius: '50%',
                 background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
                 color: '#ffffff',
-                fontWeight: 700,
-                fontSize: '13px',
+                fontWeight: 800,
+                fontSize: '12px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -328,16 +243,16 @@ export default function Topbar() {
               {userInitials}
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
-              <strong style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
+              <strong style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap' }}>
                 {userFullName}
               </strong>
-              <span style={{ fontSize: '11px', color: 'var(--blue)', fontWeight: 600, whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: '10px', color: 'var(--blue)', fontWeight: 600, whiteSpace: 'nowrap' }}>
                 {userRoleLabel}
               </span>
             </div>
 
-            <ChevronDown size={14} style={{ color: 'var(--muted)', marginLeft: '2px' }} />
+            <ChevronDown size={13} style={{ color: 'var(--muted)', marginLeft: '1px' }} />
           </div>
 
           {/* Profile Dropdown Menu */}

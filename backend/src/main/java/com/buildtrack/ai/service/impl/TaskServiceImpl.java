@@ -3,6 +3,7 @@ package com.buildtrack.ai.service.impl;
 import com.buildtrack.ai.entity.TaskEntity;
 import com.buildtrack.ai.repository.TaskRepository;
 import com.buildtrack.ai.service.TaskService;
+import com.buildtrack.ai.service.RealtimePublisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -14,6 +15,9 @@ public class TaskServiceImpl implements TaskService {
     @Autowired
     private TaskRepository taskRepository;
 
+
+    @Autowired
+    private RealtimePublisher realtimePublisher;
     @Override
     public List<TaskEntity> getAllTasks() {
         return taskRepository.findAll();
@@ -32,7 +36,9 @@ public class TaskServiceImpl implements TaskService {
         if (task.getStatus() == null) {
             task.setStatus("TODO");
         }
-        return taskRepository.save(task);
+        TaskEntity saved = taskRepository.save(task);
+        realtimePublisher.publish("tasks", "created", saved.getId());
+        return saved;
     }
 
     @Override
@@ -48,6 +54,8 @@ public class TaskServiceImpl implements TaskService {
         if (status != null && !status.isBlank()) {
             task.setStatus(status);
         }
-        return taskRepository.save(task);
+        TaskEntity saved = taskRepository.save(task);
+        realtimePublisher.publish("tasks", "updated", saved.getId());
+        return saved;
     }
 }

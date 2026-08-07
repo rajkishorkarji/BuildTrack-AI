@@ -1,17 +1,31 @@
-import { Outlet } from 'react-router-dom';
-import Sidebar from '../components/layout/Sidebar';
-import Topbar from '../components/layout/Topbar';
+import { useAuth } from '../context/AuthContext';
+import SuperAdminLayout from './SuperAdminLayout';
+import CompanyAdminLayout from './CompanyAdminLayout';
+import ProjectManagerLayout from './ProjectManagerLayout';
+import SiteEngineerLayout from './SiteEngineerLayout';
+import ContractorLayout from './ContractorLayout';
+import WorkerLayout from './WorkerLayout';
 
 export default function DashboardLayout() {
-  return (
-    <div className="app-shell">
-      <Sidebar />
-      <div className="content-shell">
-        <Topbar />
-        <main className="content-main">
-          <Outlet />
-        </main>
-      </div>
-    </div>
-  );
+  const { user } = useAuth();
+  const rawRole = (user?.role || 'SUPER_ADMIN').toUpperCase().replace(/[\s-]/g, '_');
+
+  switch (rawRole) {
+    case 'SUPER_ADMIN':
+      return <SuperAdminLayout />;
+    case 'COMPANY_ADMIN':
+    case 'COMPANY_MANAGER':
+      return <CompanyAdminLayout />;
+    case 'PROJECT_MANAGER':
+      return <ProjectManagerLayout />;
+    case 'SITE_ENGINEER':
+    case 'SITE_SUPERVISOR':
+      return <SiteEngineerLayout />;
+    case 'CONTRACTOR':
+      return <ContractorLayout />;
+    case 'WORKER':
+      return <WorkerLayout />;
+    default:
+      return <SuperAdminLayout />;
+  }
 }

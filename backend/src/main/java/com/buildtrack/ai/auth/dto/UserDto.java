@@ -7,5 +7,9 @@ public record UserDto(
     String name,
     String email,
     String role,
+    Long companyId,
+    String companyCode,
+    String companyName,
+    Long assignedProjectId,
     List<String> permissions
 ) {}

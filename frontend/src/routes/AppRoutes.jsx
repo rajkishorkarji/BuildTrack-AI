@@ -1,20 +1,80 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import DashboardLayout from '../layouts/DashboardLayout';
-import Dashboard from '../pages/Dashboard';
-import Projects from '../pages/Projects';
-import Workforce from '../pages/Workforce';
-import Attendance from '../pages/Attendance';
-import TaskManagement from '../pages/TaskManagement';
-import Equipment from '../pages/Equipment';
-import Finance from '../pages/Finance';
-import AIInsights from '../pages/AIInsights';
-import Notifications from '../pages/Notifications';
-import Reports from '../pages/Reports';
-import Documents from '../pages/Documents';
-import Settings from '../pages/Settings';
+
+// ── Super Admin Role Pages ──
+import SuperAdminDashboard from '../pages/super-admin/Dashboard';
+import SuperAdminCompanies from '../pages/super-admin/Companies';
+import SuperAdminProjects from '../pages/super-admin/Projects';
+import SuperAdminFinance from '../pages/super-admin/Finance';
+import SuperAdminReports from '../pages/super-admin/Reports';
+import SuperAdminAIInsights from '../pages/super-admin/AIInsights';
+import SuperAdminUsers from '../pages/super-admin/Users';
+import SuperAdminSettings from '../pages/super-admin/Settings';
+import SuperAdminWorkforce from '../pages/super-admin/Workforce';
+
+// ── Company Admin Role Pages ──
+import CompanyAdminDashboard from '../pages/company-admin/Dashboard';
+import CompanyAdminProjects from '../pages/company-admin/Projects';
+import CompanyAdminWorkforce from '../pages/company-admin/Workforce';
+import CompanyAdminEquipment from '../pages/company-admin/Equipment';
+import CompanyAdminMaterials from '../pages/company-admin/Materials';
+import CompanyAdminFinance from '../pages/company-admin/Finance';
+import CompanyAdminAIInsights from '../pages/company-admin/AIInsights';
+import CompanyAdminReports from '../pages/company-admin/Reports';
+import CompanyAdminNotifications from '../pages/company-admin/Notifications';
+import CompanyAdminDocuments from '../pages/company-admin/Documents';
+import CompanyAdminSettings from '../pages/company-admin/Settings';
+
+// ── Project Manager Role Pages ──
+import PMDashboard from '../pages/project-manager/Dashboard';
+import PMProjects from '../pages/project-manager/Projects';
+import PMTaskManagement from '../pages/project-manager/TaskManagement';
+import PMSiteWorkforce from '../pages/project-manager/SiteWorkforce';
+import PMDailyProgressReport from '../pages/project-manager/DailyProgressReport';
+import PMReports from '../pages/project-manager/Reports';
+import PMEquipment from '../pages/project-manager/Equipment';
+import PMDocuments from '../pages/project-manager/Documents';
+import PMNotifications from '../pages/project-manager/Notifications';
+import PMSettings from '../pages/project-manager/Settings';
+
+// ── Site Engineer Role Pages ──
+import SEDashboard from '../pages/site-engineer/Dashboard';
+import SEInspectionImages from '../pages/site-engineer/InspectionImages';
+import SESiteIssues from '../pages/site-engineer/SiteIssues';
+import SEDailyProgressReport from '../pages/site-engineer/DailyProgressReport';
+import SEMaterials from '../pages/site-engineer/Materials';
+import SEAttendance from '../pages/site-engineer/Attendance';
+import SEEquipment from '../pages/site-engineer/Equipment';
+import SEDocuments from '../pages/site-engineer/Documents';
+import SESettings from '../pages/site-engineer/Settings';
+
+// ── Contractor Role Pages ──
+import ContractorDashboard from '../pages/contractor/Dashboard';
+import ContractorWorkforce from '../pages/contractor/Workforce';
+import ContractorAttendance from '../pages/contractor/Attendance';
+import ContractorTasks from '../pages/contractor/Tasks';
+import ContractorProjects from '../pages/contractor/Projects';
+import ContractorSettings from '../pages/contractor/Settings';
+
+// ── Worker Role Pages ──
+import WorkerDashboard from '../pages/worker/Dashboard';
+import WorkerTasks from '../pages/worker/Tasks';
+import WorkerAttendance from '../pages/worker/Attendance';
+import WorkerEquipment from '../pages/worker/Equipment';
+import WorkerDocuments from '../pages/worker/Documents';
+import WorkerDailyLogs from '../pages/worker/DailyLogs';
+import WorkerIssues from '../pages/worker/Issues';
+import WorkerMaterials from '../pages/worker/Materials';
+import WorkerSettings from '../pages/worker/Settings';
+
+// ── Core Utility Pages ──
 import Login from '../pages/Login';
-import Companies from '../pages/Companies';
-import UsersPage from '../pages/UsersPage';
+import VerifyEmail from '../pages/VerifyEmail';
+import ResetPassword from '../pages/ResetPassword';
+import OAuthRedirect from '../pages/OAuthRedirect';
+import Notifications from '../pages/Notifications';
+import Documents from '../pages/Documents';
+import CompanyProfile from '../pages/CompanyProfile';
 import SecurityCenter from '../pages/SecurityCenter';
 import SystemMonitoring from '../pages/SystemMonitoring';
 import BackupRestore from '../pages/BackupRestore';
@@ -22,29 +82,172 @@ import Integrations from '../pages/Integrations';
 import FileManager from '../pages/FileManager';
 import Subscriptions from '../pages/Subscriptions';
 import Profile from '../pages/Profile';
-import CompanyProfile from '../pages/CompanyProfile';
-import Materials from '../pages/Materials';
-import SiteWorkforce from '../pages/SiteWorkforce';
-import CompanySettings from '../pages/CompanySettings';
 import TeamManagement from '../pages/TeamManagement';
-import InspectionImages from '../pages/InspectionImages';
-import SiteIssues from '../pages/SiteIssues';
-import DailyProgressReport from '../pages/DailyProgressReport';
+
 import ProtectedRoute from './ProtectedRoute';
+import { useAuth } from '../context/AuthContext';
 import { PERMISSIONS } from '../config/rbac';
+
+// Role-Based Route Component Resolvers
+function RoleDashboard() {
+  const { user } = useAuth();
+  switch (user?.role) {
+    case 'SUPER_ADMIN': return <SuperAdminDashboard />;
+    case 'COMPANY_ADMIN': return <CompanyAdminDashboard />;
+    case 'PROJECT_MANAGER': return <PMDashboard />;
+    case 'SITE_ENGINEER': return <SEDashboard />;
+    case 'CONTRACTOR': return <ContractorDashboard />;
+    case 'WORKER': return <WorkerDashboard />;
+    default: return <SuperAdminDashboard />;
+  }
+}
+
+function RoleCompanies() {
+  return <SuperAdminCompanies />;
+}
+
+function RoleFinance() {
+  const { user } = useAuth();
+  return user?.role === 'SUPER_ADMIN' ? <SuperAdminFinance /> : <CompanyAdminFinance />;
+}
+
+function RoleReports() {
+  const { user } = useAuth();
+  switch (user?.role) {
+    case 'SUPER_ADMIN': return <SuperAdminReports />;
+    case 'COMPANY_ADMIN': return <CompanyAdminReports />;
+    case 'PROJECT_MANAGER': return <PMReports />;
+    default: return <SuperAdminReports />;
+  }
+}
+
+function RoleAIInsights() {
+  const { user } = useAuth();
+  return user?.role === 'COMPANY_ADMIN' ? <CompanyAdminAIInsights /> : <SuperAdminAIInsights />;
+}
+
+function RoleUsers() {
+  return <SuperAdminUsers />;
+}
+
+function RoleSettings() {
+  const { user } = useAuth();
+  switch (user?.role) {
+    case 'SUPER_ADMIN': return <SuperAdminSettings />;
+    case 'COMPANY_ADMIN': return <CompanyAdminSettings />;
+    case 'PROJECT_MANAGER': return <PMSettings />;
+    case 'SITE_ENGINEER': return <SESettings />;
+    case 'CONTRACTOR': return <ContractorSettings />;
+    case 'WORKER': return <WorkerSettings />;
+    default: return <SuperAdminSettings />;
+  }
+}
+
+function RoleProjects() {
+  const { user } = useAuth();
+  switch (user?.role) {
+    case 'SUPER_ADMIN': return <SuperAdminProjects />;
+    case 'COMPANY_ADMIN': return <CompanyAdminProjects />;
+    case 'PROJECT_MANAGER': return <PMProjects />;
+    case 'CONTRACTOR': return <ContractorProjects />;
+    default: return <SuperAdminProjects />;
+  }
+}
+
+function RoleWorkforce() {
+  const { user } = useAuth();
+  switch (user?.role) {
+    case 'SUPER_ADMIN': return <SuperAdminWorkforce />;
+    case 'COMPANY_ADMIN': return <CompanyAdminWorkforce />;
+    case 'CONTRACTOR': return <ContractorWorkforce />;
+    default: return <SuperAdminWorkforce />;
+  }
+}
+
+function RoleEquipment() {
+  const { user } = useAuth();
+  switch (user?.role) {
+    case 'COMPANY_ADMIN': return <CompanyAdminEquipment />;
+    case 'PROJECT_MANAGER': return <PMEquipment />;
+    case 'SITE_ENGINEER': return <SEEquipment />;
+    case 'WORKER': return <WorkerEquipment />;
+    default: return <CompanyAdminEquipment />;
+  }
+}
+
+function RoleMaterials() {
+  const { user } = useAuth();
+  switch (user?.role) {
+    case 'COMPANY_ADMIN': return <CompanyAdminMaterials />;
+    case 'SITE_ENGINEER': return <SEMaterials />;
+    case 'WORKER': return <WorkerMaterials />;
+    default: return <CompanyAdminMaterials />;
+  }
+}
+
+function RoleTaskManagement() {
+  const { user } = useAuth();
+  switch (user?.role) {
+    case 'PROJECT_MANAGER': return <PMTaskManagement />;
+    case 'CONTRACTOR': return <ContractorTasks />;
+    case 'WORKER': return <WorkerTasks />;
+    default: return <PMTaskManagement />;
+  }
+}
+
+function RoleAttendance() {
+  const { user } = useAuth();
+  switch (user?.role) {
+    case 'WORKER': return <WorkerAttendance />;
+    case 'SITE_ENGINEER': return <SEAttendance />;
+    default: return <ContractorAttendance />;
+  }
+}
+
+function RoleDailyReport() {
+  const { user } = useAuth();
+  switch (user?.role) {
+    case 'SITE_ENGINEER': return <SEDailyProgressReport />;
+    case 'WORKER': return <WorkerDailyLogs />;
+    default: return <PMDailyProgressReport />;
+  }
+}
+
+function RoleNotifications() {
+  const { user } = useAuth();
+  switch (user?.role) {
+    case 'COMPANY_ADMIN': return <CompanyAdminNotifications />;
+    case 'PROJECT_MANAGER': return <PMNotifications />;
+    default: return <Notifications />;
+  }
+}
+
+function RoleDocuments() {
+  const { user } = useAuth();
+  switch (user?.role) {
+    case 'COMPANY_ADMIN': return <CompanyAdminDocuments />;
+    case 'PROJECT_MANAGER': return <PMDocuments />;
+    case 'SITE_ENGINEER': return <SEDocuments />;
+    case 'WORKER': return <WorkerDocuments />;
+    default: return <CompanyAdminDocuments />;
+  }
+}
 
 export default function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/verify-email" element={<VerifyEmail />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/oauth2/redirect" element={<OAuthRedirect />} />
 
       <Route element={<DashboardLayout />}>
         <Route
           path="/dashboard"
           element={
             <ProtectedRoute requiredPermission={PERMISSIONS.DASHBOARD_VIEW}>
-              <Dashboard />
+              <RoleDashboard />
             </ProtectedRoute>
           }
         />
@@ -52,7 +255,7 @@ export default function AppRoutes() {
           path="/companies"
           element={
             <ProtectedRoute requiredPermission={PERMISSIONS.COMPANY_ADMIN_MANAGE}>
-              <Companies />
+              <RoleCompanies />
             </ProtectedRoute>
           }
         />
@@ -68,7 +271,7 @@ export default function AppRoutes() {
           path="/users"
           element={
             <ProtectedRoute requiredPermission={PERMISSIONS.COMPANY_ADMIN_MANAGE}>
-              <UsersPage />
+              <RoleUsers />
             </ProtectedRoute>
           }
         />
@@ -76,7 +279,7 @@ export default function AppRoutes() {
           path="/projects"
           element={
             <ProtectedRoute requiredPermission={PERMISSIONS.PROJECT_VIEW}>
-              <Projects />
+              <RoleProjects />
             </ProtectedRoute>
           }
         />
@@ -84,7 +287,7 @@ export default function AppRoutes() {
           path="/workforce"
           element={
             <ProtectedRoute requiredPermission={PERMISSIONS.WORKFORCE_VIEW}>
-              <Workforce />
+              <RoleWorkforce />
             </ProtectedRoute>
           }
         />
@@ -100,7 +303,7 @@ export default function AppRoutes() {
           path="/site-workforce"
           element={
             <ProtectedRoute requiredPermission={PERMISSIONS.WORKFORCE_VIEW}>
-              <SiteWorkforce />
+              <PMSiteWorkforce />
             </ProtectedRoute>
           }
         />
@@ -108,7 +311,7 @@ export default function AppRoutes() {
           path="/materials"
           element={
             <ProtectedRoute requiredPermission={PERMISSIONS.WORKFORCE_VIEW}>
-              <Materials />
+              <RoleMaterials />
             </ProtectedRoute>
           }
         />
@@ -116,7 +319,7 @@ export default function AppRoutes() {
           path="/attendance"
           element={
             <ProtectedRoute requiredPermission={PERMISSIONS.ATTENDANCE_MARK}>
-              <Attendance />
+              <RoleAttendance />
             </ProtectedRoute>
           }
         />
@@ -124,7 +327,7 @@ export default function AppRoutes() {
           path="/task-management"
           element={
             <ProtectedRoute requiredPermission={PERMISSIONS.TASK_MANAGE}>
-              <TaskManagement />
+              <RoleTaskManagement />
             </ProtectedRoute>
           }
         />
@@ -132,7 +335,15 @@ export default function AppRoutes() {
           path="/daily-report"
           element={
             <ProtectedRoute requiredPermission={PERMISSIONS.TASK_MANAGE}>
-              <DailyProgressReport />
+              <RoleDailyReport />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/daily-logs"
+          element={
+            <ProtectedRoute requiredPermission={PERMISSIONS.TASK_MANAGE}>
+              <RoleDailyReport />
             </ProtectedRoute>
           }
         />
@@ -140,7 +351,7 @@ export default function AppRoutes() {
           path="/inspection"
           element={
             <ProtectedRoute requiredPermission={PERMISSIONS.DOCUMENT_MANAGE}>
-              <InspectionImages />
+              <SEInspectionImages />
             </ProtectedRoute>
           }
         />
@@ -148,7 +359,7 @@ export default function AppRoutes() {
           path="/safety"
           element={
             <ProtectedRoute requiredPermission={PERMISSIONS.WORKFORCE_MANAGE}>
-              <SiteIssues />
+              <SESiteIssues />
             </ProtectedRoute>
           }
         />
@@ -156,7 +367,7 @@ export default function AppRoutes() {
           path="/equipment"
           element={
             <ProtectedRoute requiredPermission={PERMISSIONS.EQUIPMENT_VIEW}>
-              <Equipment />
+              <RoleEquipment />
             </ProtectedRoute>
           }
         />
@@ -164,7 +375,7 @@ export default function AppRoutes() {
           path="/finance"
           element={
             <ProtectedRoute requiredPermission={PERMISSIONS.FINANCE_VIEW}>
-              <Finance />
+              <RoleFinance />
             </ProtectedRoute>
           }
         />
@@ -172,7 +383,7 @@ export default function AppRoutes() {
           path="/ai-insights"
           element={
             <ProtectedRoute requiredPermission={PERMISSIONS.AI_VIEW}>
-              <AIInsights />
+              <RoleAIInsights />
             </ProtectedRoute>
           }
         />
@@ -188,7 +399,7 @@ export default function AppRoutes() {
           path="/notifications"
           element={
             <ProtectedRoute requiredPermission={PERMISSIONS.NOTIFICATION_VIEW}>
-              <Notifications />
+              <RoleNotifications />
             </ProtectedRoute>
           }
         />
@@ -196,7 +407,7 @@ export default function AppRoutes() {
           path="/audit-logs"
           element={
             <ProtectedRoute requiredPermission={PERMISSIONS.REPORT_VIEW}>
-              <Reports />
+              <RoleReports />
             </ProtectedRoute>
           }
         />
@@ -212,7 +423,7 @@ export default function AppRoutes() {
           path="/settings"
           element={
             <ProtectedRoute requiredPermission={PERMISSIONS.PROFILE_EDIT}>
-              <Settings />
+              <RoleSettings />
             </ProtectedRoute>
           }
         />
@@ -220,7 +431,7 @@ export default function AppRoutes() {
           path="/company-settings"
           element={
             <ProtectedRoute requiredPermission={PERMISSIONS.COMPANY_ADMIN_MANAGE}>
-              <CompanySettings />
+              <CompanyAdminSettings />
             </ProtectedRoute>
           }
         />
@@ -260,7 +471,7 @@ export default function AppRoutes() {
           path="/reports"
           element={
             <ProtectedRoute requiredPermission={PERMISSIONS.REPORT_VIEW}>
-              <Reports />
+              <RoleReports />
             </ProtectedRoute>
           }
         />
@@ -268,7 +479,7 @@ export default function AppRoutes() {
           path="/documents"
           element={
             <ProtectedRoute requiredPermission={PERMISSIONS.DOCUMENT_VIEW}>
-              <Documents />
+              <RoleDocuments />
             </ProtectedRoute>
           }
         />

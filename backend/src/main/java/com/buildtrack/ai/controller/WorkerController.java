@@ -12,16 +12,19 @@ import java.util.List;
 @RequestMapping("/api/workers")
 public class WorkerController {
 
+    private final WorkerService workerService;
+
     WorkerController(WorkerService workerService) {
+        this.workerService = workerService;
     }
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<Worker>>> getWorkers() {
-        return ResponseEntity.ok(ApiResponse.success());
+        return ResponseEntity.ok(ApiResponse.success(workerService.getAllWorkers()));
     }
 
     @PostMapping
     public ResponseEntity<ApiResponse<Worker>> createWorker(@RequestBody Worker worker) {
-        return ResponseEntity.ok(ApiResponse.success());
+        return ResponseEntity.ok(ApiResponse.success(workerService.createWorker(worker)));
     }
 }
