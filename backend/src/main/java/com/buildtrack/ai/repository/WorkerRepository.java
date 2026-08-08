@@ -9,4 +9,5 @@ import java.util.List;
 public interface WorkerRepository extends JpaRepository<Worker, Long> {
     List<Worker> findByStatus(String status);
     List<Worker> findBySkillTrade(String skillTrade);
+    List<Worker> findByCompanyId(Long companyId);
 }

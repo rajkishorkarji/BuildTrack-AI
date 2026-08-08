@@ -5,6 +5,7 @@ import java.util.List;
 
 public interface AttendanceService {
     List<Attendance> getAllAttendance();
+    List<Attendance> getAttendanceByCompany(Long companyId);
     Attendance checkInWorker(Attendance attendance);
     Attendance checkOutWorker(Long attendanceId);
     Attendance verifyAttendance(Long attendanceId, boolean verified);

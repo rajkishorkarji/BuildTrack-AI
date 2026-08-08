@@ -31,6 +31,13 @@ public class Notification {
     @Column(nullable = false)
     private boolean read;
 
+    @Column(nullable = false)
+    private String recipientEmail;
+
+    private Long companyId;
+
+    private String senderName;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -41,6 +48,6 @@ public class Notification {
     }
 
     public enum NotificationType {
-        INFO, WARNING, ALERT, SUCCESS
+        INFO, WARNING, ALERT, SUCCESS, BROADCAST
     }
 }

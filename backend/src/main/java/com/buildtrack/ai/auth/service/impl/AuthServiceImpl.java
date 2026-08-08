@@ -31,6 +31,7 @@ public class AuthServiceImpl implements AuthService {
     private final JwtService jwtService;
     private final EmailService emailService;
     private final CompanyRepository companyRepository;
+    private final UserInvitationRepository userInvitationRepository;
 
     @Override
     public ApiResponse<String> register(RegisterRequest request) {
@@ -41,7 +42,11 @@ public class AuthServiceImpl implements AuthService {
             throw new IllegalArgumentException("Email is already registered");
         }
 
-        Role userRole = roleRepository.findByRoleName(request.role().toUpperCase())
+        String requestedRole = request.role().toUpperCase();
+        if ("SUPER_ADMIN".equals(requestedRole)) {
+            throw new IllegalArgumentException("Super Admin accounts are provisioned by the platform only");
+        }
+        Role userRole = roleRepository.findByRoleName(requestedRole)
                 .orElseGet(() -> roleRepository.save(Role.builder().roleName(request.role().toUpperCase()).build()));
 
         Long resolvedCompanyId = null;
@@ -52,6 +57,23 @@ public class AuthServiceImpl implements AuthService {
                     .orElseThrow(() -> new IllegalArgumentException("Invalid Company Code: " + request.companyCode()));
             resolvedCompanyId = comp.getId();
             resolvedCompanyCode = comp.getCode();
+            if (!"ACTIVE".equalsIgnoreCase(comp.getStatus())) {
+                throw new IllegalArgumentException("This company tenant is suspended");
+            }
+            String fullName = (request.firstName() + " " + (request.lastName() == null ? "" : request.lastName())).trim();
+            if ("COMPANY_ADMIN".equals(requestedRole)) {
+                if (!request.email().equalsIgnoreCase(comp.getAdminEmail()) || !fullName.equalsIgnoreCase(comp.getAdminName())) {
+                    throw new IllegalArgumentException("Company Admin name and email must match the tenant registration record");
+                }
+            } else {
+                userInvitationRepository.findByEmailIgnoreCaseAndCompanyId(request.email(), comp.getId()).ifPresent(invite -> {
+                    if (!invite.getFullName().equalsIgnoreCase(fullName) || !invite.getRole().equalsIgnoreCase(requestedRole) || invite.isClaimed()) {
+                        throw new IllegalArgumentException("Name, email, and role must match the personnel invitation from your Company Admin");
+                    }
+                    invite.setClaimed(true);
+                    userInvitationRepository.save(invite);
+                });
+            }
         } else if (request.companyName() != null && !request.companyName().trim().isEmpty()) {
             Company comp = companyRepository.findByName(request.companyName().trim()).orElse(null);
             if (comp != null) {

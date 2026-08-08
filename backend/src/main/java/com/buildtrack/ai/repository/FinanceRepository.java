@@ -9,4 +9,5 @@ import java.util.List;
 public interface FinanceRepository extends JpaRepository<Finance, Long> {
     List<Finance> findByProjectId(Long projectId);
     List<Finance> findByStatus(String status);
+    List<Finance> findByProjectCompanyId(Long companyId);
 }

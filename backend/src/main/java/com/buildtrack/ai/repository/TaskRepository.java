@@ -9,4 +9,5 @@ import java.util.List;
 public interface TaskRepository extends JpaRepository<TaskEntity, Long> {
     List<TaskEntity> findByProjectId(Long projectId);
     List<TaskEntity> findByStatus(String status);
+    List<TaskEntity> findByProjectCompanyId(Long companyId);
 }

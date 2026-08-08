@@ -1,6 +1,10 @@
 import api, { realtimeBus } from './api';
 
-let notifications = [];
+let notifications = (() => {
+  try { return JSON.parse(localStorage.getItem('buildtrack_notifications') || '[]'); } catch { return []; }
+})();
+
+const persist = () => localStorage.setItem('buildtrack_notifications', JSON.stringify(notifications));
 
 export const notificationService = {
   async getNotifications() {
@@ -12,9 +16,14 @@ export const notificationService = {
           title: n.title,
           message: n.message,
           type: n.type || 'INFO',
+          timestamp: n.createdAt || new Date().toISOString(),
           time: n.createdAt ? new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recently',
           read: n.read || false,
+          recipientEmail: n.recipientEmail,
+          companyId: n.companyId,
+          from: n.senderName,
         }));
+        persist();
       }
     } catch (err) {
       // Local store fallback
@@ -24,7 +33,9 @@ export const notificationService = {
   },
 
   async markAllAsRead() {
-    notifications = notifications.map((n) => ({ ...n, read: true }));
+    const user = JSON.parse(localStorage.getItem('buildtrack_user') || '{}');
+    notifications = notifications.map((n) => !n.recipientEmail || n.recipientEmail === user.email ? { ...n, read: true } : n);
+    persist();
     try {
       await api.put('/notifications/mark-read');
     } catch (err) {
@@ -36,6 +47,7 @@ export const notificationService = {
 
   async markAsRead(id) {
     notifications = notifications.map((n) => (n.id === id ? { ...n, read: true } : n));
+    persist();
     try {
       await api.put(`/notifications/${id}/read`);
     } catch (err) {
@@ -53,8 +65,12 @@ export const notificationService = {
       type: alert.type || 'INFO',
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       read: false,
+      timestamp: new Date().toISOString(),
+      recipientEmail: alert.recipientEmail || JSON.parse(localStorage.getItem('buildtrack_user') || '{}').email,
+      from: alert.from,
     };
     notifications = [newAlert, ...notifications];
+    persist();
     realtimeBus.emit('NOTIFICATION_UPDATE', notifications);
 
     try {
@@ -63,6 +79,35 @@ export const notificationService = {
       // Local fallback
     }
     return newAlert;
+  },
+
+  async broadcast({ title, message, type = 'BROADCAST', targetRole, from, companyCode }) {
+    try {
+      const response = await api.post('/notifications', { title, message, type, targetRole });
+      await this.getNotifications();
+      return response.data?.data || [];
+    } catch (err) {
+      const users = JSON.parse(localStorage.getItem('buildtrack_registered_users') || '[]');
+      const normalizedRole = String(targetRole || '').toUpperCase();
+      const recipients = users.filter((item) =>
+        String(item.role || '').toUpperCase() === normalizedRole &&
+        (!companyCode || item.companyCode === companyCode)
+      );
+      const created = recipients.map((recipient, index) => ({
+        id: `${Date.now()}-${index}`,
+        title,
+        message,
+        type,
+        read: false,
+        from,
+        recipientEmail: recipient.email,
+        timestamp: new Date().toISOString(),
+      }));
+      notifications = [...created, ...notifications];
+      persist();
+      realtimeBus.emit('NOTIFICATION_UPDATE', notifications);
+      return created;
+    }
   },
 
   subscribeToNotifications(callback) {

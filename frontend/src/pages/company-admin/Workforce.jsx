@@ -1,14 +1,19 @@
 import { useState } from 'react';
 import { useData } from '../../context/DataContext';
+import { useAuth } from '../../context/AuthContext';
+import api from '../../services/api';
 import { Users, UserPlus, Search, Shield, Clock, Award, CheckCircle2, Phone, Mail, Building2, UserCheck, HardHat } from 'lucide-react';
 
 const INPUT = { width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--panel-soft)', color: 'var(--text)', fontSize: '13px' };
 
 export default function CompanyAdminWorkforce() {
-  const { workers, addWorker, addUser, projects = [], usersList = [] } = useData();
+  const { workers, addWorker, addUser, projects = [], usersList = [], companies = [], activateCompanySubscription } = useData();
+  const { user } = useAuth();
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('ALL');
   const [showAddModal, setShowAddModal] = useState(false);
+  const company = companies.find((item) => item.code === user?.companyCode) || companies.find((item) => item.name === user?.companyName);
+  const subscriptionActive = company?.subscriptionStatus === 'ACTIVE';
 
   const managers = usersList.filter(u => ['COMPANY_ADMIN', 'COMPANY_MANAGER', 'PROJECT_MANAGER'].includes(u.role));
 
@@ -16,7 +21,7 @@ export default function CompanyAdminWorkforce() {
     fullName: '',
     email: '',
     phone: '',
-    role: 'Company Manager',
+    role: 'Project Manager',
     assignedProject: projects[0]?.name || 'Metro Tower Site A',
     assignedSite: 'Sector 5, Metro Zone',
     reportingManager: managers[0]?.fullName || 'Company Admin',
@@ -26,7 +31,7 @@ export default function CompanyAdminWorkforce() {
 
   const handleCreatePersonnel = (e) => {
     e.preventDefault();
-    if (!personnelForm.fullName.trim()) return;
+    if (!subscriptionActive || !personnelForm.fullName.trim() || !personnelForm.email.trim()) return;
 
     // 1. Create worker / personnel record
     const createdWorker = {
@@ -36,6 +41,8 @@ export default function CompanyAdminWorkforce() {
       email: personnelForm.email.trim(),
       phone: personnelForm.phone.trim(),
       role: personnelForm.role,
+      companyName: user?.companyName,
+      companyCode: user?.companyCode,
       assignedProject: personnelForm.assignedProject,
       projectName: personnelForm.assignedProject,
       site: personnelForm.assignedSite,
@@ -52,7 +59,6 @@ export default function CompanyAdminWorkforce() {
 
     // 2. Also register in usersList so system role flows cleanly
     const roleMap = {
-      'Company Manager': 'COMPANY_MANAGER',
       'Project Manager': 'PROJECT_MANAGER',
       'Site Engineer': 'SITE_ENGINEER',
       'Contractor': 'CONTRACTOR',
@@ -63,16 +69,23 @@ export default function CompanyAdminWorkforce() {
       fullName: personnelForm.fullName.trim(),
       email: personnelForm.email.trim() || `${personnelForm.fullName.toLowerCase().replace(/\s+/g, '.')}@solviontech.com`,
       role: roleMap[personnelForm.role] || 'WORKER',
-      companyName: 'Solviontech Infrastructure Ltd',
+      companyName: user?.companyName,
+      companyCode: user?.companyCode,
       assignedProject: personnelForm.assignedProject,
     });
+
+    api.post('/company/personnel', {
+      fullName: personnelForm.fullName.trim(),
+      email: personnelForm.email.trim(),
+      role: roleMap[personnelForm.role] || 'WORKER',
+    }).catch(() => undefined);
 
     setShowAddModal(false);
     setPersonnelForm({
       fullName: '',
       email: '',
       phone: '',
-      role: 'Company Manager',
+      role: 'Project Manager',
       assignedProject: projects[0]?.name || 'Metro Tower Site A',
       assignedSite: 'Sector 5, Metro Zone',
       reportingManager: managers[0]?.fullName || 'Company Admin',
@@ -100,10 +113,15 @@ export default function CompanyAdminWorkforce() {
             <HardHat size={14} /> Workforce
           </p>
         </div>
-        <button type="button" className="primary-button" onClick={() => setShowAddModal(true)}>
+        <button type="button" className="primary-button" onClick={() => subscriptionActive ? setShowAddModal(true) : activateCompanySubscription(company?.code)}>
           <UserPlus size={16} /> Add Personnel
         </button>
       </section>
+
+      {!subscriptionActive && <div style={{ marginTop: '16px', border: '1px solid var(--orange)', background: 'rgba(245,154,22,0.10)', padding: '12px 16px', borderRadius: '10px', fontSize: '13px' }}>
+        Activate the assigned <strong>{company?.plan || 'subscription'}</strong> plan before adding personnel.
+        <button type="button" className="primary-button" style={{ marginLeft: '12px', padding: '6px 10px', fontSize: '12px' }} onClick={() => activateCompanySubscription(company?.code)}>Activate plan</button>
+      </div>}
 
       {/* KPI Overview */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginTop: '20px' }}>
@@ -137,7 +155,6 @@ export default function CompanyAdminWorkforce() {
           style={{ padding: '10px 14px', borderRadius: '10px', border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--text)', fontSize: '13px', fontWeight: 600 }}
         >
           <option value="ALL">All Roles</option>
-          <option value="Company Manager">Company Manager</option>
           <option value="Project Manager">Project Manager</option>
           <option value="Site Engineer">Site Engineer</option>
           <option value="Contractor">Contractor</option>
@@ -260,7 +277,6 @@ export default function CompanyAdminWorkforce() {
                   value={personnelForm.role}
                   onChange={e => setPersonnelForm({ ...personnelForm, role: e.target.value })}
                 >
-                  <option value="Company Manager">Company Manager</option>
                   <option value="Project Manager">Project Manager</option>
                   <option value="Site Engineer">Site Engineer</option>
                   <option value="Contractor">Contractor</option>

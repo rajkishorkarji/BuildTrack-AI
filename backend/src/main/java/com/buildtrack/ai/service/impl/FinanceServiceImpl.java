@@ -29,4 +29,9 @@ public class FinanceServiceImpl implements FinanceService {
     public List<Finance> getInvoices() {
         return financeRepository.findAll();
     }
+
+    @Override
+    public List<Finance> getInvoicesByCompany(Long companyId) {
+        return financeRepository.findByProjectCompanyId(companyId);
+    }
 }

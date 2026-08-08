@@ -3,6 +3,8 @@ package com.buildtrack.ai.controller;
 import com.buildtrack.ai.auth.dto.ApiResponse;
 import com.buildtrack.ai.entity.Attendance;
 import com.buildtrack.ai.service.AttendanceService;
+import com.buildtrack.ai.service.TenantAccessService;
+import com.buildtrack.ai.auth.entity.User;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,10 +18,14 @@ public class AttendanceController {
 
     @Autowired
     private AttendanceService attendanceService;
+    @Autowired private TenantAccessService tenantAccessService;
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<Attendance>>> getAttendanceLogs() {
-        return ResponseEntity.ok(ApiResponse.success(attendanceService.getAllAttendance()));
+        User user = tenantAccessService.currentUser();
+        List<Attendance> attendance = tenantAccessService.isSuperAdmin(user) ? attendanceService.getAllAttendance()
+                : attendanceService.getAttendanceByCompany(tenantAccessService.currentCompany().getId());
+        return ResponseEntity.ok(ApiResponse.success(attendance));
     }
 
     @PostMapping("/check-in")

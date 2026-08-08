@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import {
-  Building2, LayoutDashboard, FileText, Clock, ShieldCheck,
+  Building2, LayoutDashboard, FileText, Clock, ShieldCheck, Bell,
   Package, AlertTriangle, Settings, ChevronRight,
 } from 'lucide-react';
 
@@ -12,28 +12,16 @@ const menuItems = [
   { to: '/materials', label: 'Materials', icon: Package },
   { to: '/safety', label: 'Issues', icon: AlertTriangle },
   { to: '/documents', label: 'Documents', icon: FileText },
+  { to: '/notifications', label: 'Notifications', icon: Bell },
   { to: '/settings', label: 'Settings', icon: Settings },
 ];
 
 export default function SiteEngineerSidebar() {
   return (
     <aside className="sidebar">
-      <div>
-  <img
-    src="/logo.png"
-    alt="BuildTrack AI"
-    style={{
-      maxWidth: "100%",
-      maxHeight: "100%",
-      width: "100%",
-      height: "100%",
-      objectFit: "cover",
-      borderRadius: "18px",
-      filter: "drop-shadow(0 0 5px rgba(0,0,0,0.5))",
-      display: "block",
-    }}
-  />
-</div>
+      <div className="sidebar-brand">
+        <img src="/logo-brand.svg" alt="BuildTrack AI" className="brand-logo-full" />
+      </div>
 
       <nav className="sidebar-nav">
         {menuItems.map((item) => {

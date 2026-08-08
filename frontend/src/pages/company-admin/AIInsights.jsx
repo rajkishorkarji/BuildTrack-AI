@@ -6,7 +6,6 @@ export default function AIInsights() {
   const { projects, workers, equipment, finances, issues } = useData();
   const [loading, setLoading] = useState(false);
 
-  const totalBudget = projects.reduce((acc, p) => acc + (parseFloat(p.budget) || 0), 0);
   const avgProgress = projects.length > 0 ? Math.round(projects.reduce((acc, p) => acc + (p.progress || 0), 0) / projects.length) : 0;
   const highRiskIssues = (issues || []).filter(i => i.severity === 'High' || i.severity === 'Critical').length;
   const activeWorkers = (workers || []).filter(w => (w.status || 'Active') === 'Active').length;
@@ -28,7 +27,6 @@ export default function AIInsights() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginTop: '20px' }}>
         {[
           { label: 'Portfolio Risk Level', value: highRiskIssues > 0 ? 'Elevated Risk' : 'Low Risk', color: highRiskIssues > 0 ? 'var(--orange)' : 'var(--green)', sub: `${highRiskIssues} active critical site alerts` },
-          { label: 'Budget & Expenditure Forecast', value: `$${totalBudget.toLocaleString()}`, color: 'var(--blue)', sub: `Allocated across ${projects.length} sites` },
           { label: 'Overall Portfolio Completion', value: `${avgProgress}%`, color: 'var(--purple)', sub: `Weighted average progress` },
           { label: 'Workforce Efficiency Rate', value: `${activeWorkers * 18 + 40}%`, color: 'var(--orange)', sub: `${activeWorkers} active personnel on site` },
         ].map(({ label, value, color, sub }) => (

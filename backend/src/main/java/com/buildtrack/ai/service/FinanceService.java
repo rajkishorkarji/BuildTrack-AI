@@ -7,4 +7,5 @@ import java.util.Map;
 public interface FinanceService {
     Map<String, String> getOverview();
     List<Finance> getInvoices();
+    List<Finance> getInvoicesByCompany(Long companyId);
 }

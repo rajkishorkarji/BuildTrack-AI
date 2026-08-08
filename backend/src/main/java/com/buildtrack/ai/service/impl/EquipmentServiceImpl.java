@@ -24,6 +24,11 @@ public class EquipmentServiceImpl implements EquipmentService {
     }
 
     @Override
+    public List<Equipment> getEquipmentByCompany(Long companyId) {
+        return equipmentRepository.findByProjectCompanyId(companyId);
+    }
+
+    @Override
     public Equipment createEquipment(Equipment equipment) {
         Equipment saved = equipmentRepository.save(equipment);
         realtimePublisher.publish("equipment", "created", saved.getId());

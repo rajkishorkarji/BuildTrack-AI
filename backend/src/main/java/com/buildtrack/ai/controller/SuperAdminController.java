@@ -4,6 +4,7 @@ import com.buildtrack.ai.auth.dto.ApiResponse;
 import com.buildtrack.ai.entity.Company;
 import com.buildtrack.ai.repository.CompanyRepository;
 import com.buildtrack.ai.service.RealtimePublisher;
+import com.buildtrack.ai.service.TenantAccessService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -21,9 +22,11 @@ public class SuperAdminController {
 
     @Autowired
     private RealtimePublisher realtimePublisher;
+    @Autowired private TenantAccessService tenantAccessService;
 
     @GetMapping("/companies")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getCompanies() {
+        tenantAccessService.requireSuperAdmin(tenantAccessService.currentUser());
         long count = companyRepository.count();
         Map<String, Object> res = new HashMap<>();
         res.put("totalCompanies", Math.max(count, 24));
@@ -34,6 +37,11 @@ public class SuperAdminController {
 
     @PostMapping("/companies")
     public ResponseEntity<ApiResponse<Company>> createCompany(@RequestBody Company company) {
+        tenantAccessService.requireSuperAdmin(tenantAccessService.currentUser());
+        if (company.getAdminName() == null || company.getAdminName().isBlank() || company.getAdminEmail() == null || company.getAdminEmail().isBlank()) {
+            throw new IllegalArgumentException("Company Admin name and email are required");
+        }
+        if (company.getEmail() == null || company.getEmail().isBlank()) company.setEmail(company.getAdminEmail());
         if (company.getStatus() == null) {
             company.setStatus("ACTIVE");
         }
@@ -44,6 +52,11 @@ public class SuperAdminController {
             String randomCode = UUID.randomUUID().toString().substring(0, 4).toUpperCase();
             company.setCode(prefix + "-" + randomCode);
         }
+        if (companyRepository.existsByCode(company.getCode())) {
+            throw new IllegalArgumentException("Company code is already in use");
+        }
+        company.setCode(company.getCode().trim().toUpperCase());
+        company.setSubscriptionStatus("PENDING");
         Company saved = companyRepository.save(company);
         realtimePublisher.publish("companies", "created", saved.getId());
         return ResponseEntity.ok(ApiResponse.success(saved));
@@ -51,11 +64,13 @@ public class SuperAdminController {
 
     @GetMapping("/companies/all")
     public ResponseEntity<ApiResponse<java.util.List<Company>>> getAllCompanies() {
+        tenantAccessService.requireSuperAdmin(tenantAccessService.currentUser());
         return ResponseEntity.ok(ApiResponse.success(companyRepository.findAll()));
     }
 
     @DeleteMapping("/companies/{id}")
     public ResponseEntity<ApiResponse<Map<String, String>>> deleteCompany(@PathVariable Long id) {
+        tenantAccessService.requireSuperAdmin(tenantAccessService.currentUser());
         if (companyRepository.existsById(id)) {
             companyRepository.deleteById(id);
             realtimePublisher.publish("companies", "deleted", id);
@@ -68,6 +83,7 @@ public class SuperAdminController {
 
     @PatchMapping("/companies/{id}/status")
     public ResponseEntity<ApiResponse<Company>> updateCompanyStatus(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        tenantAccessService.requireSuperAdmin(tenantAccessService.currentUser());
         Company company = companyRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Company not found with id: " + id));
         company.setStatus(body.getOrDefault("status", company.getStatus()));

@@ -8,4 +8,5 @@ import java.util.List;
 @Repository
 public interface DocumentRepository extends JpaRepository<Document, Long> {
     List<Document> findByProjectId(Long projectId);
+    List<Document> findByProjectCompanyId(Long companyId);
 }

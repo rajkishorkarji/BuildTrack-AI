@@ -7,14 +7,16 @@ import { useAuth } from '../../context/AuthContext';
 const INPUT = { width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--panel-soft)', color: 'var(--text)', fontSize: '13px' };
 
 export default function CompanyAdminProjects() {
-  const { registeredUsers = [] } = useAuth();
-  const { projects, addProject, deleteProject, usersList = [] } = useData();
+  const { registeredUsers = [], user } = useAuth();
+  const { projects, addProject, deleteProject, usersList = [], companies = [], activateCompanySubscription } = useData();
   const [search, setSearch] = useState('');
   const [showAdd, setShowAdd] = useState(false);
   const [activeProject, setActiveProject] = useState(null);
+  const company = companies.find((item) => item.code === user?.companyCode) || companies.find((item) => item.name === user?.companyName);
+  const subscriptionActive = company?.subscriptionStatus === 'ACTIVE';
 
   // Aggregate all registered Project Managers from usersList and registeredUsers
-  const allUsers = [...usersList, ...registeredUsers];
+  const allUsers = [...usersList, ...registeredUsers.filter((item) => item.companyCode === user?.companyCode || item.companyName === user?.companyName)];
   const seenPMs = new Set();
   const projectManagers = [];
 
@@ -54,7 +56,7 @@ export default function CompanyAdminProjects() {
 
   const handleCreate = (e) => {
     e.preventDefault();
-    if (!newProject.name.trim()) return;
+    if (!subscriptionActive || !newProject.name.trim()) return;
 
     addProject({
       name: newProject.name.trim(),
@@ -92,10 +94,17 @@ export default function CompanyAdminProjects() {
             <FolderKanban size={14} /> Projects
           </p>
         </div>
-        <button type="button" className="primary-button" onClick={() => setShowAdd(true)}>
+        <button type="button" className="primary-button" onClick={() => subscriptionActive ? setShowAdd(true) : activateCompanySubscription(company?.code)}>
           <Plus size={16} /> Create New Project
         </button>
       </section>
+
+      {!subscriptionActive && (
+        <div style={{ marginTop: '16px', border: '1px solid var(--orange)', background: 'rgba(245,154,22,0.10)', padding: '14px 16px', borderRadius: '10px', fontSize: '13px' }}>
+          <strong style={{ color: 'var(--orange)' }}>Subscription required.</strong> Your Super Admin assigned the <strong>{company?.plan || 'Professional'}</strong> plan. Activate it to create projects, invite personnel, and use company operations.
+          <button type="button" className="primary-button" style={{ marginLeft: '12px', padding: '6px 10px', fontSize: '12px' }} onClick={() => activateCompanySubscription(company?.code)}>Activate {company?.plan || 'plan'}</button>
+        </div>
+      )}
 
       {/* Search Toolbar */}
       <div className="panel" style={{ marginTop: '20px', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

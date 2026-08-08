@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
-import { Users, Search, Plus, UserPlus, Shield, Building2 } from 'lucide-react';
+import { Users, Search, Plus, Shield, Building2 } from 'lucide-react';
 
 export default function SuperAdminUsers() {
   const { usersList = [], addUser, companies = [] } = useData();
@@ -50,9 +50,6 @@ export default function SuperAdminUsers() {
             <Users size={14} /> Users
           </p>
         </div>
-        <button type="button" className="primary-button" onClick={() => setShowAdd(true)}>
-          <UserPlus size={16} /> Register Platform User
-        </button>
       </section>
 
       {/* Filter Bar */}

@@ -1,11 +1,11 @@
 import { Outlet } from 'react-router-dom';
-import WorkerSidebar from '../components/layout/sidebars/WorkerSidebar';
+import Sidebar from '../components/layout/Sidebar';
 import Topbar from '../components/layout/Topbar';
 
 export default function WorkerLayout() {
   return (
     <div className="app-shell worker-shell">
-      <WorkerSidebar />
+      <Sidebar />
       <div className="content-shell">
         <Topbar />
         <main className="content-main">

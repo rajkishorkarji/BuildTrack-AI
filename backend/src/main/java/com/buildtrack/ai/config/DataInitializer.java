@@ -2,9 +2,15 @@ package com.buildtrack.ai.config;
 
 import com.buildtrack.ai.entity.*;
 import com.buildtrack.ai.repository.*;
+import com.buildtrack.ai.auth.entity.Role;
+import com.buildtrack.ai.auth.entity.User;
+import com.buildtrack.ai.auth.entity.AuthProvider;
+import com.buildtrack.ai.auth.repository.RoleRepository;
+import com.buildtrack.ai.auth.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -27,25 +33,54 @@ public class DataInitializer implements CommandLineRunner {
     private final DocumentRepository documentRepository;
 
     private final AiInsightRepository aiInsightRepository;
+    private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    DataInitializer(CompanyRepository companyRepository, ProjectRepository projectRepository, WorkerRepository workerRepository, EquipmentRepository equipmentRepository, FinanceRepository financeRepository, DocumentRepository documentRepository, AiInsightRepository aiInsightRepository) {
+    DataInitializer(CompanyRepository companyRepository, ProjectRepository projectRepository, WorkerRepository workerRepository, TaskRepository taskRepository, EquipmentRepository equipmentRepository, FinanceRepository financeRepository, DocumentRepository documentRepository, AiInsightRepository aiInsightRepository, UserRepository userRepository, RoleRepository roleRepository, PasswordEncoder passwordEncoder) {
         this.companyRepository = companyRepository;
         this.projectRepository = projectRepository;
         this.workerRepository = workerRepository;
-        this.taskRepository = null;
+        this.taskRepository = taskRepository;
         this.equipmentRepository = equipmentRepository;
         this.financeRepository = financeRepository;
         this.documentRepository = documentRepository;
         this.aiInsightRepository = aiInsightRepository;
+        this.userRepository = userRepository;
+        this.roleRepository = roleRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Override
     public void run(String... args) throws Exception {
+        if (!userRepository.existsByEmail("raj@buildtrack.ai")) {
+            Role superAdminRole = roleRepository.findByRoleName("SUPER_ADMIN").orElseGet(() -> {
+                Role role = new Role();
+                role.setRoleName("SUPER_ADMIN");
+                return roleRepository.save(role);
+            });
+            User superAdmin = User.builder()
+                    .firstName("System")
+                    .lastName("Master Admin")
+                    .email("raj@buildtrack.ai")
+                    .phone("+91 9876543210")
+                    .password(passwordEncoder.encode("Admin@123"))
+                    .enabled(true)
+                    .provider(AuthProvider.LOCAL)
+                    .roles(java.util.Set.of(superAdminRole))
+                    .build();
+            userRepository.save(superAdmin);
+        }
         if (companyRepository.count() == 0) {
             Company company = new Company();
             company.setName("Solviontech Infrastructure Ltd");
             company.setEmail("admin@solviontech.com");
+            company.setAdminName("Solvion Admin");
+            company.setAdminEmail("admin@solviontech.com");
             company.setPhone("+91 98765 00000");
+            company.setCode("SOLV-CO");
+            company.setPlan("Professional");
+            company.setSubscriptionStatus("ACTIVE");
             company.setStatus("ACTIVE");
             Company savedCompany = companyRepository.save(company);
 

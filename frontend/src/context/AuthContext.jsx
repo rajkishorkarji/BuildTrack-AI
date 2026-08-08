@@ -3,6 +3,8 @@ import { getRolePermissions, hasPermission as checkPermission } from '../config/
 
 const AuthContext = createContext(null);
 
+const normalize = (value) => String(value || '').trim().toLowerCase();
+
 // Only Super Admin is provided as default system account
 export const defaultSuperAdmin = {
   id: 'super-admin-1',
@@ -78,40 +80,59 @@ export function AuthProvider({ children }) {
   const registerUser = (userData) => {
     const formattedRole = (userData.role || 'COMPANY_ADMIN').toUpperCase().replace(/\s+/g, '_');
     const fullName = `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || 'New User';
-    
-    // Look up company by companyCode if available in localStorage companies
-    let resolvedCompanyName = userData.companyName || 'Registered Infrastructure Ltd';
-    let resolvedCompanyCode = userData.companyCode || '';
+    const email = normalize(userData.email);
+    let tenantData = null;
 
     try {
-      const storedData = localStorage.getItem('buildtrack_app_data');
-      if (storedData) {
-        const parsedData = JSON.parse(storedData);
-        if (parsedData.companies && userData.companyCode) {
-          const match = parsedData.companies.find(
-            c => (c.code || '').trim().toLowerCase() === userData.companyCode.trim().toLowerCase()
-          );
-          if (match) {
-            resolvedCompanyName = match.name;
-            resolvedCompanyCode = match.code;
-          }
-        }
-      }
+      tenantData = JSON.parse(localStorage.getItem('buildtrack_app_data') || '{}');
     } catch (e) {
-      console.warn('Could not resolve company code:', e);
+      tenantData = {};
     }
+
+    const requiresTenant = formattedRole !== 'SUPER_ADMIN';
+    const company = (tenantData.companies || []).find(
+      (item) => normalize(item.code) === normalize(userData.companyCode)
+    );
+
+    if (requiresTenant && !userData.companyCode?.trim()) {
+      throw new Error('Enter the company code supplied by your Company Admin.');
+    }
+    if (requiresTenant && !company) {
+      throw new Error('This company code is not valid. Ask your Company Admin for the correct code.');
+    }
+    if (company && (company.status || 'Active') !== 'Active') {
+      throw new Error('This tenant is currently suspended. Contact the platform administrator.');
+    }
+
+    const invitedUser = (tenantData.usersList || []).find((item) => normalize(item.email) === email);
+    if (invitedUser && (normalize(invitedUser.fullName || invitedUser.name) !== normalize(fullName) ||
+        normalize(invitedUser.companyCode) !== normalize(company?.code) ||
+        normalize(invitedUser.role) !== normalize(formattedRole))) {
+      throw new Error('Your name, email, role, and company code must match the personnel record created by your Company Admin.');
+    }
+    if (formattedRole === 'COMPANY_ADMIN' && company &&
+        (normalize(company.adminEmail) !== email || normalize(company.adminName) !== normalize(fullName))) {
+      throw new Error('Company Admin registration must use the name and email registered for this tenant.');
+    }
+    if (registeredUsers.some((item) => normalize(item.email) === email)) {
+      throw new Error('An account already exists for this email. Please sign in instead.');
+    }
+
+    const resolvedCompanyName = company?.name || 'BuildTrack AI Platform';
+    const resolvedCompanyCode = company?.code || '';
 
     const newUser = {
       id: Date.now().toString(),
       fullName,
-      email: userData.email,
+      email: userData.email.trim(),
       password: userData.password,
       phone: userData.phone || '+91 9876543210',
-      role: formattedRole,
+      role: invitedUser?.role || formattedRole,
       roleLabel: formattedRole.replace(/_/g, ' '),
       avatar: fullName.split(' ').map((n) => n[0]).join('').toUpperCase(),
       companyName: resolvedCompanyName,
       companyCode: resolvedCompanyCode,
+      companyId: company?.id,
       permissions: getRolePermissions(formattedRole),
     };
 
@@ -152,30 +173,9 @@ export function AuthProvider({ children }) {
       return defaultSuperAdmin;
     }
 
-    // Find matching registered user or match Super Admin
+    // A tenant account must have been registered or invited before it can sign in.
     let found = registeredUsers.find((u) => u.email.toLowerCase() === emailLower);
-
-    if (!found) {
-      if (emailLower.includes('raj@') || emailLower.includes('super')) {
-        found = defaultSuperAdmin;
-      } else {
-        // Create user session dynamically for entered email
-        const role = emailLower.includes('company') ? 'COMPANY_ADMIN' : 'PROJECT_MANAGER';
-        const namePart = emailLower.split('@')[0];
-        const fullName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
-        found = {
-          id: Date.now().toString(),
-          fullName,
-          email,
-          phone: '+91 9876543210',
-          role,
-          roleLabel: role.replace(/_/g, ' '),
-          avatar: fullName.slice(0, 2).toUpperCase(),
-          companyName: 'Solviontech Infrastructure Ltd',
-          permissions: getRolePermissions(role),
-        };
-      }
-    }
+    if (!found) return null;
 
     const sessionUser = {
       ...found,

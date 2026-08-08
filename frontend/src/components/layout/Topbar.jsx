@@ -86,6 +86,7 @@ export default function Topbar() {
 
   return (
     <header
+      className="app-topbar"
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -101,11 +102,64 @@ export default function Topbar() {
         flexWrap: 'nowrap',
       }}
     >
-      {/* Left: Empty Spacer for Flex Balance */}
-      <div style={{ flex: 1 }} />
+      <div className="topbar-search" ref={searchRef}>
+        <Search size={17} aria-hidden="true" />
+        <input
+          value={query}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setSearchOpen(true);
+          }}
+          onFocus={() => setSearchOpen(true)}
+          placeholder="Search projects, people, equipment..."
+          aria-label="Search workspace"
+        />
+        {query && (
+          <button
+            type="button"
+            className="topbar-search-clear"
+            onClick={() => {
+              setQuery('');
+              setSearchOpen(false);
+            }}
+            aria-label="Clear search"
+          >
+            <X size={15} />
+          </button>
+        )}
+
+        {searchOpen && query.trim() && (
+          <div className="topbar-search-results">
+            {filteredSearch.length ? filteredSearch.map((item) => {
+              const ItemIcon = item.icon;
+              return (
+                <button
+                  type="button"
+                  className="topbar-search-result"
+                  key={item.id}
+                  onClick={() => {
+                    navigate(item.link);
+                    setQuery('');
+                    setSearchOpen(false);
+                  }}
+                >
+                  <span className="topbar-search-result-icon"><ItemIcon size={16} /></span>
+                  <span>
+                    <strong>{item.title}</strong>
+                    <small>{item.type} · {item.sub}</small>
+                  </span>
+                </button>
+              );
+            }) : (
+              <div className="topbar-search-empty">No workspace matches found.</div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Center: Company Tenant Name Badge */}
       <div
+        className="topbar-company-wrap"
         style={{
           flex: 2,
           display: 'flex',
@@ -114,6 +168,7 @@ export default function Topbar() {
         }}
       >
         <div
+          className="topbar-company"
           style={{
             fontSize: '13px',
             fontWeight: 700,
@@ -135,6 +190,7 @@ export default function Topbar() {
 
       {/* Right: Actions in a single unbroken horizontal line */}
       <div
+        className="topbar-actions-inline"
         style={{
           flex: 1,
           display: 'flex',
@@ -146,6 +202,7 @@ export default function Topbar() {
         }}
       >
         <span
+          className="connection-status"
           title={realtimeStatus?.connected ? 'Live updates connected' : 'Working offline — changes will sync when the server is available'}
           style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: realtimeStatus?.connected ? 'var(--green)' : 'var(--muted)', fontSize: '11px', fontWeight: 700, whiteSpace: 'nowrap' }}
         >
@@ -153,6 +210,7 @@ export default function Topbar() {
         </span>
         {/* Theme Toggle Button */}
         <button
+          className="topbar-icon-button"
           type="button"
           onClick={toggleTheme}
           aria-label="Switch Theme"
@@ -175,6 +233,7 @@ export default function Topbar() {
 
         {/* Notifications Center Button */}
         <button
+          className="topbar-icon-button"
           type="button"
           title="Notifications"
           onClick={() => navigate('/notifications')}
@@ -209,8 +268,9 @@ export default function Topbar() {
         </button>
 
         {/* User Profile Pill Dropdown Trigger */}
-        <div style={{ position: 'relative' }} ref={dropdownRef}>
+        <div className="topbar-profile-wrap" style={{ position: 'relative' }} ref={dropdownRef}>
           <div
+            className="topbar-profile-trigger"
             onClick={() => setDropdownOpen((prev) => !prev)}
             style={{
               display: 'flex',

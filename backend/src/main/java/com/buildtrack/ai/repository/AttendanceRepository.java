@@ -9,4 +9,5 @@ import java.util.List;
 public interface AttendanceRepository extends JpaRepository<Attendance, Long> {
     List<Attendance> findByWorkerId(Long workerId);
     List<Attendance> findByProjectId(Long projectId);
+    List<Attendance> findByProjectCompanyId(Long companyId);
 }

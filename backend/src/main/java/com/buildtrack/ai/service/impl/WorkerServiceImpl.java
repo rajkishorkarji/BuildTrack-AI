@@ -24,6 +24,11 @@ public class WorkerServiceImpl implements WorkerService {
     }
 
     @Override
+    public List<Worker> getWorkersByCompany(Long companyId) {
+        return workerRepository.findByCompanyId(companyId);
+    }
+
+    @Override
     public Worker createWorker(Worker worker) {
         if (worker.getStatus() == null) {
             worker.setStatus(Worker.WorkerStatus.ACTIVE);

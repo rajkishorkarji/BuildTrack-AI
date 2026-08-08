@@ -29,6 +29,11 @@ public class TaskServiceImpl implements TaskService {
     }
 
     @Override
+    public List<TaskEntity> getTasksByCompany(Long companyId) {
+        return taskRepository.findByProjectCompanyId(companyId);
+    }
+
+    @Override
     public TaskEntity createTask(TaskEntity task) {
         if (task.getCompletionPercentage() == null) {
             task.setCompletionPercentage(0);

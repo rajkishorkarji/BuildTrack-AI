@@ -33,6 +33,11 @@ public class AttendanceServiceImpl implements AttendanceService {
     }
 
     @Override
+    public List<Attendance> getAttendanceByCompany(Long companyId) {
+        return attendanceRepository.findByProjectCompanyId(companyId);
+    }
+
+    @Override
     public Attendance checkInWorker(Attendance attendance) {
         if (attendance.getWorker() == null || attendance.getWorker().getId() == null) {
             throw new IllegalArgumentException("A worker is required for attendance check-in");

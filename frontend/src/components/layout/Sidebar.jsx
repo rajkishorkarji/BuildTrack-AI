@@ -51,6 +51,7 @@ const roleMenus = {
     { to: '/materials', label: 'Materials', icon: Package, permission: PERMISSIONS.WORKFORCE_VIEW },
     { to: '/safety', label: 'Issues', icon: AlertTriangle, permission: PERMISSIONS.WORKFORCE_MANAGE },
     { to: '/documents', label: 'Documents', icon: FileText, permission: PERMISSIONS.DOCUMENT_VIEW },
+    { to: '/notifications', label: 'Notifications', icon: Bell, permission: PERMISSIONS.NOTIFICATION_VIEW },
     { to: '/settings', label: 'Settings', icon: Settings, permission: PERMISSIONS.PROFILE_EDIT },
   ],
   CONTRACTOR: [
@@ -68,12 +69,11 @@ const roleMenus = {
   ],
   WORKER: [
     { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: PERMISSIONS.DASHBOARD_VIEW },
-    { to: '/daily-report', label: 'Daily Logs', icon: FileText, permission: PERMISSIONS.TASK_MANAGE },
     { to: '/attendance', label: 'Attendance', icon: Clock, permission: PERMISSIONS.ATTENDANCE_MARK },
     { to: '/equipment', label: 'Equipment', icon: ShieldCheck, permission: PERMISSIONS.EQUIPMENT_VIEW },
     { to: '/materials', label: 'Materials', icon: Package, permission: PERMISSIONS.WORKFORCE_VIEW },
-    { to: '/safety', label: 'Issues', icon: AlertTriangle, permission: PERMISSIONS.WORKFORCE_MANAGE },
     { to: '/documents', label: 'Documents', icon: FileText, permission: PERMISSIONS.DOCUMENT_VIEW },
+    { to: '/notifications', label: 'Notifications', icon: Bell, permission: PERMISSIONS.NOTIFICATION_VIEW },
     { to: '/settings', label: 'Settings', icon: Settings, permission: PERMISSIONS.PROFILE_EDIT },
   ],
 };
@@ -85,22 +85,16 @@ export default function Sidebar() {
 
   return (
     <aside className="sidebar">
-      <div className="sidebar-brand" style={{ padding: '10px 14px', minHeight: '70px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div className="sidebar-brand" aria-label="BuildTrack AI">
         <img
-          src="/logo.png"
+          src="/logo-brand.svg"
           alt="BuildTrack AI"
-          style={{
-            height: '50px',
-            width: '175px',
-            borderRadius: '9999px',
-            objectFit: 'cover',
-            display: 'block',
-          }}
+          className="brand-logo-full"
         />
       </div>
 
       <nav className="sidebar-nav">
-        <div className="nav-section-title">Navigation Menu</div>
+        <div className="nav-section-title">Workspace</div>
         {menuItems.map((item) => {
           const Icon = item.icon;
           return (

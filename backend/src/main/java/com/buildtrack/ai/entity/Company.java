@@ -28,6 +28,12 @@ public class Company {
     private String adminEmail;
     private String plan = "Enterprise ($4,999/mo)";
 
+    /** A tenant is provisioned with a plan, but must activate it before using paid features. */
+    @Column(nullable = false)
+    private String subscriptionStatus = "PENDING"; // PENDING, ACTIVE, EXPIRED, CANCELLED
+
+    private LocalDateTime subscriptionActivatedAt;
+
     @Column(nullable = false)
     private String status = "ACTIVE"; // ACTIVE, SUSPENDED
 
@@ -66,6 +72,10 @@ public class Company {
     public void setAdminEmail(String adminEmail) { this.adminEmail = adminEmail; }
     public String getPlan() { return plan; }
     public void setPlan(String plan) { this.plan = plan; }
+    public String getSubscriptionStatus() { return subscriptionStatus; }
+    public void setSubscriptionStatus(String subscriptionStatus) { this.subscriptionStatus = subscriptionStatus; }
+    public LocalDateTime getSubscriptionActivatedAt() { return subscriptionActivatedAt; }
+    public void setSubscriptionActivatedAt(LocalDateTime subscriptionActivatedAt) { this.subscriptionActivatedAt = subscriptionActivatedAt; }
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
     public String getPhone() { return phone; }

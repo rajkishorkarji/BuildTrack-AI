@@ -1,11 +1,11 @@
 import { Outlet } from 'react-router-dom';
-import SiteEngineerSidebar from '../components/layout/sidebars/SiteEngineerSidebar';
+import Sidebar from '../components/layout/Sidebar';
 import Topbar from '../components/layout/Topbar';
 
 export default function SiteEngineerLayout() {
   return (
     <div className="app-shell site-engineer-shell">
-      <SiteEngineerSidebar />
+      <Sidebar />
       <div className="content-shell">
         <Topbar />
         <main className="content-main">

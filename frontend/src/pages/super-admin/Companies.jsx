@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
-import { Building2, Plus, Search, CheckCircle2, XCircle, CreditCard, Download, ShieldCheck } from 'lucide-react';
+import { Building2, Plus, Search } from 'lucide-react';
 
 export default function SuperAdminCompanies() {
   const { companies = [], addCompany, deleteCompany, updateCompanyStatus, subscriptions = [] } = useData();
@@ -32,6 +32,11 @@ export default function SuperAdminCompanies() {
         .substring(2, 6)
         .toUpperCase()}`;
 
+  if (companies.some((company) => (company.code || '').toUpperCase() === generatedCode)) {
+    window.alert('Company code already exists. Enter a unique code.');
+    return;
+  }
+
   addCompany({
     name: newCo.name,
     code: generatedCode,
@@ -39,6 +44,7 @@ export default function SuperAdminCompanies() {
     adminEmail: newCo.adminEmail,
     plan: newCo.plan,
     status: "Active",
+    subscriptionStatus: 'PENDING',
   });
 
   setShowCreate(false);
@@ -80,6 +86,7 @@ export default function SuperAdminCompanies() {
               <th style={{ padding: '14px', fontWeight: 600 }}>Company Admin</th>
               <th style={{ padding: '14px', fontWeight: 600 }}>Plan
 </th>
+              <th style={{ padding: '14px', fontWeight: 600 }}>Subscription</th>
               <th style={{ padding: '14px 20px', fontWeight: 600, textAlign: 'right' }}>Actions</th>
             </tr>
           </thead>
@@ -110,6 +117,11 @@ export default function SuperAdminCompanies() {
 
   
 </td>
+                <td style={{ padding: '14px' }}>
+                  <span style={{ color: c.subscriptionStatus === 'ACTIVE' ? 'var(--green)' : 'var(--orange)', fontWeight: 700, fontSize: '12px' }}>
+                    {c.subscriptionStatus === 'ACTIVE' ? 'Active' : 'Awaiting activation'}
+                  </span>
+                </td>
                 <td style={{ padding: "14px" }}>
   <span
     style={{
@@ -319,7 +331,7 @@ export default function SuperAdminCompanies() {
     </option>
 
     <option value="Professional">
-      Professional (₹29,999 / month)
+      Professional (₹29,999 / month) — Recommended
     </option>
 
     <option value="Enterprise">

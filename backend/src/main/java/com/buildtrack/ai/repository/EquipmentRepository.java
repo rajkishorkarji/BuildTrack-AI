@@ -9,4 +9,5 @@ import java.util.List;
 public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
     List<Equipment> findByProjectId(Long projectId);
     List<Equipment> findByStatus(String status);
+    List<Equipment> findByProjectCompanyId(Long companyId);
 }

@@ -30,6 +30,9 @@ public class Project {
     private LocalDate startDate;
     private LocalDate estEndDate;
 
+    /** Email is retained so the assigned manager can be resolved without exposing another tenant's users. */
+    private String assignedProjectManagerEmail;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "company_id", nullable = false)
     private Company company;
@@ -57,6 +60,8 @@ public class Project {
     public void setStartDate(LocalDate startDate) { this.startDate = startDate; }
     public LocalDate getEstEndDate() { return estEndDate; }
     public void setEstEndDate(LocalDate estEndDate) { this.estEndDate = estEndDate; }
+    public String getAssignedProjectManagerEmail() { return assignedProjectManagerEmail; }
+    public void setAssignedProjectManagerEmail(String assignedProjectManagerEmail) { this.assignedProjectManagerEmail = assignedProjectManagerEmail; }
     public Company getCompany() { return company; }
     public void setCompany(Company company) { this.company = company; }
 }

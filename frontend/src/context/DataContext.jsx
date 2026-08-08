@@ -2,13 +2,14 @@ import { createContext, useCallback, useContext, useState, useEffect, useRef } f
 import notificationService from '../services/notificationService';
 import api, { realtimeBus } from '../services/api';
 import { realtimeClient } from '../services/realtimeClient';
+import { useAuth } from './AuthContext';
 
 
 const DataContext = createContext(null);
 
 const INITIAL_DATA = {
   companies: [
-    { id: 'c1', name: 'Solviontech Infrastructure Ltd', code: 'SOLV-CO', gstNo: '21AAACS0000F1Z9', address: 'Bhubaneswar, Odisha', status: 'Active' },
+    { id: 'c1', name: 'Solviontech Infrastructure Ltd', code: 'SOLV-CO', gstNo: '21AAACS0000F1Z9', address: 'Bhubaneswar, Odisha', status: 'Active', plan: 'Professional', subscriptionStatus: 'ACTIVE' },
   ],
   projects: [
     {
@@ -128,6 +129,7 @@ const INITIAL_DATA = {
 };
 
 export function DataProvider({ children }) {
+  const { user } = useAuth();
   const [data, setData] = useState(() => {
     const saved = localStorage.getItem('buildtrack_app_data');
     if (saved) {
@@ -272,7 +274,8 @@ export function DataProvider({ children }) {
       fullName: newUser.fullName,
       email: newUser.email,
       role: newUser.role,
-      companyName: newUser.companyName || 'Solviontech Infrastructure Ltd',
+      companyName: newUser.companyName || user?.companyName || 'Solviontech Infrastructure Ltd',
+      companyCode: newUser.companyCode || user?.companyCode || 'SOLV-CO',
       blocked: false,
       createdAt: new Date().toISOString(),
     };
@@ -287,10 +290,12 @@ export function DataProvider({ children }) {
 
   // 2. Project Assignment Flow Actions
   const addProject = (proj) => {
+    const managerEmailMatch = String(proj.pmName || '').match(/\(([^()\s]+@[^()\s]+)\)$/);
     const newProj = {
       id: Date.now(),
       name: proj.name,
-      companyName: proj.companyName || 'Solviontech Infrastructure Ltd',
+      companyName: proj.companyName || user?.companyName || 'Solviontech Infrastructure Ltd',
+      companyCode: proj.companyCode || user?.companyCode || 'SOLV-CO',
       location: proj.location || 'Metro Site Zone',
       budget: parseFloat(proj.budget) || 1000000,
       progress: 0,
@@ -298,6 +303,7 @@ export function DataProvider({ children }) {
       startDate: new Date().toISOString().split('T')[0],
       deadline: proj.deadline || '2026-12-31',
       pmName: proj.pmName || 'Unassigned PM',
+      assignedProjectManagerEmail: managerEmailMatch?.[1] || proj.assignedProjectManagerEmail || null,
       seName: proj.seName || 'Unassigned SE',
       contractorName: proj.contractorName || 'Unassigned Contractor',
       assignedWorkers: proj.assignedWorkers || [],
@@ -309,6 +315,7 @@ export function DataProvider({ children }) {
       budget: newProj.budget,
       startDate: newProj.startDate,
       estEndDate: newProj.deadline,
+      assignedProjectManagerEmail: newProj.assignedProjectManagerEmail,
     }).then(refreshFromServer).catch(() => undefined);
     return newProj;
   };
@@ -489,8 +496,9 @@ export function DataProvider({ children }) {
   const addIssue = (iss) => updateData(prev => ({ ...prev, issues: [iss, ...prev.issues] }), { domain: 'issues', action: 'created' });
   const addDocument = (doc) => updateData(prev => ({ ...prev, documents: [doc, ...prev.documents] }), { domain: 'documents', action: 'created' });
   const addCompany = (c) => {
-    updateData(prev => ({ ...prev, companies: [c, ...prev.companies] }), { domain: 'companies', action: 'created' });
-    api.post('/superadmin/companies', c).then(refreshFromServer).catch(() => undefined);
+    const company = { id: c.id || `company-${Date.now()}`, ...c, subscriptionStatus: c.subscriptionStatus || 'PENDING' };
+    updateData(prev => ({ ...prev, companies: [company, ...prev.companies] }), { domain: 'companies', action: 'created' });
+    api.post('/superadmin/companies', company).then(refreshFromServer).catch(() => undefined);
   };
   const deleteCompany = (cIdOrName) => {
     updateData(prev => ({ ...prev, companies: prev.companies.filter(c => String(c.id) !== String(cIdOrName) && c.name !== cIdOrName) }), { domain: 'companies', action: 'deleted' });
@@ -499,6 +507,15 @@ export function DataProvider({ children }) {
   const updateCompanyStatus = (cIdOrName, newStatus) => {
     updateData(prev => ({ ...prev, companies: prev.companies.map(c => (String(c.id) === String(cIdOrName) || c.name === cIdOrName) ? { ...c, status: newStatus } : c) }), { domain: 'companies', action: 'updated' });
     if (Number.isFinite(Number(cIdOrName))) api.patch(`/superadmin/companies/${cIdOrName}/status`, { status: newStatus }).then(refreshFromServer).catch(() => undefined);
+  };
+  const activateCompanySubscription = (companyCode) => {
+    updateData(prev => ({
+      ...prev,
+      companies: prev.companies.map((company) => company.code === companyCode
+        ? { ...company, subscriptionStatus: 'ACTIVE', subscriptionActivatedAt: new Date().toISOString() }
+        : company),
+    }), { domain: 'companies', action: 'subscription_activated' });
+    api.post('/company/subscription/activate').then(refreshFromServer).catch(() => undefined);
   };
 
   const addProgressReport = (report) => {
@@ -526,10 +543,28 @@ export function DataProvider({ children }) {
 
   const addTeamMember = (tm) => updateData(prev => ({ ...prev, teamMembers: [tm, ...(prev.teamMembers || [])] }), { domain: 'team', action: 'created' });
 
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+  const currentCompanyCode = user?.companyCode;
+  const currentCompanyName = user?.companyName;
+  const belongsToCurrentTenant = (item) => {
+    if (isSuperAdmin) return true;
+    if (!user) return true;
+    return item.companyCode === currentCompanyCode || item.companyName === currentCompanyName || item.companyId === user.companyId ||
+      item.company?.id === user.companyId || item.company?.code === currentCompanyCode;
+  };
+  const scopedData = {
+    ...data,
+    companies: isSuperAdmin ? data.companies : data.companies.filter((company) => company.code === currentCompanyCode),
+    projects: data.projects.filter(belongsToCurrentTenant),
+    usersList: data.usersList.filter(belongsToCurrentTenant),
+    workers: data.workers.filter(belongsToCurrentTenant),
+    tasks: data.tasks.filter((task) => isSuperAdmin || data.projects.some((project) => belongsToCurrentTenant(project) && project.name === task.project)),
+  };
+
   return (
     <DataContext.Provider
       value={{
-        ...data,
+        ...scopedData,
         addUser,
         addProject,
         assignPMToProject,
@@ -554,6 +589,7 @@ export function DataProvider({ children }) {
         addCompany,
         deleteCompany,
         updateCompanyStatus,
+        activateCompanySubscription,
         addProgressReport,
         addTeamMember,
         refreshFromServer,

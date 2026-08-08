@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Bell, Search, CheckCheck, Trash2, Filter, AlertTriangle, Info, CheckCircle2, X, Megaphone, Clock, Shield } from 'lucide-react';
+import { Bell, Search, CheckCheck, AlertTriangle, Info, CheckCircle2, X, Megaphone, Clock } from 'lucide-react';
 import notificationService from '../services/notificationService';
 import { useAuth } from '../context/AuthContext';
 
@@ -20,16 +20,18 @@ const TYPE_STYLES = {
 export default function Notifications() {
   const { user } = useAuth();
   const role = user?.role || 'SUPER_ADMIN';
+  const isSuperAdmin = role === 'SUPER_ADMIN';
   const [notifications, setNotifications] = useState([]);
   const [activeTab, setActiveTab] = useState('all');
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('ALL');
   const [showBroadcast, setShowBroadcast] = useState(false);
-  const [broadcastForm, setBroadcastForm] = useState({ title: '', message: '', type: 'BROADCAST', target: 'All Users' });
+  const [broadcastForm, setBroadcastForm] = useState({ title: '', message: '', type: 'BROADCAST', targetRole: isSuperAdmin ? 'COMPANY_ADMIN' : 'PROJECT_MANAGER' });
   const [notice, setNotice] = useState('');
 
   useEffect(() => {
     const unsubscribe = notificationService.subscribeToNotifications((notifs) => setNotifications(notifs));
+    notificationService.getNotifications();
     return () => unsubscribe();
   }, []);
 
@@ -53,16 +55,21 @@ export default function Notifications() {
   const sendBroadcast = (e) => {
     e.preventDefault();
     if (!broadcastForm.title || !broadcastForm.message) return;
-    notificationService.broadcast({ ...broadcastForm, from: user?.fullName || 'Super Admin' });
+    notificationService.broadcast({
+      ...broadcastForm,
+      from: user?.fullName || 'Super Admin',
+      companyCode: user?.companyCode,
+    });
     setShowBroadcast(false);
-    setBroadcastForm({ title: '', message: '', type: 'BROADCAST', target: 'All Users' });
+    setBroadcastForm({ title: '', message: '', type: 'BROADCAST', targetRole: isSuperAdmin ? 'COMPANY_ADMIN' : 'PROJECT_MANAGER' });
     notify('Broadcast dispatched successfully!');
   };
 
-  const unread = notifications.filter(n => !n.read).length;
-  const alerts = notifications.filter(n => n.type === 'ALERT' || n.type === 'WARNING');
+  const visibleNotifications = notifications.filter((n) => !n.recipientEmail || n.recipientEmail.toLowerCase() === String(user?.email || '').toLowerCase());
+  const unread = visibleNotifications.filter(n => !n.read).length;
+  const alerts = visibleNotifications.filter(n => n.type === 'ALERT' || n.type === 'WARNING');
 
-  const filtered = notifications.filter(n => {
+  const filtered = visibleNotifications.filter(n => {
     const matchSearch = (n.title || '').toLowerCase().includes(search.toLowerCase()) ||
       (n.message || '').toLowerCase().includes(search.toLowerCase());
     const matchType = typeFilter === 'ALL' || n.type === typeFilter;
@@ -74,8 +81,9 @@ export default function Notifications() {
     <div className="dashboard-page">
       <section className="hero-row">
         <div>
-          <p className="eyebrow">Real-Time Platform Alerts & Communication</p>
-          <h1>Notifications Center {unread > 0 && <span style={{ fontSize: '20px', color: 'var(--blue)', marginLeft: '8px' }}>({unread} unread)</span>}</h1>
+          <p className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--blue)', fontWeight: 700 }}>
+            <Bell size={14} /> Notifications
+          </p>
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
           <button type="button" className="secondary-button" onClick={markAllRead} disabled={unread === 0}>
@@ -95,7 +103,7 @@ export default function Notifications() {
         </div>
       )}
 
-      {/* KPI Strip */}
+      {!isSuperAdmin && (
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '14px', marginTop: '20px' }}>
         {[
           { label: 'Total Notifications', value: notifications.length, color: 'var(--blue)' },
@@ -109,6 +117,7 @@ export default function Notifications() {
           </div>
         ))}
       </div>
+      )}
 
       {/* Tabs + Controls */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px', borderBottom: '1px solid var(--border)', paddingBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
@@ -134,7 +143,7 @@ export default function Notifications() {
         {filtered.length === 0 ? (
           <div className="panel" style={{ textAlign: 'center', padding: '60px 24px', color: 'var(--muted)' }}>
             <Bell size={44} style={{ marginBottom: '12px' }} />
-            <h3 style={{ color: 'var(--text)', marginBottom: '6px' }}>
+              <h3 style={{ color: 'var(--text)', marginBottom: '6px' }}>
               {activeTab === 'unread' ? 'No Unread Notifications' : 'No Notifications Found'}
             </h3>
             <p style={{ fontSize: '13px' }}>
@@ -186,7 +195,10 @@ export default function Notifications() {
       {showBroadcast && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
           <div className="panel" style={{ width: '100%', maxWidth: '480px', padding: '28px', borderRadius: '16px' }}>
-            <h2 style={{ fontSize: '20px', marginBottom: '18px' }}>Broadcast Platform Alert</h2>
+            <h2 style={{ fontSize: '20px', marginBottom: '4px' }}>{isSuperAdmin ? 'Broadcast to Company Admins' : 'Broadcast to Your Company Team'}</h2>
+            <p style={{ color: 'var(--muted)', fontSize: '13px', marginBottom: '18px' }}>
+              {isSuperAdmin ? 'Platform notices are delivered only to registered Company Admins.' : 'Choose a delivery role within your tenant. Other roles can only receive notifications.'}
+            </p>
             <form onSubmit={sendBroadcast} style={{ display: 'flex', flexDirection: 'column', gap: '13px', fontSize: '13px' }}>
               <div>
                 <label style={{ color: 'var(--muted)', display: 'block', marginBottom: '4px' }}>Alert Title *</label>
@@ -208,13 +220,13 @@ export default function Notifications() {
                     {['BROADCAST', 'ALERT', 'WARNING', 'INFO', 'SUCCESS'].map(t => <option key={t}>{t}</option>)}
                   </select>
                 </div>
-                <div>
+                {!isSuperAdmin && <div>
                   <label style={{ color: 'var(--muted)', display: 'block', marginBottom: '4px' }}>Target Audience</label>
-                  <select value={broadcastForm.target} onChange={e => setBroadcastForm({ ...broadcastForm, target: e.target.value })}
+                  <select value={broadcastForm.targetRole} onChange={e => setBroadcastForm({ ...broadcastForm, targetRole: e.target.value })}
                     style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--panel-soft)', color: 'var(--text)', fontSize: '13px' }}>
-                    {['All Users', 'Company Admins', 'Project Managers', 'Site Engineers', 'Workers', 'Contractors'].map(t => <option key={t}>{t}</option>)}
+                    {['PROJECT_MANAGER', 'SITE_ENGINEER', 'CONTRACTOR', 'WORKER'].map(t => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}
                   </select>
-                </div>
+                </div>}
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '6px' }}>
                 <button type="button" className="secondary-button" onClick={() => setShowBroadcast(false)}>Cancel</button>

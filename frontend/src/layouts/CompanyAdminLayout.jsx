@@ -1,11 +1,11 @@
 import { Outlet } from 'react-router-dom';
-import CompanyAdminSidebar from '../components/layout/sidebars/CompanyAdminSidebar';
+import Sidebar from '../components/layout/Sidebar';
 import Topbar from '../components/layout/Topbar';
 
 export default function CompanyAdminLayout() {
   return (
     <div className="app-shell company-admin-shell">
-      <CompanyAdminSidebar />
+      <Sidebar />
       <div className="content-shell">
         <Topbar />
         <main className="content-main">

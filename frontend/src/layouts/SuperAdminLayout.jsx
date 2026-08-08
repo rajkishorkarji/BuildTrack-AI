@@ -1,11 +1,11 @@
 import { Outlet } from 'react-router-dom';
-import SuperAdminSidebar from '../components/layout/sidebars/SuperAdminSidebar';
+import Sidebar from '../components/layout/Sidebar';
 import Topbar from '../components/layout/Topbar';
 
 export default function SuperAdminLayout() {
   return (
     <div className="app-shell super-admin-shell">
-      <SuperAdminSidebar />
+      <Sidebar />
       <div className="content-shell">
         <Topbar />
         <main className="content-main">

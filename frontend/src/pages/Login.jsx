@@ -2,13 +2,13 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Mail } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { useData } from '../context/DataContext';
+import { useTheme } from '../context/ThemeContext';
 import authService from '../services/authService';
 
 export default function Login() {
   const navigate = useNavigate();
   const { login, registerUser } = useAuth();
-  const { addCompany } = useData();
+  const { theme } = useTheme();
 
   const [isSignUp, setIsSignUp] = useState(false);
   const [showForgotModal, setShowForgotModal] = useState(false);
@@ -46,20 +46,16 @@ export default function Login() {
         return;
       }
 
-      // Register user
-      const response = await authService.register(formData);
-      registerUser(formData);
-
-      if (formData.companyName.trim()) {
-        addCompany({
-          name: formData.companyName.trim(),
-          adminName: `${formData.firstName} ${formData.lastName}`.trim(),
-          adminEmail: formData.email,
-        });
+      try {
+        const response = await authService.register(formData);
+        registerUser(formData);
+        setMessage({ text: response.message || 'Registration submitted. Please verify your email.', type: 'success' });
+        setTimeout(() => navigate('/dashboard'), 1500);
+      } catch (error) {
+        setMessage({ text: error.message || 'Registration could not be completed.', type: 'error' });
+        setLoading(false);
+        return;
       }
-
-      setMessage({ text: response.message || 'Registration submitted. Please verify your email.', type: 'success' });
-      setTimeout(() => navigate('/dashboard'), 1500);
     } else {
       if (!formData.email) {
         setMessage({ text: 'Please enter your email address.', type: 'error' });
@@ -67,8 +63,13 @@ export default function Login() {
         return;
       }
 
-      await authService.login(formData.email, formData.password, formData.role);
-      login(formData.email, formData.password);
+      const apiUser = await authService.login(formData.email, formData.password, formData.role);
+      const session = apiUser?.email ? login(apiUser) : login(formData.email, formData.password);
+      if (!session) {
+        setMessage({ text: 'No account was found for this email. Register with your company code first.', type: 'error' });
+        setLoading(false);
+        return;
+      }
       navigate('/dashboard');
     }
 
@@ -130,37 +131,14 @@ export default function Login() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', padding: '20px' }}>
-      <div className="panel" style={{ width: '100%', maxWidth: '480px', padding: '36px', borderRadius: '16px', border: '1px solid var(--border)' }}>
+    <div className="login-page" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', padding: '20px' }}>
+      <div className="panel login-card" style={{ width: '100%', maxWidth: '480px', padding: '36px', borderRadius: '16px', border: '1px solid var(--border)' }}>
         <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-          <div style={{ marginBottom: '14px', display: 'flex', justifyContent: 'center' }}>
-            <svg width="64" height="64" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" style={{ borderRadius: '14px', boxShadow: '0 8px 20px rgba(37, 99, 235, 0.25)' }}>
-              <defs>
-                <linearGradient id="bt-bg-login" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#0B1739"/>
-                  <stop offset="100%" stopColor="#2563EB"/>
-                </linearGradient>
-                <filter id="bt-glow-login" x="-150%" y="-150%" width="400%" height="400%">
-                  <feGaussianBlur stdDeviation="12" result="blur"/>
-                  <feMerge>
-                    <feMergeNode in="blur"/>
-                    <feMergeNode in="SourceGraphic"/>
-                  </feMerge>
-                </filter>
-              </defs>
-
-              <rect x="28" y="28" width="456" height="456" rx="100" fill="url(#bt-bg-login)"/>
-              <rect x="144" y="308" width="44" height="67"  rx="18" fill="#F8FAFC"/>
-              <rect x="204" y="266" width="44" height="109" rx="18" fill="#F8FAFC"/>
-              <rect x="264" y="224" width="44" height="151" rx="18" fill="#F8FAFC"/>
-              <rect x="324" y="178" width="44" height="197" rx="18" fill="#F8FAFC"/>
-              <circle cx="346" cy="107" r="26" fill="#F59E0B" filter="url(#bt-glow-login)"/>
-            </svg>
-          </div>
-          <h1 style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text)', margin: 0 }}>BuildTrack AI</h1>
-          <p style={{ fontSize: '14px', color: 'var(--muted)', marginTop: '4px' }}>
-            {isSignUp ? 'Register Account & Enterprise Workspace' : 'Sign in to access your role-based workspace'}
-          </p>
+          <img
+            src={theme === 'dark' ? '/logo-brand.svg' : '/logo-brand-light.svg'}
+            alt="BuildTrack AI"
+            className="login-brand-logo"
+          />
         </div>
 
 
@@ -179,6 +157,12 @@ export default function Login() {
           >
             {message.text}
           </div>
+        )}
+
+        {!isSignUp && (
+          <p style={{ margin: '0 0 4px', color: 'var(--muted)', fontSize: '12px', textAlign: 'center' }}>
+            Default Super Admin: <strong>raj@buildtrack.ai</strong> · <strong>Admin@123</strong>
+          </p>
         )}
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -226,6 +210,7 @@ export default function Login() {
                   placeholder="e.g. SOLV-7X9A"
                   value={formData.companyCode || ''}
                   onChange={(e) => setFormData({ ...formData, companyCode: e.target.value.toUpperCase() })}
+                  required
                   style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--blue)', background: 'var(--panel)', color: 'var(--text)', fontWeight: 700 }}
                 />
               </div>
@@ -242,7 +227,6 @@ export default function Login() {
                   <option value="SITE_ENGINEER">Site Engineer</option>
                   <option value="CONTRACTOR">Contractor</option>
                   <option value="WORKER">Worker</option>
-                  <option value="SUPER_ADMIN">Super Admin</option>
                 </select>
               </div>
             </>

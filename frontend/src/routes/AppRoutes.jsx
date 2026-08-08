@@ -62,8 +62,6 @@ import WorkerTasks from '../pages/worker/Tasks';
 import WorkerAttendance from '../pages/worker/Attendance';
 import WorkerEquipment from '../pages/worker/Equipment';
 import WorkerDocuments from '../pages/worker/Documents';
-import WorkerDailyLogs from '../pages/worker/DailyLogs';
-import WorkerIssues from '../pages/worker/Issues';
 import WorkerMaterials from '../pages/worker/Materials';
 import WorkerSettings from '../pages/worker/Settings';
 
@@ -208,15 +206,20 @@ function RoleDailyReport() {
   const { user } = useAuth();
   switch (user?.role) {
     case 'SITE_ENGINEER': return <SEDailyProgressReport />;
-    case 'WORKER': return <WorkerDailyLogs />;
+    case 'WORKER': return <Navigate to="/dashboard" replace />;
     default: return <PMDailyProgressReport />;
   }
+}
+
+function RoleSafety() {
+  const { user } = useAuth();
+  return user?.role === 'WORKER' ? <Navigate to="/dashboard" replace /> : <SESiteIssues />;
 }
 
 function RoleNotifications() {
   const { user } = useAuth();
   switch (user?.role) {
-    case 'COMPANY_ADMIN': return <CompanyAdminNotifications />;
+    case 'COMPANY_ADMIN': return <Notifications />;
     case 'PROJECT_MANAGER': return <PMNotifications />;
     default: return <Notifications />;
   }
@@ -359,7 +362,7 @@ export default function AppRoutes() {
           path="/safety"
           element={
             <ProtectedRoute requiredPermission={PERMISSIONS.WORKFORCE_MANAGE}>
-              <SESiteIssues />
+              <RoleSafety />
             </ProtectedRoute>
           }
         />
