@@ -15,7 +15,7 @@ const plansData = [
   {
     id: 'starter',
     name: 'Starter Plan',
-    price: '$499 / month',
+    price: '₹39,999 / month',
     projectsLimit: 'Up to 3 Active Projects',
     usersLimit: 'Up to 25 Users',
     storageLimit: '100 GB Cloud Storage',
@@ -25,7 +25,7 @@ const plansData = [
   {
     id: 'pro',
     name: 'Pro Enterprise Plan',
-    price: '$1,999 / month',
+    price: '₹1,59,999 / month',
     projectsLimit: 'Up to 15 Active Projects',
     usersLimit: 'Up to 150 Users',
     storageLimit: '1 TB Cloud Storage',
@@ -36,7 +36,7 @@ const plansData = [
   {
     id: 'enterprise',
     name: 'Unlimited SaaS Tier',
-    price: '$4,999 / month',
+    price: '₹3,99,999 / month',
     projectsLimit: 'Unlimited Projects',
     usersLimit: 'Unlimited Users & Subcontractors',
     storageLimit: '10 TB NVMe Dedicated Storage',
@@ -46,10 +46,10 @@ const plansData = [
 ];
 
 const billingHistory = [
-  { invNo: 'INV-SaaS-2026-004', company: 'Solviontech Infrastructure Ltd', plan: 'Unlimited SaaS Tier', amount: '$4,999.00', date: '2026-08-01', status: 'PAID' },
-  { invNo: 'INV-SaaS-2026-003', company: 'Apex Construction Group', plan: 'Pro Enterprise Plan', amount: '$1,999.00', date: '2026-08-01', status: 'PAID' },
-  { invNo: 'INV-SaaS-2026-002', company: 'Titan Heavy Structures LLC', plan: 'Unlimited SaaS Tier', amount: '$4,999.00', date: '2026-07-15', status: 'PAID' },
-  { invNo: 'INV-SaaS-2026-001', company: 'Metropolis Builders Corp', plan: 'Starter Plan', amount: '$499.00', date: '2026-07-01', status: 'OVERDUE' },
+  { invNo: 'INV-SaaS-2026-004', company: 'Solviontech Infrastructure Ltd', plan: 'Unlimited SaaS Tier', amount: '₹3,99,999.00', date: '2026-08-01', status: 'PAID' },
+  { invNo: 'INV-SaaS-2026-003', company: 'Apex Construction Group', plan: 'Pro Enterprise Plan', amount: '₹1,59,999.00', date: '2026-08-01', status: 'PAID' },
+  { invNo: 'INV-SaaS-2026-002', company: 'Titan Heavy Structures LLC', plan: 'Unlimited SaaS Tier', amount: '₹3,99,999.00', date: '2026-07-15', status: 'PAID' },
+  { invNo: 'INV-SaaS-2026-001', company: 'Metropolis Builders Corp', plan: 'Starter Plan', amount: '₹39,999.00', date: '2026-07-01', status: 'OVERDUE' },
 ];
 
 export default function Subscriptions() {

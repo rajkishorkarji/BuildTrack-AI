@@ -3,25 +3,31 @@ package com.buildtrack.ai.service.impl;
 import com.buildtrack.ai.entity.Finance;
 import com.buildtrack.ai.repository.FinanceRepository;
 import com.buildtrack.ai.service.FinanceService;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
 @Service
+@RequiredArgsConstructor
 public class FinanceServiceImpl implements FinanceService {
 
-    @Autowired
-    private FinanceRepository financeRepository;
+    private final FinanceRepository financeRepository;
 
     @Override
-    public Map<String, String> getOverview() {
+    public Map<String, Object> getOverview(Long companyId) {
+        BigDecimal total = financeRepository.totalInvoiceValueByCompany(companyId);
+        BigDecimal paid = financeRepository.totalPaidByCompany(companyId);
+        BigDecimal pending = financeRepository.totalPendingByCompany(companyId);
+
         return Map.of(
-            "totalBudget", "₹150.0 Cr",
-            "disbursed", "₹84.2 Cr",
-            "pendingInvoices", "₹12.4 Cr",
-            "remaining", "₹53.4 Cr"
+                "totalInvoiceValue", total == null ? BigDecimal.ZERO : total,
+                "paid", paid == null ? BigDecimal.ZERO : paid,
+                "pending", pending == null ? BigDecimal.ZERO : pending,
+                "remaining", (total == null ? BigDecimal.ZERO : total)
+                        .subtract(paid == null ? BigDecimal.ZERO : paid)
         );
     }
 

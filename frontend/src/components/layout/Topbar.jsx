@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Bell,
@@ -19,6 +19,7 @@ import {
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
+import notificationService from '../../services/notificationService';
 
 // Helper function to extract initials if avatar isn't explicitly set
 const getInitials = (name) => {
@@ -30,28 +31,16 @@ const getInitials = (name) => {
   return name.slice(0, 2).toUpperCase();
 };
 
-const searchableItems = [
-  { id: 'p1', type: 'Project', title: 'Metro Tower Complex', sub: 'Mumbai Central • 66% Complete', link: '/projects', icon: FolderKanban },
-  { id: 'p2', type: 'Project', title: 'Riverside Apartments', sub: 'Pune Sector 4 • 82% Complete', link: '/projects', icon: FolderKanban },
-  { id: 'p3', type: 'Project', title: 'Highland Highway Section B', sub: 'NH-48 • 34% Complete', link: '/projects', icon: FolderKanban },
-  { id: 'w1', type: 'Worker', title: 'Rose Smith', sub: 'Senior Mason • Solviontech Ltd', link: '/workforce', icon: HardHat },
-  { id: 'w2', type: 'Worker', title: 'Robert Fox', sub: 'Structural Welder • Fox Steel', link: '/workforce', icon: HardHat },
-  { id: 'w3', type: 'Worker', title: 'Vikram Nair', sub: 'Project Manager • Solviontech Ltd', link: '/workforce', icon: HardHat },
-  { id: 'e1', type: 'Equipment', title: 'Tower Crane TC-500', sub: 'Lifting • Operational', link: '/equipment', icon: ShieldCheck },
-  { id: 'e2', type: 'Equipment', title: 'Mobile Concrete Pump 5000', sub: 'Pumping • Maintenance Scheduled', link: '/equipment', icon: ShieldCheck },
-  { id: 'd1', type: 'Document', title: 'Structural_Blueprint_TowerA_v4.pdf', sub: 'Designs Folder • Uploaded by Divya', link: '/documents', icon: FileText },
-  { id: 'd2', type: 'Document', title: 'Subcontractor_Agreement_FoxSteel.pdf', sub: 'Contracts Folder • Legal Approved', link: '/documents', icon: FileText },
-];
-
 export default function Topbar() {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
-  const { realtimeStatus } = useData();
+  const { realtimeStatus, projects = [], workers = [], equipment = [], documents = [] } = useData();
 
   const [query, setQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
 
   const dropdownRef = useRef(null);
   const searchRef = useRef(null);
@@ -60,6 +49,13 @@ export default function Topbar() {
   const userFullName = user?.fullName || 'Super Admin';
   const userRoleLabel = user?.roleLabel || user?.role?.replace(/_/g, ' ') || 'Super Admin';
   const userInitials = user?.avatar || getInitials(userFullName);
+
+  const searchableItems = useMemo(() => [
+    ...projects.slice(0, 20).map((p) => ({ id: `p-${p.id}`, type: 'Project', title: p.name, sub: `${p.location || 'Project site'} • ${p.progressPercentage ?? p.progress ?? 0}% Complete`, link: '/projects', icon: FolderKanban })),
+    ...workers.slice(0, 20).map((w) => ({ id: `w-${w.id}`, type: 'Worker', title: w.fullName || w.name, sub: `${w.skillTrade || w.role || 'Worker'} • ${w.projectName || 'Unassigned'}`, link: '/workforce', icon: HardHat })),
+    ...equipment.slice(0, 20).map((e) => ({ id: `e-${e.id}`, type: 'Equipment', title: e.name, sub: `${e.category || 'Equipment'} • ${e.status || 'Unknown'}`, link: '/equipment', icon: ShieldCheck })),
+    ...documents.slice(0, 20).map((d) => ({ id: `d-${d.id}`, type: 'Document', title: d.title || d.name, sub: `${d.projectName || 'Project document'} • ${d.uploadedBy || 'User'}`, link: '/documents', icon: FileText })),
+  ], [projects, workers, equipment, documents]);
 
   const handleLogout = () => {
     logout();
@@ -71,6 +67,13 @@ export default function Topbar() {
     : [];
 
   // Close dropdowns when clicking outside
+  useEffect(() => {
+    const unsubscribe = notificationService.subscribeToNotifications((items) => {
+      setUnreadNotifications(items.filter((item) => !item.read).length);
+    });
+    return () => unsubscribe();
+  }, []);
+
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -158,35 +161,40 @@ export default function Topbar() {
       </div>
 
       {/* Center: Company Tenant Name Badge */}
-      <div
-        className="topbar-company-wrap"
-        style={{
-          flex: 2,
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-        }}
-      >
-        <div
-          className="topbar-company"
-          style={{
-            fontSize: '13px',
-            fontWeight: 700,
-            color: 'var(--blue)',
-            background: 'var(--panel-soft)',
-            padding: '5px 16px',
-            borderRadius: '20px',
-            border: '1px solid var(--border)',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '6px',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          <Building2 size={15} style={{ color: 'var(--blue)' }} />
-          <span>{user?.companyName || 'Solviontech Infrastructure Ltd'}</span>
-        </div>
-      </div>
+<div
+  className="topbar-company-wrap"
+  style={{
+    flex: 2,
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+  }}
+>
+  <div
+    className="topbar-company"
+    style={{
+      fontSize: '13px',
+      fontWeight: 700,
+      color: 'var(--blue)',
+      background: 'var(--panel-soft)',
+      padding: '5px 16px',
+      borderRadius: '20px',
+      border: '1px solid var(--border)',
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '6px',
+      whiteSpace: 'nowrap',
+    }}
+  >
+    <Building2 size={15} style={{ color: 'var(--blue)' }} />
+
+    <span>
+      {user?.role === 'SUPER_ADMIN'
+        ? 'All Companies'
+        : user?.companyName || 'Company'}
+    </span>
+  </div>
+</div>
 
       {/* Right: Actions in a single unbroken horizontal line */}
       <div
@@ -253,18 +261,28 @@ export default function Topbar() {
           }}
         >
           <Bell size={15} />
-          <span
-            style={{
-              position: 'absolute',
-              top: '6px',
-              right: '6px',
-              width: '6px',
-              height: '6px',
-              borderRadius: '50%',
-              background: 'var(--red)',
-              border: '1.5px solid var(--panel)',
-            }}
-          />
+          {unreadNotifications > 0 && (
+            <span
+              style={{
+                position: 'absolute',
+                top: '2px',
+                right: '2px',
+                minWidth: '15px',
+                height: '15px',
+                padding: '0 3px',
+                borderRadius: '999px',
+                background: 'var(--red)',
+                color: '#fff',
+                border: '1.5px solid var(--panel)',
+                fontSize: '9px',
+                fontWeight: 800,
+                display: 'grid',
+                placeItems: 'center',
+              }}
+            >
+              {unreadNotifications > 99 ? '99+' : unreadNotifications}
+            </span>
+          )}
         </button>
 
         {/* User Profile Pill Dropdown Trigger */}

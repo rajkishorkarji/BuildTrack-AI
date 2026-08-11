@@ -52,7 +52,7 @@ export default function SuperAdminProjects() {
                 <td style={{ padding: '14px', fontWeight: 600 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <Building2 size={14} style={{ color: 'var(--muted)' }} />
-                    {p.companyName || 'Solviontech Infrastructure Ltd'}
+                    {p.companyName || '—'}
                   </div>
                 </td>
                 <td style={{ padding: '14px', color: 'var(--muted)' }}>

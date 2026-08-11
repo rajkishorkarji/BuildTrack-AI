@@ -1,16 +1,155 @@
-﻿services:
+services:
+
   database:
     image: postgres:16
     container_name: buildtrack_ai_db
+
     environment:
       POSTGRES_DB: buildtrack_ai
       POSTGRES_USER: buildtrack
       POSTGRES_PASSWORD: buildtrack_password
+
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5433:5432"
+
     volumes:
       - buildtrack_ai_data:/var/lib/postgresql/data
 
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U buildtrack -d buildtrack_ai"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+
+  kafka:
+    image: apache/kafka:latest
+    container_name: buildtrack_ai_kafka
+
+    ports:
+      - "127.0.0.1:29092:29092"
+
+    environment:
+      KAFKA_NODE_ID: "1"
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
+
+      KAFKA_LISTENERS: "INTERNAL://0.0.0.0:9092,EXTERNAL://0.0.0.0:29092,CONTROLLER://0.0.0.0:9093"
+
+      KAFKA_ADVERTISED_LISTENERS: "INTERNAL://kafka:9092,EXTERNAL://localhost:29092"
+
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT"
+
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "INTERNAL"
+
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1"
+
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: "0"
+
+    volumes:
+      - buildtrack_ai_kafka_data:/tmp/kraft-combined-logs
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1"
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+
+  backend:
+    build:
+      context: ./backend
+
+    environment:
+      DB_URL: "jdbc:postgresql://database:5432/buildtrack_ai"
+      DB_USERNAME: buildtrack
+      DB_PASSWORD: buildtrack_password
+
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+
+      FRONTEND_URL: http://localhost
+
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+
+      SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:-admin@buildtrack.ai}
+      SUPER_ADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD:?Set SUPER_ADMIN_PASSWORD in .env}
+
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
+      RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:-}
+
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
+      MAIL_PORT: ${MAIL_PORT:-587}
+
+    depends_on:
+      database:
+        condition: service_healthy
+
+      kafka:
+        condition: service_healthy
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS http://localhost:8080/actuator/health/liveness | grep -q 'UP'"
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+
+  gateway:
+    build:
+      context: ./gateway
+
+    environment:
+      BACKEND_URL: http://backend:8080
+      BACKEND_WS_URL: ws://backend:8080
+
+    depends_on:
+      backend:
+        condition: service_healthy
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS http://localhost:8081/actuator/health | grep -q 'UP'"
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+
+  frontend:
+    build:
+      context: ./frontend
+
+    ports:
+      - "80:80"
+
+    depends_on:
+      gateway:
+        condition: service_healthy
+
+
 volumes:
+
   buildtrack_ai_data:
 
+  buildtrack_ai_kafka_data:

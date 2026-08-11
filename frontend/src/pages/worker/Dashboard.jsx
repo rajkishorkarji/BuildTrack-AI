@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
 import { CheckSquare, Clock, ShieldCheck, Bell, Camera, MapPin, ArrowRight } from 'lucide-react';
@@ -12,9 +13,16 @@ export default function WorkerDashboard() {
   const openTasks = assignedTasks.filter((task) => !String(task.status).toUpperCase().includes('COMPLETED'));
   const workerEquipment = equipment.filter((item) => !item.operator || item.operator === workerName);
 
-  const toggleAttendance = () => {
-    if (checkedIn) logWorkerCheckOut(activeAttendance.id);
-    else logWorkerCheckIn(workerName, projects[0]?.name);
+  const [attendanceBusy, setAttendanceBusy] = useState(false);
+
+  const toggleAttendance = async () => {
+    setAttendanceBusy(true);
+    try {
+      if (checkedIn) await logWorkerCheckOut(activeAttendance.id);
+      else await logWorkerCheckIn(workerName, projects[0]?.name);
+    } finally {
+      setAttendanceBusy(false);
+    }
   };
 
   return (
@@ -30,6 +38,7 @@ export default function WorkerDashboard() {
           className="primary-button"
           style={{ background: checkedIn ? 'var(--green)' : 'var(--blue)' }}
           onClick={toggleAttendance}
+          disabled={attendanceBusy}
         >
           <Clock size={16} /> {checkedIn ? 'Checked In (08:00 AM)' : 'Check In Now'}
         </button>
@@ -39,7 +48,7 @@ export default function WorkerDashboard() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginTop: '20px' }}>
         {[
           { label: "Today's Tasks", value: `${openTasks.length} Pending`, color: 'var(--blue)', sub: projects[0]?.name || 'No project assigned' },
-          { label: 'Attendance Status', value: checkedIn ? 'Present' : 'Not Checked In', color: checkedIn ? 'var(--green)' : 'var(--orange)', sub: 'Shift: Day (08:00 - 17:00)' },
+          { label: 'Attendance Status', value: checkedIn ? 'Present' : 'Not Checked In', color: checkedIn ? 'var(--green)' : 'var(--orange)', sub: 'Attendance is tracked from the current assigned shift' },
           { label: 'Work Progress', value: assignedTasks.length ? `${Math.round(assignedTasks.reduce((sum, task) => sum + Number(task.progress ?? task.completionPercentage ?? 0), 0) / assignedTasks.length)}%` : '—', color: 'var(--purple)', sub: `${assignedTasks.length} assigned items` },
           { label: 'Assigned Equipment', value: `${workerEquipment.length} asset${workerEquipment.length === 1 ? '' : 's'}`, color: 'var(--orange)', sub: workerEquipment[0]?.name || 'No equipment assigned' },
         ].map(({ label, value, color, sub }) => (

@@ -1,40 +1,39 @@
-import { useState } from 'react';
-import { useData } from '../../context/DataContext';
-import { Users, UserPlus, Shield, Activity, Phone, Mail } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Users, Mail, Phone, FolderKanban } from 'lucide-react';
+import workforceService from '../../services/workforceService';
+
+const roleLabel = (role = '') => role.replaceAll('_', ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
 
 export default function PMTeam() {
-  const { workers } = useData();
+  const [members, setMembers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    workforceService.list().then(setMembers).catch(e => setError(e.response?.data?.message || 'Unable to load project team')).finally(() => setLoading(false));
+  }, []);
 
   return (
     <div className="dashboard-page">
       <section className="hero-row">
-        <div>
-          <p className="eyebrow">Project Labor & Site Staffing</p>
-          <h1>Project Team ({workers.length})</h1>
-        </div>
-        <button type="button" className="primary-button">
-          <UserPlus size={16} /> Assign Team Member
-        </button>
+        <div><p className="eyebrow">Project Team</p><h1>Assigned Workforce ({members.length})</h1></div>
       </section>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginTop: '20px' }}>
-        {workers.map(w => (
-          <div key={w.id} className="panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div>
-                <strong style={{ fontSize: '15px', color: 'var(--text)' }}>{w.name}</strong>
-                <span style={{ display: 'block', fontSize: '12px', color: 'var(--blue)', fontWeight: 600, marginTop: '2px' }}>{w.role}</span>
-              </div>
-              <span style={{ padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 600, background: 'rgba(34,197,94,0.12)', color: 'var(--green)' }}>
-                Active
-              </span>
+      {error && <div className="panel" style={{ marginTop: 16, color: 'var(--red)' }}>{error}</div>}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 16, marginTop: 20 }}>
+        {loading ? <div className="panel">Loading project team…</div> : members.map(m => (
+          <div key={m.userId} className="panel" style={{ padding: 20 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+              <div><strong>{m.fullName || 'Unnamed user'}</strong><div style={{ color: 'var(--blue)', fontSize: 12, marginTop: 4 }}>{roleLabel(m.role)}</div></div>
+              <span style={{ color: m.enabled ? 'var(--green)' : 'var(--orange)', fontSize: 11, fontWeight: 700 }}>{m.enabled ? 'Active' : 'Disabled'}</span>
             </div>
-            <div style={{ fontSize: '12px', color: 'var(--muted)', borderTop: '1px solid var(--border)', paddingTop: '10px', marginTop: '4px' }}>
-              <div>Site: {w.site || 'Metro Tower'}</div>
-              <div>Shift: Morning (08:00 - 17:00)</div>
+            <div style={{ borderTop: '1px solid var(--border)', marginTop: 14, paddingTop: 12, color: 'var(--muted)', fontSize: 12, display: 'grid', gap: 7 }}>
+              <div><Mail size={13} style={{ verticalAlign: 'middle', marginRight: 6 }} />{m.email}</div>
+              {m.phone && <div><Phone size={13} style={{ verticalAlign: 'middle', marginRight: 6 }} />{m.phone}</div>}
+              <div><FolderKanban size={13} style={{ verticalAlign: 'middle', marginRight: 6 }} />{m.projects?.length || 0} assigned project(s)</div>
             </div>
           </div>
         ))}
+        {!loading && members.length === 0 && <div className="panel">No personnel are assigned to your projects yet.</div>}
       </div>
     </div>
   );

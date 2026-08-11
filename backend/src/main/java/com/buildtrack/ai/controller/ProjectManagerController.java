@@ -1,42 +1,44 @@
 package com.buildtrack.ai.controller;
 
 import com.buildtrack.ai.auth.dto.ApiResponse;
-import com.buildtrack.ai.entity.Project;
-import com.buildtrack.ai.entity.TaskEntity;
+import com.buildtrack.ai.auth.entity.User;
+import com.buildtrack.ai.dto.project.ProjectSummaryResponse;
+import com.buildtrack.ai.dto.task.TaskCreateRequest;
+import com.buildtrack.ai.dto.task.TaskResponse;
 import com.buildtrack.ai.service.ProjectService;
 import com.buildtrack.ai.service.TaskService;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.buildtrack.ai.service.TenantAccessService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 @RestController
+@PreAuthorize("hasRole('PROJECT_MANAGER')")
 @RequestMapping("/api/pm")
+@RequiredArgsConstructor
 public class ProjectManagerController {
-
-    @Autowired
-    private ProjectService projectService;
-
-    @Autowired
-    private TaskService taskService;
+    private final ProjectService projectService;
+    private final TaskService taskService;
+    private final TenantAccessService tenantAccessService;
 
     @GetMapping("/projects")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> getMyProjects() {
-        List<Project> projects = projectService.getAllProjects();
-        Project first = projects.isEmpty() ? null : projects.get(0);
-
-        Map<String, Object> res = new HashMap<>();
-        res.put("assignedProject", first != null ? first.getName() : "Metro Tower Complex");
-        res.put("progress", first != null ? first.getProgressPercentage() : 66);
-        res.put("delayRisk", 34.5);
-        return ResponseEntity.ok(ApiResponse.success(res));
+    public ResponseEntity<ApiResponse<List<ProjectSummaryResponse>>> getMyProjects() {
+        User user = tenantAccessService.currentUser();
+        List<ProjectSummaryResponse> result = projectService.getProjectsForUser(user).stream()
+                .map(project -> new ProjectSummaryResponse(
+                        project.getId(), project.getName(), project.getCode(), project.getLocation(),
+                        project.getDescription(), project.getBudget(), project.getSpent(),
+                        project.getProgressPercentage(), project.getStatus(), project.getStartDate(),
+                        project.getEstEndDate(), List.of()))
+                .toList();
+        return ResponseEntity.ok(ApiResponse.success(result));
     }
 
     @PostMapping("/tasks")
-    public ResponseEntity<ApiResponse<TaskEntity>> createTask(@RequestBody TaskEntity task) {
-        return ResponseEntity.ok(ApiResponse.success(taskService.createTask(task)));
+    public ResponseEntity<ApiResponse<TaskResponse>> createTask(@RequestBody TaskCreateRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(taskService.createTask(request, tenantAccessService.currentUser())));
     }
 }

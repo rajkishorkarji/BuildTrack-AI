@@ -8,4 +8,5 @@ public interface DashboardService {
     List<Map<String, Object>> getDailyActivities();
     List<Map<String, Object>> getSiteMapZones();
     List<Map<String, Object>> getAnalytics();
+    List<Map<String, Object>> getProjectProgress();
 }

@@ -1,49 +1,57 @@
-import { useState } from 'react';
-import { Bell, CheckCircle2, AlertTriangle, DollarSign, Clock, Wrench, ShieldAlert } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Bell, Megaphone, CheckCheck } from 'lucide-react';
+import notificationService from '../../services/notificationService';
+import { useAuth } from '../../context/AuthContext';
 
 export default function Notifications() {
-  const [notifications, setNotifications] = useState([
-    { id: 1, type: 'Task Alerts', title: 'Foundation Concrete Pouring Completed', time: '10 mins ago', read: false, icon: CheckCircle2, color: 'var(--green)' },
-    { id: 2, type: 'Payment Reminders', title: 'Subcontractor Invoice #INV-4921 due in 3 days', time: '1 hour ago', read: false, icon: DollarSign, color: 'var(--orange)' },
-    { id: 3, type: 'Deadline Alerts', title: 'Milestone 2 - Structural Framing Deadline Tomorrow', time: '3 hours ago', read: true, icon: Clock, color: 'var(--blue)' },
-    { id: 4, type: 'Maintenance Notifications', title: 'Tower Crane #4 Scheduled for Maintenance Inspection', time: 'Yesterday', read: true, icon: Wrench, color: 'var(--purple)' },
-    { id: 5, type: 'System Announcements', title: 'Platform v2.4 Security Patch Deployed', time: '2 days ago', read: true, icon: ShieldAlert, color: 'var(--muted)' },
-  ]);
+  const { user } = useAuth();
+  const [notifications, setNotifications] = useState([]);
+  const [form, setForm] = useState({ title: '', message: '', type: 'INFO', targetRole: 'PROJECT_MANAGER' });
+  const [notice, setNotice] = useState('');
 
-  const markAllRead = () => setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  useEffect(() => notificationService.subscribeToNotifications(setNotifications), []);
+
+  const send = async (e) => {
+    e.preventDefault();
+    await notificationService.broadcast(form);
+    setForm({ title: '', message: '', type: 'INFO', targetRole: 'PROJECT_MANAGER' });
+    setNotice('Broadcast delivered to the selected role in your company.');
+    setTimeout(() => setNotice(''), 3000);
+  };
 
   return (
     <div className="dashboard-page">
       <section className="hero-row">
-        <div>
-          <p className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--blue)', fontWeight: 700 }}>
-            <Bell size={14} /> Notifications
-          </p>
-        </div>
-        <button type="button" className="secondary-button" onClick={markAllRead}>
-          Mark All as Read
-        </button>
+        <div><p className="eyebrow"><Bell size={14} /> Notifications</p><h1>Company notifications</h1></div>
+        <button type="button" className="secondary-button" onClick={() => notificationService.markAllAsRead()}><CheckCheck size={15} /> Mark All Read</button>
       </section>
 
-      <div className="panel" style={{ marginTop: '20px', padding: '24px' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          {notifications.map(n => {
-            const Icon = n.icon;
-            return (
-              <div key={n.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', background: n.read ? 'var(--panel-soft)' : 'rgba(26, 115, 232, 0.08)', borderRadius: '12px', border: n.read ? '1px solid var(--border)' : '1px solid var(--blue)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                  <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: 'var(--panel)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Icon size={20} style={{ color: n.color }} />
-                  </div>
-                  <div>
-                    <span style={{ fontSize: '11px', fontWeight: 700, color: n.color, textTransform: 'uppercase' }}>{n.type}</span>
-                    <strong style={{ display: 'block', fontSize: '14px', color: 'var(--text)', margin: '2px 0' }}>{n.title}</strong>
-                    <span style={{ fontSize: '11px', color: 'var(--muted)' }}>{n.time}</span>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+      {notice && <div className="panel" style={{ marginTop: 14, color: 'var(--green)' }}>{notice}</div>}
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.4fr) minmax(300px, .8fr)', gap: 18, marginTop: 18 }}>
+        <div className="panel" style={{ padding: 20 }}>
+          <h3 style={{ marginTop: 0 }}>Recent events</h3>
+          {notifications.length === 0 ? <p style={{ color: 'var(--muted)' }}>No notifications yet.</p> : notifications.map(n => (
+            <div key={n.id} style={{ padding: 12, borderBottom: '1px solid var(--border)' }}>
+              <strong>{n.title}</strong><div style={{ color: 'var(--muted)', fontSize: 13 }}>{n.message}</div>
+              <small style={{ color: 'var(--muted)' }}>{n.createdAt ? new Date(n.createdAt).toLocaleString() : ''}</small>
+            </div>
+          ))}
+        </div>
+        <div className="panel" style={{ padding: 20 }}>
+          <h3 style={{ marginTop: 0, display: 'flex', gap: 8, alignItems: 'center' }}><Megaphone size={17} /> Broadcast</h3>
+          <p style={{ color: 'var(--muted)', fontSize: 12 }}>Send a message only to personnel roles inside your company.</p>
+          <form onSubmit={send} style={{ display: 'grid', gap: 10 }}>
+            <input required placeholder="Title" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} />
+            <textarea required rows={4} placeholder="Message" value={form.message} onChange={e => setForm({ ...form, message: e.target.value })} />
+            <select value={form.targetRole} onChange={e => setForm({ ...form, targetRole: e.target.value })}>
+              {['PROJECT_MANAGER', 'SITE_ENGINEER', 'CONTRACTOR', 'WORKER'].map(role => <option key={role} value={role}>{role.replace(/_/g, ' ')}</option>)}
+            </select>
+            <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}>
+              {['INFO', 'SUCCESS', 'WARNING', 'ALERT', 'BROADCAST'].map(type => <option key={type}>{type}</option>)}
+            </select>
+            <button className="primary-button" type="submit">Send to {form.targetRole.replace(/_/g, ' ')}</button>
+          </form>
         </div>
       </div>
     </div>

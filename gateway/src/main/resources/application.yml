@@ -1,0 +1,59 @@
+server:
+  port: ${GATEWAY_PORT:8081}
+
+spring:
+  application:
+    name: buildtrack-gateway
+
+  cloud:
+    gateway:
+      routes:
+
+        # ================================
+        # Backend REST API
+        # ================================
+        - id: buildtrack-api
+          uri: ${BACKEND_URL:http://localhost:8080}
+          predicates:
+            - Path=/api/**
+
+        # ================================
+        # Spring OAuth2 authorization
+        # ================================
+        - id: buildtrack-oauth2
+          uri: ${BACKEND_URL:http://localhost:8080}
+          predicates:
+            - Path=/oauth2/**
+
+        # ================================
+        # Spring OAuth2 callback
+        # ================================
+        - id: buildtrack-oauth2-login
+          uri: ${BACKEND_URL:http://localhost:8080}
+          predicates:
+            - Path=/login/oauth2/**
+
+        # ================================
+        # STOMP WebSocket
+        # ================================
+        - id: buildtrack-websocket
+          uri: ${BACKEND_WS_URL:ws://localhost:8080}
+          predicates:
+            - Path=/ws/**
+
+        # ================================
+        # Native WebSocket
+        # ================================
+        - id: buildtrack-websocket-native
+          uri: ${BACKEND_WS_URL:ws://localhost:8080}
+          predicates:
+            - Path=/ws-native/**
+
+      default-filters:
+        - PreserveHostHeader
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

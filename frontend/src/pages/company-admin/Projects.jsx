@@ -1,315 +1,175 @@
-import { useState } from 'react';
-import { useData } from '../../context/DataContext';
-import { FolderKanban, Plus, Search, Calendar, Users, DollarSign, CheckCircle2, UserCheck, Eye, Trash2, ShieldCheck } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Calendar, Eye, FolderKanban, Plus, Search, Trash2, Users, X } from 'lucide-react';
+import projectService from '../../services/projectService';
+import { formatINR } from '../../utils/currency';
 
-import { useAuth } from '../../context/AuthContext';
+const ROLES = [
+  ['PROJECT_MANAGER', 'Project Manager'],
+  ['SITE_ENGINEER', 'Site Engineer'],
+  ['CONTRACTOR', 'Contractor'],
+  ['WORKER', 'Worker'],
+];
 
-const INPUT = { width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--panel-soft)', color: 'var(--text)', fontSize: '13px' };
+const emptyForm = {
+  name: '', code: '', location: '', description: '', budget: '', startDate: '', estEndDate: '',
+};
 
 export default function CompanyAdminProjects() {
-  const { registeredUsers = [], user } = useAuth();
-  const { projects, addProject, deleteProject, usersList = [], companies = [], activateCompanySubscription } = useData();
+  const [projects, setProjects] = useState([]);
   const [search, setSearch] = useState('');
-  const [showAdd, setShowAdd] = useState(false);
-  const [activeProject, setActiveProject] = useState(null);
-  const company = companies.find((item) => item.code === user?.companyCode) || companies.find((item) => item.name === user?.companyName);
-  const subscriptionActive = company?.subscriptionStatus === 'ACTIVE';
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [showCreate, setShowCreate] = useState(false);
+  const [form, setForm] = useState(emptyForm);
+  const [selected, setSelected] = useState(null);
+  const [assignments, setAssignments] = useState([]);
+  const [eligible, setEligible] = useState([]);
+  const [role, setRole] = useState('PROJECT_MANAGER');
+  const [selectedUser, setSelectedUser] = useState('');
 
-  // Aggregate all registered Project Managers from usersList and registeredUsers
-  const allUsers = [...usersList, ...registeredUsers.filter((item) => item.companyCode === user?.companyCode || item.companyName === user?.companyName)];
-  const seenPMs = new Set();
-  const projectManagers = [];
-
-  allUsers.forEach((u, idx) => {
-    const roleUpper = (u.role || '').toUpperCase().replace(/[\s-]/g, '_');
-    if (roleUpper === 'PROJECT_MANAGER' || roleUpper === 'COMPANY_MANAGER') {
-      const name = u.fullName || u.name || 'Project Manager';
-      const email = u.email || `${name.toLowerCase().replace(/\s+/g, '.')}@solviontech.com`;
-      const key = `${name.toLowerCase()}_${email.toLowerCase()}`;
-      if (!seenPMs.has(key)) {
-        seenPMs.add(key);
-        projectManagers.push({
-          id: u.id || `pm-${idx}`,
-          name,
-          email,
-        });
-      }
-    }
-  });
-
-  if (projectManagers.length === 0) {
-    projectManagers.push(
-      { id: 'pm-def-1', name: 'Rajesh Verma', email: 'pm@solviontech.com' },
-      { id: 'pm-def-2', name: 'Amit Sharma', email: 'amit@solviontech.com' },
-      { id: 'pm-def-3', name: 'Priya Patel', email: 'priya@solviontech.com' }
-    );
-  }
-
-  const [newProject, setNewProject] = useState({
-    name: '',
-    location: '',
-    pmName: '',
-    startDate: new Date().toISOString().split('T')[0],
-    deadline: '',
-    budget: '',
-  });
-
-  const handleCreate = (e) => {
-    e.preventDefault();
-    if (!subscriptionActive || !newProject.name.trim()) return;
-
-    addProject({
-      name: newProject.name.trim(),
-      location: newProject.location || 'Metro Site Location',
-      pmName: newProject.pmName || 'Unassigned PM',
-      startDate: newProject.startDate || new Date().toISOString().split('T')[0],
-      deadline: newProject.deadline || '2026-12-31',
-      budget: parseFloat(newProject.budget) || 1500000,
-      progress: 0,
-      status: 'Active',
-    });
-
-    setShowAdd(false);
-    setNewProject({
-      name: '',
-      location: '',
-      pmName: '',
-      startDate: new Date().toISOString().split('T')[0],
-      deadline: '',
-      budget: '',
-    });
+  const loadProjects = async () => {
+    setLoading(true); setError('');
+    try { setProjects(await projectService.list()); }
+    catch (e) { setError(e.response?.data?.message || e.message || 'Unable to load projects'); }
+    finally { setLoading(false); }
   };
 
-  const filtered = projects.filter(p =>
-    (p.name || '').toLowerCase().includes(search.toLowerCase()) ||
-    (p.location || '').toLowerCase().includes(search.toLowerCase()) ||
-    (p.pmName || '').toLowerCase().includes(search.toLowerCase())
-  );
+  useEffect(() => { loadProjects(); }, []);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return projects;
+    return projects.filter(p => [p.name, p.code, p.location, p.status].some(v => String(v || '').toLowerCase().includes(q)));
+  }, [projects, search]);
+
+  const create = async (e) => {
+    e.preventDefault(); setBusy(true); setError('');
+    try {
+      await projectService.create({ ...form, budget: Number(form.budget || 0) });
+      setForm(emptyForm); setShowCreate(false); await loadProjects();
+    } catch (e) { setError(e.response?.data?.message || e.message || 'Unable to create project'); }
+    finally { setBusy(false); }
+  };
+
+  const remove = async (id) => {
+    if (!window.confirm('Delete this project? All project assignments will also be removed.')) return;
+    try { await projectService.remove(id); setSelected(null); await loadProjects(); }
+    catch (e) { setError(e.response?.data?.message || e.message || 'Unable to delete project'); }
+  };
+
+  const openAssignments = async (project) => {
+    setSelected(project); setError(''); setRole('PROJECT_MANAGER'); setSelectedUser('');
+    try { setAssignments(await projectService.assignments(project.id)); await loadEligible('PROJECT_MANAGER'); }
+    catch (e) { setError(e.response?.data?.message || e.message || 'Unable to load assignments'); }
+  };
+
+  const loadEligible = async (nextRole) => {
+    setRole(nextRole); setSelectedUser('');
+    try { setEligible(await projectService.eligibleUsers(nextRole)); }
+    catch (e) { setEligible([]); setError(e.response?.data?.message || e.message || 'Unable to load eligible users'); }
+  };
+
+  const assign = async () => {
+    if (!selected || !selectedUser) return;
+    setBusy(true); setError('');
+    try {
+      await projectService.assign(selected.id, Number(selectedUser), role);
+      setAssignments(await projectService.assignments(selected.id));
+      setSelectedUser('');
+    } catch (e) { setError(e.response?.data?.message || e.message || 'Unable to assign personnel'); }
+    finally { setBusy(false); }
+  };
+
+  const unassign = async (userId) => {
+    if (!selected) return;
+    try { await projectService.unassign(selected.id, userId); setAssignments(await projectService.assignments(selected.id)); }
+    catch (e) { setError(e.response?.data?.message || e.message || 'Unable to remove assignment'); }
+  };
 
   return (
     <div className="dashboard-page">
       <section className="hero-row">
         <div>
-          <p className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--blue)', fontWeight: 700 }}>
-            <FolderKanban size={14} /> Projects
-          </p>
+          <p className="eyebrow" style={{display:'inline-flex',alignItems:'center',gap:6,color:'var(--blue)',fontWeight:700}}><FolderKanban size={14}/> Projects</p>
+          <h1>Project Management</h1>
+          <p>Create company projects and assign the right personnel to each site.</p>
         </div>
-        <button type="button" className="primary-button" onClick={() => subscriptionActive ? setShowAdd(true) : activateCompanySubscription(company?.code)}>
-          <Plus size={16} /> Create New Project
-        </button>
+        <button className="primary-button" onClick={() => setShowCreate(true)}><Plus size={16}/> Create Project</button>
       </section>
 
-      {!subscriptionActive && (
-        <div style={{ marginTop: '16px', border: '1px solid var(--orange)', background: 'rgba(245,154,22,0.10)', padding: '14px 16px', borderRadius: '10px', fontSize: '13px' }}>
-          <strong style={{ color: 'var(--orange)' }}>Subscription required.</strong> Your Super Admin assigned the <strong>{company?.plan || 'Professional'}</strong> plan. Activate it to create projects, invite personnel, and use company operations.
-          <button type="button" className="primary-button" style={{ marginLeft: '12px', padding: '6px 10px', fontSize: '12px' }} onClick={() => activateCompanySubscription(company?.code)}>Activate {company?.plan || 'plan'}</button>
-        </div>
-      )}
+      {error && <div className="panel" style={{marginTop:16,borderColor:'var(--orange)',color:'var(--orange)'}}>{error}</div>}
 
-      {/* Search Toolbar */}
-      <div className="panel" style={{ marginTop: '20px', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div className="search-box" style={{ width: '360px' }}>
-          <Search size={16} style={{ color: 'var(--muted)' }} />
-          <input
-            placeholder="Search by project name, location, or PM..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
-        </div>
-        <span style={{ fontSize: '12px', color: 'var(--muted)', fontWeight: 600 }}>
-          {filtered.length} Active Portfolio Projects
-        </span>
+      <div className="panel" style={{marginTop:20,padding:16,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <div className="search-box" style={{width:380}}><Search size={16}/><input placeholder="Search project, code, location..." value={search} onChange={e=>setSearch(e.target.value)}/></div>
+        <strong style={{fontSize:12,color:'var(--muted)'}}>{filtered.length} project{filtered.length === 1 ? '' : 's'}</strong>
       </div>
 
-      {/* ── Projects Row-Wise Table View ── */}
-      <div className="panel" style={{ marginTop: '16px', padding: 0, overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
-          <thead>
-            <tr style={{ background: 'var(--panel-soft)', borderBottom: '1px solid var(--border)', color: 'var(--muted)' }}>
-              <th style={{ padding: '14px 20px', fontWeight: 600 }}>Project Name & Code</th>
-              <th style={{ padding: '14px', fontWeight: 600 }}>Site Location</th>
-              <th style={{ padding: '14px', fontWeight: 600 }}>Assigned PM</th>
-              <th style={{ padding: '14px', fontWeight: 600 }}>Budget</th>
-              <th style={{ padding: '14px', fontWeight: 600 }}>Progress</th>
-              <th style={{ padding: '14px', fontWeight: 600 }}>Status</th>
-              <th style={{ padding: '14px 20px', fontWeight: 600 }}>Actions</th>
-            </tr>
-          </thead>
+      <div className="panel" style={{marginTop:16,padding:0,overflow:'hidden'}}>
+        <table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+          <thead><tr style={{background:'var(--panel-soft)',color:'var(--muted)'}}>
+            {['Project','Location','Budget','Progress','Status','Assignments','Actions'].map(h=><th key={h} style={{padding:'14px 16px',textAlign:'left'}}>{h}</th>)}
+          </tr></thead>
           <tbody>
-            {filtered.length === 0 ? (
-              <tr>
-                <td colSpan={7} style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--muted)' }}>
-                  No projects found. Click "Create New Project" to launch a site.
+            {!loading && filtered.length === 0 && <tr><td colSpan="7" style={{padding:40,textAlign:'center',color:'var(--muted)'}}>No projects found.</td></tr>}
+            {loading && <tr><td colSpan="7" style={{padding:40,textAlign:'center'}}>Loading projects…</td></tr>}
+            {filtered.map(p => (
+              <tr key={p.id} style={{borderTop:'1px solid var(--border)'}}>
+                <td style={{padding:'14px 16px'}}><strong>{p.name}</strong><div style={{fontSize:11,color:'var(--blue)',marginTop:4}}>{p.code || `PRJ-${p.id}`}</div></td>
+                <td style={{padding:14,color:'var(--muted)'}}>{p.location || '—'}</td>
+                <td style={{padding:14,fontWeight:700}}>{formatINR(p.budget)}</td>
+                <td style={{padding:14}}><div style={{display:'flex',gap:8,alignItems:'center'}}><div style={{width:100,height:6,background:'var(--panel-soft)',borderRadius:3}}><div style={{width:`${p.progressPercentage || 0}%`,height:'100%',background:'var(--blue)',borderRadius:3}}/></div><b>{p.progressPercentage || 0}%</b></div></td>
+                <td style={{padding:14}}><span style={{padding:'4px 9px',borderRadius:10,background:'rgba(34,197,94,.12)',color:'var(--green)',fontSize:11,fontWeight:700}}>{p.status}</span></td>
+                <td style={{padding:14}}><span style={{display:'inline-flex',alignItems:'center',gap:5}}><Users size={14}/>{p.assignments?.length || 0}</span></td>
+                <td style={{padding:'14px 16px',display:'flex',gap:7}}>
+                  <button className="secondary-button" onClick={()=>openAssignments(p)}><Users size={13}/> Assign</button>
+                  <button className="secondary-button" onClick={()=>setSelected(p)}><Eye size={13}/> View</button>
+                  <button className="secondary-button" style={{color:'#EF4444'}} onClick={()=>remove(p.id)}><Trash2 size={13}/></button>
                 </td>
               </tr>
-            ) : (
-              filtered.map(p => (
-                <tr key={p.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                  <td style={{ padding: '14px 20px', fontWeight: 700, color: 'var(--text)' }}>
-                    <div>{p.name}</div>
-                    <code style={{ fontSize: '11px', color: 'var(--blue)', background: 'rgba(37,99,235,0.1)', padding: '2px 6px', borderRadius: '4px', marginTop: '2px', display: 'inline-block' }}>
-                      {p.code || `PRJ-${p.id}`}
-                    </code>
-                  </td>
-                  <td style={{ padding: '14px', color: 'var(--muted)', fontWeight: 500 }}>
-                    {p.location || 'Metro Site Location'}
-                  </td>
-                  <td style={{ padding: '14px', fontWeight: 600, color: p.pmName ? 'var(--blue)' : 'var(--orange)' }}>
-                    {p.pmName || 'Unassigned'}
-                  </td>
-                  <td style={{ padding: '14px', fontWeight: 700 }}>
-                    ${(parseFloat(p.budget) || 0).toLocaleString()}
-                  </td>
-                  <td style={{ padding: '14px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '130px' }}>
-                      <div style={{ flex: 1, height: '6px', background: 'var(--panel-soft)', borderRadius: '3px', overflow: 'hidden' }}>
-                        <div style={{ width: `${p.progress || 0}%`, height: '100%', background: 'var(--blue)' }} />
-                      </div>
-                      <span style={{ fontWeight: 700, color: 'var(--blue)', fontSize: '12px' }}>{p.progress || 0}%</span>
-                    </div>
-                  </td>
-                  <td style={{ padding: '14px' }}>
-                    <span style={{ padding: '4px 10px', borderRadius: '10px', background: 'rgba(34,197,94,0.12)', color: 'var(--green)', fontSize: '11px', fontWeight: 700 }}>
-                      {p.status || 'Active'}
-                    </span>
-                  </td>
-                  <td style={{ padding: '14px 20px' }}>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                      <button
-                        type="button"
-                        className="secondary-button"
-                        style={{ fontSize: '12px', padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                        onClick={() => setActiveProject(p)}
-                      >
-                        <Eye size={13} /> View
-                      </button>
-                      <button
-                        type="button"
-                        className="secondary-button"
-                        style={{ fontSize: '12px', padding: '6px 10px', color: '#EF4444', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)' }}
-                        onClick={() => deleteProject && deleteProject(p.id)}
-                        title="Delete Project"
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
+            ))}
           </tbody>
         </table>
       </div>
 
-      {/* ── Active Project Detail Modal ── */}
-      {activeProject && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
-          <div className="panel" style={{ width: '100%', maxWidth: '560px', padding: '28px', borderRadius: '18px' }}>
-            <h2 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text)', marginBottom: '12px' }}>{activeProject.name}</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', background: 'var(--panel-soft)', padding: '16px', borderRadius: '12px', fontSize: '13px', marginBottom: '16px' }}>
-              <div><span style={{ color: 'var(--muted)', display: 'block', fontSize: '12px' }}>Total Budget</span><strong style={{ fontSize: '15px' }}>${(parseFloat(activeProject.budget) || 0).toLocaleString()}</strong></div>
-              <div><span style={{ color: 'var(--muted)', display: 'block', fontSize: '12px' }}>Assigned PM</span><strong style={{ color: activeProject.pmName ? 'var(--blue)' : 'var(--orange)' }}>{activeProject.pmName || 'Unassigned'}</strong></div>
-              <div><span style={{ color: 'var(--muted)', display: 'block', fontSize: '12px' }}>Site Location</span><strong>{activeProject.location || 'Metro Site'}</strong></div>
-              <div><span style={{ color: 'var(--muted)', display: 'block', fontSize: '12px' }}>Start & End Date</span><strong>{activeProject.startDate || '2026-01-01'} / {activeProject.deadline || '2026-12-31'}</strong></div>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <button type="button" className="primary-button" onClick={() => setActiveProject(null)}>Close Details</button>
-            </div>
-          </div>
+      {showCreate && <div className="modal-backdrop" style={overlay}>
+        <div className="panel" style={modal}>
+          <div style={header}><div><h2>Create Project</h2><p>Project belongs to your company.</p></div><button className="secondary-button" onClick={()=>setShowCreate(false)}><X size={16}/></button></div>
+          <form onSubmit={create} style={grid}>
+            <label>Project name<input required value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></label>
+            <label>Project code<input value={form.code} placeholder="e.g. METRO-T1" onChange={e=>setForm({...form,code:e.target.value.toUpperCase()})}/></label>
+            <label>Location<input value={form.location} onChange={e=>setForm({...form,location:e.target.value})}/></label>
+            <label>Budget (₹)<input required type="number" min="0" value={form.budget} onChange={e=>setForm({...form,budget:e.target.value})}/></label>
+            <label>Start date<input type="date" value={form.startDate} onChange={e=>setForm({...form,startDate:e.target.value})}/></label>
+            <label>Estimated end date<input type="date" value={form.estEndDate} onChange={e=>setForm({...form,estEndDate:e.target.value})}/></label>
+            <label style={{gridColumn:'1/-1'}}>Description<textarea rows="3" value={form.description} onChange={e=>setForm({...form,description:e.target.value})}/></label>
+            <div style={{gridColumn:'1/-1',display:'flex',justifyContent:'flex-end',gap:10}}><button type="button" className="secondary-button" onClick={()=>setShowCreate(false)}>Cancel</button><button className="primary-button" disabled={busy}>{busy?'Creating…':'Create Project'}</button></div>
+          </form>
         </div>
-      )}
+      </div>}
 
-      {/* ── Add Project Modal with Immediate PM Assignment ── */}
-      {showAdd && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
-          <div className="panel" style={{ width: '100%', maxWidth: '540px', padding: '28px', borderRadius: '18px', maxHeight: '90vh', overflowY: 'auto' }}>
-            <h2 style={{ fontSize: '20px', fontWeight: 800, marginBottom: '4px', color: 'var(--text)' }}>Create Project</h2>
-            <p style={{ fontSize: '13px', color: 'var(--muted)', marginBottom: '18px' }}>Create new project & assign a Project Manager immediately.</p>
-
-            <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: '14px', fontSize: '13px' }}>
-              <div>
-                <label style={{ display: 'block', color: 'var(--muted)', marginBottom: '4px', fontWeight: 600 }}>Project Name *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Highway Bridge Section A"
-                  style={INPUT}
-                  value={newProject.name}
-                  onChange={e => setNewProject({ ...newProject, name: e.target.value })}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', color: 'var(--muted)', marginBottom: '4px', fontWeight: 600 }}>Site Location</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Sector 5, Outer Ring"
-                  style={INPUT}
-                  value={newProject.location}
-                  onChange={e => setNewProject({ ...newProject, location: e.target.value })}
-                />
-              </div>
-
-              {/* Assign Project Manager Immediately */}
-              <div style={{ background: 'var(--panel-soft)', padding: '14px', borderRadius: '12px', border: '1px solid var(--border)' }}>
-                <label style={{ color: 'var(--blue)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px', fontWeight: 700, fontSize: '13px' }}>
-                  <UserCheck size={16} /> Assign Project Manager (Immediate Assignment)
-                </label>
-                <select
-                  style={{ ...INPUT, background: 'var(--panel)' }}
-                  value={newProject.pmName}
-                  onChange={e => setNewProject({ ...newProject, pmName: e.target.value })}
-                >
-                  <option value="">-- Select & Assign Project Manager --</option>
-                  {projectManagers.map(pm => (
-                    <option key={pm.id} value={`${pm.name} (${pm.email})`}>
-                      {pm.name} ({pm.email})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label style={{ display: 'block', color: 'var(--muted)', marginBottom: '4px', fontWeight: 600 }}>Start Date</label>
-                  <input
-                    type="date"
-                    style={INPUT}
-                    value={newProject.startDate}
-                    onChange={e => setNewProject({ ...newProject, startDate: e.target.value })}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', color: 'var(--muted)', marginBottom: '4px', fontWeight: 600 }}>End Date (Deadline)</label>
-                  <input
-                    type="date"
-                    style={INPUT}
-                    value={newProject.deadline}
-                    onChange={e => setNewProject({ ...newProject, deadline: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', color: 'var(--muted)', marginBottom: '4px', fontWeight: 600 }}>Budget ($)</label>
-                <input
-                  type="number"
-                  placeholder="e.g. 1500000"
-                  style={INPUT}
-                  value={newProject.budget}
-                  onChange={e => setNewProject({ ...newProject, budget: e.target.value })}
-                />
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
-                <button type="button" className="secondary-button" onClick={() => setShowAdd(false)}>Cancel</button>
-                <button type="submit" className="primary-button">Create Project</button>
-              </div>
-            </form>
+      {selected && <div style={overlay}>
+        <div className="panel" style={{...modal,maxWidth:820}}>
+          <div style={header}><div><h2>{selected.name}</h2><p>{selected.code || `PRJ-${selected.id}`} · {selected.location || 'No location'}</p></div><button className="secondary-button" onClick={()=>setSelected(null)}><X size={16}/></button></div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12,marginBottom:20}}>
+            <div className="panel" style={{padding:14}}><small>Budget</small><div style={{fontWeight:800,fontSize:18}}>{formatINR(selected.budget)}</div></div>
+            <div className="panel" style={{padding:14}}><small>Progress</small><div style={{fontWeight:800,fontSize:18}}>{selected.progressPercentage || 0}%</div></div>
+            <div className="panel" style={{padding:14}}><small>Status</small><div style={{fontWeight:800,fontSize:18}}>{selected.status}</div></div>
           </div>
+          <h3 style={{marginBottom:10}}>Project assignments</h3>
+          <div style={{display:'flex',gap:8,marginBottom:16}}>
+            <select value={role} onChange={e=>loadEligible(e.target.value)} style={{flex:1}}>{ROLES.map(([v,l])=><option key={v} value={v}>{l}</option>)}</select>
+            <select value={selectedUser} onChange={e=>setSelectedUser(e.target.value)} style={{flex:2}}><option value="">Select {ROLES.find(r=>r[0]===role)?.[1]}</option>{eligible.map(u=><option key={u.id} value={u.id}>{u.fullName} — {u.email}</option>)}</select>
+            <button className="primary-button" disabled={!selectedUser || busy} onClick={assign}>Assign</button>
+          </div>
+          <div style={{display:'grid',gap:8}}>{assignments.length===0 ? <p style={{color:'var(--muted)'}}>No personnel assigned yet.</p> : assignments.map(a=><div key={a.assignmentId} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 12px',border:'1px solid var(--border)',borderRadius:8}}><div><strong>{a.fullName}</strong><div style={{fontSize:12,color:'var(--muted)'}}>{a.email} · {a.role.replaceAll('_',' ')}</div></div><button className="secondary-button" style={{color:'#EF4444'}} onClick={()=>unassign(a.userId)}>Remove</button></div>)}</div>
         </div>
-      )}
+      </div>}
     </div>
   );
 }
+
+const overlay = {position:'fixed',inset:0,background:'rgba(0,0,0,.65)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000,padding:20};
+const modal = {width:'100%',maxWidth:760,maxHeight:'90vh',overflowY:'auto',padding:26,borderRadius:16};
+const header = {display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:20};
+const grid = {display:'grid',gridTemplateColumns:'1fr 1fr',gap:14};

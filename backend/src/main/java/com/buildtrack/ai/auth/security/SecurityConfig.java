@@ -40,15 +40,29 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .exceptionHandling(exception -> exception
+                .defaultAuthenticationEntryPointFor(
+                    (request, response, authException) -> {
+                        response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED);
+                        response.setContentType("application/json");
+                        response.getWriter().write("{\"success\":false,\"message\":\"Session expired or unauthorized. Please log in again.\"}");
+                    },
+                    new org.springframework.security.web.util.matcher.AntPathRequestMatcher("/api/**")
+                )
+            )
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(
                     "/api/auth/**",
                     "/api/v1/auth/**",
+                    "/api/payments/razorpay/webhook",
                     "/oauth2/**",
                     "/login/oauth2/**",
                     "/ws/**",
+                    "/ws-native/**",
                     "/swagger-ui/**",
-                    "/swagger-ui.html"
+                    "/swagger-ui.html",
+                    "/v3/api-docs/**",
+                    "/actuator/**"
                 ).permitAll()
                 .anyRequest().authenticated()
             )

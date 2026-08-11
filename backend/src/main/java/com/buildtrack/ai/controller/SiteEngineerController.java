@@ -1,6 +1,7 @@
 package com.buildtrack.ai.controller;
 
 import com.buildtrack.ai.auth.dto.ApiResponse;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -8,6 +9,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @RestController
+@PreAuthorize("hasAnyRole('SITE_ENGINEER','COMPANY_ADMIN','PROJECT_MANAGER')")
 @RequestMapping("/api/engineer")
 public class SiteEngineerController {
 

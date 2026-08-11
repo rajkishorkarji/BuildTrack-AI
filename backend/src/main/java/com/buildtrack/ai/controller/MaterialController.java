@@ -1,0 +1,51 @@
+package com.buildtrack.ai.controller;
+
+import com.buildtrack.ai.auth.dto.ApiResponse;
+import com.buildtrack.ai.entity.Material;
+import com.buildtrack.ai.entity.MaterialTransaction;
+import com.buildtrack.ai.service.MaterialService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/materials")
+@PreAuthorize("hasAnyRole('SUPER_ADMIN','COMPANY_ADMIN','PROJECT_MANAGER','SITE_ENGINEER','CONTRACTOR','WORKER')")
+@RequiredArgsConstructor
+public class MaterialController {
+
+    private final MaterialService materialService;
+
+    @GetMapping
+    public ResponseEntity<ApiResponse<List<Material>>> list(@RequestParam(required = false) Long projectId) {
+        return ResponseEntity.ok(ApiResponse.success(materialService.getVisibleMaterials(projectId)));
+    }
+
+    @PostMapping
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','COMPANY_ADMIN','SITE_ENGINEER')")
+    public ResponseEntity<ApiResponse<Material>> create(@RequestBody Material material) {
+        return ResponseEntity.ok(ApiResponse.success(materialService.create(material)));
+    }
+
+    @PostMapping("/{id}/receive")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','COMPANY_ADMIN','SITE_ENGINEER','CONTRACTOR')")
+    public ResponseEntity<ApiResponse<MaterialTransaction>> receive(
+            @PathVariable Long id, @RequestBody MaterialTransaction transaction) {
+        return ResponseEntity.ok(ApiResponse.success(materialService.receive(id, transaction)));
+    }
+
+    @PostMapping("/{id}/issue")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','COMPANY_ADMIN','SITE_ENGINEER','CONTRACTOR','WORKER')")
+    public ResponseEntity<ApiResponse<MaterialTransaction>> issue(
+            @PathVariable Long id, @RequestBody MaterialTransaction transaction) {
+        return ResponseEntity.ok(ApiResponse.success(materialService.issue(id, transaction)));
+    }
+
+    @GetMapping("/{id}/history")
+    public ResponseEntity<ApiResponse<List<MaterialTransaction>>> history(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(materialService.history(id)));
+    }
+}

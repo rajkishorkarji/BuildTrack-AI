@@ -91,8 +91,8 @@ export default function SuperAdminWorkforce() {
                     </div>
                   </div>
                 </td>
-                <td style={{ padding: '14px', fontWeight: 600 }}>{w.contractorName || 'BuildCorp Contractors'}</td>
-                <td style={{ padding: '14px', color: 'var(--muted)' }}>{w.projectName || 'Metro Tower Site A'}</td>
+                <td style={{ padding: '14px', fontWeight: 600 }}>{w.contractorName || '—'}</td>
+                <td style={{ padding: '14px', color: 'var(--muted)' }}>{w.projectName || '—'}</td>
                 <td style={{ padding: '14px 20px' }}>
                   <span style={{ padding: '4px 10px', borderRadius: '10px', background: 'rgba(34,197,94,0.12)', color: 'var(--green)', fontSize: '11px', fontWeight: 700 }}>
                     {w.status || 'Active'}

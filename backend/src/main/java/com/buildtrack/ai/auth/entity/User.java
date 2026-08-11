@@ -1,5 +1,6 @@
 package com.buildtrack.ai.auth.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.HashSet;
@@ -24,6 +25,7 @@ public class User {
 
     private String phone;
 
+    @JsonIgnore
     @Column(nullable = false)
     private String password;
 

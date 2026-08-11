@@ -1,86 +1,121 @@
 import api from './api';
-import { defaultSuperAdmin } from '../context/AuthContext';
 
 export const authService = {
-  async login(email, password, role) {
+    async login(email, password) {
     try {
-      const response = await api.post('/auth/login', { email, password });
-      const { accessToken, refreshToken, user } = response.data?.data || {};
-      if (accessToken) localStorage.setItem('accessToken', accessToken);
-      if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
-      return user;
-    } catch (err) {
-      // Fallback for offline/dev operational mode
-      const roleKey = (role || 'SUPER_ADMIN').toUpperCase().replace(/\s+/g, '_');
-      const user = {
-        id: Date.now().toString(),
-        fullName: 'BuildTrack User',
-        email,
-        role: roleKey,
-        roleLabel: roleKey.replace(/_/g, ' '),
-        avatar: 'BU',
-        companyName: 'Solviontech Infrastructure Ltd',
-      };
-      localStorage.setItem('buildtrack_user', JSON.stringify(user));
-      return user;
-    }
-  },
+        const response = await api.post('/auth/login', {
+            email,
+            password,
+        });
 
-  async register(userData) {
-    try {
-      const response = await api.post('/auth/register', userData);
-      return response.data;
-    } catch (err) {
-      return { success: true, message: 'Registration submitted successfully. Please check your email.' };
-    }
-  },
+        const data = response.data?.data;
 
-  async verifyEmail(token) {
-    try {
-      const response = await api.get(`/auth/verify-email?token=${token}`);
-      return response.data;
-    } catch (err) {
-      return { success: false, message: err.response?.data?.message || 'Email verification failed.' };
-    }
-  },
+        if (!data?.accessToken || !data?.user) {
+            throw new Error('Invalid authentication response.');
+        }
 
-  async forgotPassword(email) {
-    try {
-      const response = await api.post('/auth/forgot-password', { email });
-      return response.data;
-    } catch (err) {
-      return { success: false, message: err.response?.data?.message || 'Failed to send password reset link.' };
-    }
-  },
+        localStorage.setItem(
+            'accessToken',
+            data.accessToken
+        );
 
-  async resetPassword(token, newPassword) {
-    try {
-      const response = await api.post('/auth/reset-password', { token, newPassword });
-      return response.data;
-    } catch (err) {
-      return { success: false, message: err.response?.data?.message || 'Password reset failed.' };
-    }
-  },
+        localStorage.setItem(
+            'refreshToken',
+            data.refreshToken
+        );
 
-  getGoogleLoginUrl() {
-    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
-    return `${apiBaseUrl}/oauth2/authorization/google`;
-  },
+        return data.user;
+    } catch (error) {
+        const message =
+            error.response?.data?.message ||
+            error.message ||
+            'Unable to sign in.';
 
-  async logout() {
-    try {
-      const refreshToken = localStorage.getItem('refreshToken');
-      if (refreshToken) {
-        await api.post('/auth/logout', { refreshToken });
-      }
-    } catch (err) {
-      console.warn('Backend logout failed, clearing local storage.');
-    } finally {
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('buildtrack_user');
+        throw new Error(message);
     }
-  },
+},
+
+    async verifyEmail(token) {
+        const response = await api.get(
+            `/auth/verify-email?token=${encodeURIComponent(token)}`
+        );
+
+        return response.data;
+    },
+
+    async forgotPassword(email) {
+        const response = await api.post('/auth/forgot-password', {
+            email,
+        });
+
+        return response.data;
+    },
+
+    async resetPassword(token, newPassword) {
+        const response = await api.post('/auth/reset-password', {
+            token,
+            newPassword,
+        });
+
+        return response.data;
+    },
+
+    getGoogleLoginUrl() {
+    const baseUrl =
+        import.meta.env.VITE_API_BASE_URL || '/api';
+
+    const origin = window.location.origin;
+
+    if (baseUrl.startsWith('http')) {
+        const gatewayOrigin = new URL(baseUrl).origin;
+        return `${gatewayOrigin}/oauth2/authorization/google`;
+    }
+
+    return `${origin}/oauth2/authorization/google`;
+},
+
+    async logout() {
+        const refreshToken = localStorage.getItem('refreshToken');
+
+        try {
+            if (refreshToken) {
+                await api.post('/auth/logout', {
+                    refreshToken,
+                });
+            }
+        } finally {
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+            localStorage.removeItem('buildtrack_user');
+        }
+    },
+
+    async getInvitation(token) {
+    const response = await api.get(
+        `/auth/invitations/${encodeURIComponent(token)}`
+    );
+
+    return response.data;
+},
+
+async acceptInvitation(
+    token,
+    password,
+    confirmPassword
+) {
+    const response = await api.post(
+        '/auth/invitations/accept',
+        {
+            token,
+            password,
+            confirmPassword,
+        }
+    );
+
+    return response.data;
+},
 };
+
+
 
 export default authService;

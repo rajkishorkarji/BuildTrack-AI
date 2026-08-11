@@ -1,33 +1,43 @@
 import api from './api';
 
-let projects = [
-  { id: 1, name: 'Metro Tower Complex', code: 'MTC-01', location: 'Mumbai Central', progress: 66, status: 'Active', leader: 'Divya Krishnan' },
-  { id: 2, name: 'Riverside Apartments', code: 'RSA-02', location: 'Pune Sector 4', progress: 82, status: 'Active', leader: 'Vikram Nair' },
-  { id: 3, name: 'Skyline Commercial Mall', code: 'SCM-03', location: 'Bengaluru Tech Park', progress: 54, status: 'Active', leader: 'Robert Fox' },
-];
-
-export const projectService = {
+const projectService = {
   async getProjects() {
-    try {
-      const res = await api.get('/projects');
-      return res.data?.data || projects;
-    } catch {
-      return projects;
-    }
+    const { data } = await api.get('/projects');
+    return data?.data || [];
   },
-
-  async createProject(projectData) {
-    const newProj = {
-      id: Date.now(),
-      name: projectData.name,
-      code: projectData.code || 'PRJ-' + Math.floor(Math.random() * 1000),
-      location: projectData.location || 'Site Alpha',
-      progress: 0,
-      status: 'Active',
-      leader: projectData.leader || 'Rajkishor Karji',
-    };
-    projects = [newProj, ...projects];
-    return newProj;
+  async list() {
+    const { data } = await api.get('/projects');
+    return data?.data || [];
+  },
+  async get(id) {
+    const { data } = await api.get(`/projects/${id}`);
+    return data?.data;
+  },
+  async create(payload) {
+    const { data } = await api.post('/projects', payload);
+    return data?.data;
+  },
+  async update(id, payload) {
+    const { data } = await api.put(`/projects/${id}`, payload);
+    return data?.data;
+  },
+  async remove(id) {
+    await api.delete(`/projects/${id}`);
+  },
+  async assignments(id) {
+    const { data } = await api.get(`/projects/${id}/assignments`);
+    return data?.data || [];
+  },
+  async eligibleUsers(role) {
+    const { data } = await api.get('/projects/eligible-users', { params: { role } });
+    return data?.data || [];
+  },
+  async assign(id, userId, role) {
+    const { data } = await api.post(`/projects/${id}/assignments`, { userId, role });
+    return data?.data;
+  },
+  async unassign(id, userId) {
+    await api.delete(`/projects/${id}/assignments/${userId}`);
   },
 };
 

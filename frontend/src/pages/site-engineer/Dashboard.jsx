@@ -1,10 +1,27 @@
 import { useData } from '../../context/DataContext';
-import { HardHat, Activity, Users, ShieldAlert, CheckCircle2, FileText, Camera } from 'lucide-react';
+import { HardHat, ShieldAlert, CheckCircle2, FileText, Camera, Activity } from 'lucide-react';
 
 export default function SEDashboard() {
-  const { workers, equipment, issues } = useData();
+  const { workers = [], equipment = [], issues = [], tasks = [], projects = [], attendanceLogs = [] } = useData();
 
-  const openIssues = issues.filter(i => i.status === 'Open').length;
+  const openIssuesList = issues.filter(i => {
+    const s = String(i.status || '').toUpperCase();
+    return s === 'OPEN' || s === 'PENDING';
+  });
+  const openIssuesCount = openIssuesList.length;
+
+  const activeEquipmentCount = equipment.filter(e => {
+    const s = String(e.status || '').toUpperCase();
+    return s !== 'MAINTENANCE' && s !== 'UNDER REPAIR';
+  }).length;
+
+  const activeWorkersCount = workers.filter(w => w.enabled !== false).length;
+  const presentCount = attendanceLogs.filter(a => !a.checkOutTime || String(a.status || '').toUpperCase() === 'PRESENT').length;
+
+  // Average progress across tasks
+  const avgProgress = tasks.length > 0
+    ? Math.round(tasks.reduce((sum, t) => sum + Number(t.progress ?? t.completionPercentage ?? 0), 0) / tasks.length)
+    : (projects.length > 0 ? Math.round(projects.reduce((sum, p) => sum + Number(p.progress ?? 0), 0) / projects.length) : 0);
 
   return (
     <div className="dashboard-page">
@@ -13,19 +30,20 @@ export default function SEDashboard() {
           <p className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--blue)', fontWeight: 700 }}>
             <HardHat size={14} /> Dashboard
           </p>
+          <h1>Site Engineer Dashboard</h1>
         </div>
         <button type="button" className="date-chip">
           {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
         </button>
       </section>
 
-      {/* 5 Field Overview Cards */}
+      {/* 4 Field Overview Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginTop: '20px' }}>
         {[
-          { label: 'Daily Site Progress', value: '78%', color: 'var(--green)', sub: 'Sector 4 Concrete Pour' },
-          { label: 'Workforce Present', value: `${workers.length} / ${workers.length + 4}`, color: 'var(--blue)', sub: '92% attendance' },
-          { label: 'Active Equipment', value: equipment.length, color: 'var(--purple)', sub: 'All operational' },
-          { label: 'Open Safety Issues', value: openIssues, color: openIssues > 0 ? 'var(--red)' : 'var(--green)', sub: 'Hazards & Defects' },
+          { label: 'Daily Site Progress', value: `${avgProgress}%`, color: 'var(--green)', sub: projects[0]?.name ? `Site: ${projects[0].name}` : 'Overall site tasks' },
+          { label: 'Workforce Present', value: `${presentCount || activeWorkersCount} / ${workers.length}`, color: 'var(--blue)', sub: `${activeWorkersCount} total active workers` },
+          { label: 'Active Equipment', value: `${activeEquipmentCount} / ${equipment.length}`, color: 'var(--purple)', sub: 'Operational assets' },
+          { label: 'Open Safety Hazards', value: openIssuesCount, color: openIssuesCount > 0 ? '#ef4444' : 'var(--green)', sub: 'Reported defects & risks' },
         ].map(({ label, value, color, sub }) => (
           <div key={label} className="panel" style={{ padding: '20px' }}>
             <span style={{ color: 'var(--muted)', fontSize: '12px', fontWeight: 600 }}>{label}</span>
@@ -36,31 +54,43 @@ export default function SEDashboard() {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginTop: '24px' }}>
+        {/* Today's Tasks & Notes */}
         <div className="panel" style={{ padding: '24px' }}>
-          <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px' }}>Today's Site Work Notes</h3>
+          <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <FileText size={18} style={{ color: 'var(--blue)' }} /> Active Site Tasks & Inspection Items
+          </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '13px' }}>
-            <div style={{ padding: '12px', background: 'var(--panel-soft)', borderRadius: '8px' }}>
-              <strong style={{ color: 'var(--text)', display: 'block' }}>Rebar Clearance Approved</strong>
-              <span style={{ color: 'var(--muted)', fontSize: '11px' }}>Inspected Level 3 slab steel rebar. Passed tension compliance test.</span>
-            </div>
-            <div style={{ padding: '12px', background: 'var(--panel-soft)', borderRadius: '8px' }}>
-              <strong style={{ color: 'var(--text)', display: 'block' }}>Concrete Slump Test</strong>
-              <span style={{ color: 'var(--muted)', fontSize: '11px' }}>Batch #902 slump value 110mm. Approved for pouring.</span>
-            </div>
+            {tasks.length === 0 ? (
+              <div style={{ padding: '16px', color: 'var(--muted)', textAlign: 'center' }}>No tasks assigned for site inspection.</div>
+            ) : (
+              tasks.slice(0, 5).map(t => (
+                <div key={t.id} style={{ padding: '12px', background: 'var(--panel-soft)', borderRadius: '8px' }}>
+                  <strong style={{ color: 'var(--text)', display: 'block' }}>{t.title}</strong>
+                  <span style={{ color: 'var(--muted)', fontSize: '11px' }}>Status: {t.status || 'In Progress'} • {t.assignedWorker || 'Unassigned'}</span>
+                </div>
+              ))
+            )}
           </div>
         </div>
 
+        {/* Open Hazards List */}
         <div className="panel" style={{ padding: '24px' }}>
           <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <ShieldAlert size={18} style={{ color: 'var(--red)' }} /> Open Site Hazards ({openIssues})
+            <ShieldAlert size={18} style={{ color: '#ef4444' }} /> Open Site Hazards ({openIssuesCount})
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {issues.map(i => (
-              <div key={i.id} style={{ padding: '10px 14px', background: 'var(--panel-soft)', borderRadius: '8px', borderLeft: '3px solid var(--red)', fontSize: '12px' }}>
-                <strong style={{ display: 'block', color: 'var(--text)' }}>{i.title}</strong>
-                <span style={{ color: 'var(--muted)' }}>Location: {i.location || 'Sector B'} • Severity: {i.severity || 'Medium'}</span>
+            {openIssuesList.length === 0 ? (
+              <div style={{ padding: '16px', color: 'var(--green)', fontWeight: 600, fontSize: '13px' }}>
+                ✓ No open hazards reported. Site is clear.
               </div>
-            ))}
+            ) : (
+              openIssuesList.map(i => (
+                <div key={i.id} style={{ padding: '10px 14px', background: 'var(--panel-soft)', borderRadius: '8px', borderLeft: '3px solid #ef4444', fontSize: '12px' }}>
+                  <strong style={{ display: 'block', color: 'var(--text)' }}>{i.title}</strong>
+                  <span style={{ color: 'var(--muted)' }}>Location: {i.location || 'Site Sector'} • Severity: {i.severity || 'Medium'}</span>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>

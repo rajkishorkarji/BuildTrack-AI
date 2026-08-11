@@ -26,7 +26,7 @@ public class Company {
 
     private String adminName;
     private String adminEmail;
-    private String plan = "Enterprise ($4,999/mo)";
+    private String plan = "Enterprise (₹4,99,900/month)";
 
     /** A tenant is provisioned with a plan, but must activate it before using paid features. */
     @Column(nullable = false)
@@ -56,7 +56,7 @@ public class Company {
         this.email = adminEmail != null ? adminEmail : email;
         this.phone = phone;
         this.address = address;
-        this.plan = plan != null ? plan : "Enterprise ($4,999/mo)";
+        this.plan = plan != null ? plan : "Enterprise (₹4,99,900/month)";
     }
 
     // Getters and Setters

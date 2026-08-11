@@ -24,6 +24,8 @@ public class EmailServiceImpl implements EmailService {
     @Value("${spring.mail.username:noreply@buildtrack.ai}")
     private String fromEmail;
 
+
+    
     @Override
     public void sendVerificationEmail(String toEmail, String token) {
         String verificationUrl = frontendUrl + "/verify-email?token=" + token;
@@ -64,18 +66,124 @@ public class EmailServiceImpl implements EmailService {
         sendHtmlEmail(toEmail, subject, content);
     }
 
+    @Override
+    public void sendCompanyAdminInvitation(
+            String toEmail,
+            String adminName,
+            String companyName,
+            String invitationToken
+    ) {
+        String invitationUrl = frontendUrl + "/accept-invitation?token=" + invitationToken;
+
+        log.info("\n============================================================\n[COMPANY ADMIN INVITATION]\nTo: {}\nCompany: {}\nInvitation Link: {}\n============================================================", toEmail, companyName, invitationUrl);
+
+        String subject = "BuildTrack AI - Company Administrator Invitation";
+
+        String content = """
+            <div style="font-family:Arial,sans-serif;
+                        max-width:600px;
+                        margin:0 auto;
+                        padding:30px;
+                        border:1px solid #e2e8f0;
+                        border-radius:12px;">
+
+                <h2 style="color:#2563eb;">
+                    Welcome to BuildTrack AI
+                </h2>
+
+                <p style="font-size:15px;color:#334155;">
+                    Hello %s,
+                </p>
+
+                <p style="font-size:15px;color:#334155;">
+                    You have been invited to become the
+                    <strong>Company Administrator</strong>
+                    for <strong>%s</strong>.
+                </p>
+
+                <p style="font-size:15px;color:#334155;">
+                    Click the button below to accept your invitation
+                    and create your password.
+                </p>
+
+                <div style="margin:30px 0;">
+                    <a href="%s"
+                       style="background:#2563eb;
+                              color:white;
+                              padding:13px 24px;
+                              text-decoration:none;
+                              border-radius:8px;
+                              font-weight:bold;">
+                        Accept Invitation
+                    </a>
+                </div>
+
+                <p style="font-size:13px;color:#64748b;">
+                    This invitation will expire in 24 hours.
+                </p>
+
+            </div>
+            """.formatted(
+                adminName,
+                companyName,
+                invitationUrl
+            );
+
+        sendHtmlEmail(
+                toEmail,
+                subject,
+                content
+        );
+    }
+
+    @Override
+    public void sendPersonnelInvitation(String toEmail, String fullName, String role, String companyName, String invitationToken) {
+        String invitationUrl = frontendUrl + "/accept-invitation?token=" + invitationToken;
+
+        log.info("\n============================================================\n[PERSONNEL INVITATION]\nTo: {}\nRole: {}\nCompany: {}\nInvitation Link: {}\n============================================================", toEmail, role, companyName, invitationUrl);
+
+        String subject = "BuildTrack AI - " + role.replace('_', ' ') + " Invitation";
+        String content = """
+            <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:30px;border:1px solid #e2e8f0;border-radius:12px">
+              <h2 style="color:#2563eb">BuildTrack AI</h2>
+              <p>Hello %s,</p>
+              <p>You have been invited by your <strong>Company Admin</strong> to join <strong>%s</strong> as <strong>%s</strong>.</p>
+              <p>Use the button below to create your password and activate your account.</p>
+              <p style="margin:28px 0"><a href="%s" style="background:#2563eb;color:#fff;padding:13px 22px;border-radius:8px;text-decoration:none;font-weight:bold">Accept Invitation</a></p>
+              <p style="font-size:13px;color:#64748b">This invitation expires in 24 hours.</p>
+            </div>
+            """.formatted(fullName, companyName, role.replace('_', ' '), invitationUrl);
+        sendHtmlEmail(toEmail, subject, content);
+    }
+
+    private String getFromAddress() {
+        if (fromEmail != null && !fromEmail.isBlank()) {
+            return fromEmail;
+        }
+        return "noreply@buildtrack.ai";
+    }
+
     private void sendHtmlEmail(String to, String subject, String body) {
+        String senderAddr = getFromAddress();
+        if (senderAddr.equals("noreply@buildtrack.ai")) {
+            log.warn("MAIL_USERNAME is not configured. Email to {} will likely fail. "
+                    + "Set MAIL_USERNAME in .env to your Gmail address.", to);
+        }
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-            helper.setFrom(fromEmail);
+            helper.setFrom(senderAddr, "BuildTrack AI");
+            helper.setReplyTo(senderAddr, "BuildTrack AI");
             helper.setTo(to);
             helper.setSubject(subject);
             helper.setText(body, true);
             mailSender.send(message);
-            log.info("Email successfully sent to {}", to);
+            log.info("Email successfully sent to {} from {}", to, senderAddr);
         } catch (Exception e) {
-            log.error("Failed to send email to {}: {}", to, e.getMessage());
+            log.error("Failed to send email to {} from {}. Error: {}",
+                    to, senderAddr, e.getMessage(), e);
         }
     }
+
+    
 }

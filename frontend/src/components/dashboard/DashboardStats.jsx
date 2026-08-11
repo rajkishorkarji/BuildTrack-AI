@@ -7,7 +7,7 @@ export default function DashboardStats() {
     { label: 'Completed Tasks', value: '32 Tasks', note: '66.7% Completion', tone: 'green' },
     { label: 'Team Members', value: '18 Personnel', note: '2 Site Engineers, 1 Contractor', tone: 'blue' },
     { label: 'Today\'s Attendance', value: '96% Present', note: '17 of 18 Clocked In', tone: 'green' },
-    { label: 'Budget Utilization', value: '$1.8M / $2.5M', note: '72% Cap Utilized', tone: 'purple' },
+    { label: 'Budget Utilization', value: '₹1.8M / ₹2.5M', note: '72% Cap Utilized', tone: 'purple' },
     { label: 'Equipment Status', value: '8 Heavy Machines', note: '1 Tower Crane, 2 Excavators', tone: 'orange' },
     { label: 'Material Requests', value: '3 Pending', note: 'Cement & Rebar Orders', tone: 'blue' },
     { label: 'Upcoming Deadlines', value: 'Floor 14 Pouring', note: 'Due in 2 Days (Aug 05)', tone: 'red' },

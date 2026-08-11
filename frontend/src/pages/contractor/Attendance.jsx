@@ -1,56 +1,9 @@
-import { useState } from 'react';
-import { useData } from '../../context/DataContext';
-import { Clock, CheckCircle2, QrCode, Search, UserCheck } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import attendanceService from '../../services/attendanceService';
 
-export default function ContractorAttendance() {
-  const { workers = [], attendanceLogs = [] } = useData();
-  const [search, setSearch] = useState('');
-
-  const filtered = workers.filter(w => (w.fullName || w.name || '').toLowerCase().includes(search.toLowerCase()));
-
-  return (
-    <div className="dashboard-page">
-      <section className="hero-row">
-        <div>
-          <p className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--blue)', fontWeight: 700 }}>
-            <UserCheck size={14} /> Attendance
-          </p>
-        </div>
-      </section>
-
-      <div className="panel" style={{ marginTop: '20px', padding: '16px 20px' }}>
-        <div className="search-box" style={{ width: '300px' }}>
-          <Search size={14} style={{ color: 'var(--muted)' }} />
-          <input placeholder="Search crew members..." value={search} onChange={e => setSearch(e.target.value)} />
-        </div>
-      </div>
-
-      <div className="panel" style={{ marginTop: '16px', padding: 0, overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
-          <thead>
-            <tr style={{ background: 'var(--panel-soft)', color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
-              <th style={{ padding: '14px 20px', fontWeight: 600 }}>Worker Name</th>
-              <th style={{ padding: '14px', fontWeight: 600 }}>Role</th>
-              <th style={{ padding: '14px', fontWeight: 600 }}>Shift Status</th>
-              <th style={{ padding: '14px 20px', fontWeight: 600 }}>Attendance Verification</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map(w => (
-              <tr key={w.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                <td style={{ padding: '14px 20px', fontWeight: 700, color: 'var(--text)' }}>{w.fullName || w.name}</td>
-                <td style={{ padding: '14px', color: 'var(--muted)' }}>{w.role || 'Crew Member'}</td>
-                <td style={{ padding: '14px', color: 'var(--blue)', fontWeight: 600 }}>Day Shift (08:00 - 17:00)</td>
-                <td style={{ padding: '14px 20px' }}>
-                  <span style={{ padding: '4px 10px', borderRadius: '10px', background: 'rgba(34,197,94,0.12)', color: 'var(--green)', fontSize: '11px', fontWeight: 700 }}>
-                    Verified Present
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
+export default function ContractorAttendance(){
+ const [rows,setRows]=useState([]),[loading,setLoading]=useState(true),[error,setError]=useState('');
+ const load=async()=>{try{setError('');setRows(await attendanceService.list())}catch(e){setError(e.response?.data?.message||'Unable to load attendance.')}finally{setLoading(false)}};
+ useEffect(()=>{load()},[]);
+ return <div className="page-content"><div className="page-header"><div><h1>Team Attendance</h1><p>Attendance for your assigned project teams.</p></div></div>{error&&<div className="panel" style={{padding:12,color:'#dc2626',marginBottom:16}}>{error}</div>}<div className="panel"><table className="data-table"><thead><tr><th>Worker</th><th>Project</th><th>Check In</th><th>Check Out</th><th>Hours</th><th>Status</th><th>Verification</th></tr></thead><tbody>{loading?<tr><td colSpan="7">Loading…</td></tr>:rows.length?rows.map(r=><tr key={r.id}><td>{r.workerName||'—'}</td><td>{r.projectName||'—'}</td><td>{r.checkIn?new Date(r.checkIn).toLocaleString():'—'}</td><td>{r.checkOut?new Date(r.checkOut).toLocaleString():'Active'}</td><td>{r.hoursWorked??'—'}</td><td>{r.status||'—'}</td><td>{r.verificationStatus||'PENDING'}</td></tr>):<tr><td colSpan="7">No attendance records.</td></tr>}</tbody></table></div></div>;
 }

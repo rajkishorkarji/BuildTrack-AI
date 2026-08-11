@@ -1,63 +1,124 @@
 package com.buildtrack.ai.controller;
 
 import com.buildtrack.ai.auth.dto.ApiResponse;
-import com.buildtrack.ai.entity.Company;
+import com.buildtrack.ai.auth.entity.User;
+import com.buildtrack.ai.dto.project.*;
 import com.buildtrack.ai.entity.Project;
-import com.buildtrack.ai.repository.CompanyRepository;
+import com.buildtrack.ai.entity.ProjectAssignment;
 import com.buildtrack.ai.service.ProjectService;
 import com.buildtrack.ai.service.RealtimePublisher;
 import com.buildtrack.ai.service.TenantAccessService;
-import com.buildtrack.ai.auth.entity.User;
-import com.buildtrack.ai.auth.repository.UserRepository;
-import com.buildtrack.ai.service.NotificationService;
-import com.buildtrack.ai.entity.Notification;
-import org.springframework.beans.factory.annotation.Autowired;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/projects")
+@RequiredArgsConstructor
 public class ProjectController {
+    private final ProjectService projectService;
+    private final TenantAccessService tenantAccessService;
+    private final RealtimePublisher realtimePublisher;
+    private final com.buildtrack.ai.event.DomainEventPublisher domainEventPublisher;
 
-    @Autowired
-    private ProjectService projectService;
-
-    @Autowired
-    private CompanyRepository companyRepository;
-
-
-    @Autowired
-    private RealtimePublisher realtimePublisher;
-    @Autowired private TenantAccessService tenantAccessService;
-    @Autowired private UserRepository userRepository;
-    @Autowired private NotificationService notificationService;
     @GetMapping
-    public ResponseEntity<ApiResponse<List<Project>>> getProjects() {
+    @Transactional(readOnly = true)
+    public ResponseEntity<ApiResponse<List<ProjectSummaryResponse>>> getProjects() {
         User user = tenantAccessService.currentUser();
-        List<Project> projects = tenantAccessService.isSuperAdmin(user)
-                ? projectService.getAllProjects()
-                : projectService.getProjectsByCompany(tenantAccessService.currentCompany().getId());
-        return ResponseEntity.ok(ApiResponse.success(projects));
+        List<ProjectSummaryResponse> result = projectService.getProjectsForUser(user).stream().map(this::summary).toList();
+        return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
+    @GetMapping("/{id}")
+    @Transactional(readOnly = true)
+    public ResponseEntity<ApiResponse<ProjectSummaryResponse>> getProject(@PathVariable Long id) {
+        User user = tenantAccessService.currentUser();
+        return ResponseEntity.ok(ApiResponse.success(summary(projectService.getProjectForUser(id, user))));
     }
 
     @PostMapping
-    public ResponseEntity<ApiResponse<Project>> createProject(@RequestBody Project projectData) {
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','COMPANY_ADMIN')")
+    public ResponseEntity<ApiResponse<ProjectSummaryResponse>> create(@Valid @RequestBody ProjectCreateRequest request) {
         User user = tenantAccessService.currentUser();
         tenantAccessService.requireCompanyAdmin(user);
-        Company comp = tenantAccessService.currentCompany();
-        tenantAccessService.requireActiveSubscription(comp);
-        Project created = projectService.createProject(comp.getId(), projectData);
-        if (created.getAssignedProjectManagerEmail() != null) {
-            userRepository.findByEmail(created.getAssignedProjectManagerEmail()).ifPresent(manager -> {
-                if (comp.getId().equals(manager.getCompanyId())) {
-                    notificationService.notifyUser(manager, comp.getId(), user.getFirstName() + " " + user.getLastName(),
-                            "Project assigned", "You were assigned to project: " + created.getName(), Notification.NotificationType.INFO);
-                }
-            });
-        }
-        realtimePublisher.publish("projects", "created", created.getId());
-        return ResponseEntity.ok(ApiResponse.success(created));
+        var company = tenantAccessService.currentCompany();
+        tenantAccessService.requireActiveSubscription(company);
+        Project project = projectService.create(company.getId(), request);
+        realtimePublisher.publishForCompany(project.getCompany().getId(), "projects", "created", project.getId());
+        domainEventPublisher.publish("PROJECT_CREATED", project.getCompany().getId(), userEmail(), "PROJECT", project.getId(), "Project created: " + project.getName());
+        return ResponseEntity.ok(ApiResponse.success(summary(project)));
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','COMPANY_ADMIN','PROJECT_MANAGER')")
+    public ResponseEntity<ApiResponse<ProjectSummaryResponse>> update(@PathVariable Long id, @Valid @RequestBody ProjectCreateRequest request) {
+        User user = tenantAccessService.currentUser();
+        Project project = projectService.update(id, request, user);
+        realtimePublisher.publishForCompany(project.getCompany().getId(), "projects", "updated", project.getId());
+        domainEventPublisher.publish("PROJECT_UPDATED", project.getCompany().getId(), userEmail(), "PROJECT", project.getId(), "Project updated: " + project.getName());
+        return ResponseEntity.ok(ApiResponse.success(summary(project)));
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','COMPANY_ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id) {
+        User user = tenantAccessService.currentUser();
+        Project existing = projectService.getProjectForUser(id, user);
+        Long companyId = existing.getCompany().getId();
+        projectService.delete(id, user);
+        realtimePublisher.publishForCompany(companyId, "projects", "deleted", id);
+        return ResponseEntity.ok(ApiResponse.success(null));
+    }
+
+    @GetMapping("/{id}/assignments")
+    public ResponseEntity<ApiResponse<List<ProjectAssignmentResponse>>> assignments(@PathVariable Long id) {
+        User user = tenantAccessService.currentUser();
+        return ResponseEntity.ok(ApiResponse.success(projectService.assignments(id, user).stream().map(this::assignment).toList()));
+    }
+
+    @PostMapping("/{id}/assignments")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','COMPANY_ADMIN')")
+    public ResponseEntity<ApiResponse<ProjectAssignmentResponse>> assign(@PathVariable Long id, @Valid @RequestBody ProjectAssignmentRequest request) {
+        User actor = tenantAccessService.currentUser();
+        tenantAccessService.requireCompanyAdmin(actor);
+        ProjectAssignment a = projectService.assign(id, request.getUserId(), request.getRole(), actor);
+        realtimePublisher.publishForCompany(a.getProject().getCompany().getId(), "projects", "assignment-created", id);
+        domainEventPublisher.publish("PROJECT_ASSIGNMENT_CREATED", a.getProject().getCompany().getId(), userEmail(), "PROJECT", id, "Project personnel assigned");
+        return ResponseEntity.ok(ApiResponse.success(assignment(a)));
+    }
+
+    @DeleteMapping("/{id}/assignments/{userId}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','COMPANY_ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> unassign(@PathVariable Long id, @PathVariable Long userId) {
+        User actor = tenantAccessService.currentUser();
+        tenantAccessService.requireCompanyAdmin(actor);
+        projectService.unassign(id, userId, actor);
+        realtimePublisher.publishForCompany(tenantAccessService.currentCompany().getId(), "projects", "assignment-removed", id);
+        return ResponseEntity.ok(ApiResponse.success(null));
+    }
+
+    @GetMapping("/eligible-users")
+    public ResponseEntity<ApiResponse<List<EligibleUserResponse>>> eligibleUsers(@RequestParam String role) {
+        User actor = tenantAccessService.currentUser();
+        tenantAccessService.requireCompanyAdmin(actor);
+        return ResponseEntity.ok(ApiResponse.success(projectService.eligibleUsers(tenantAccessService.currentCompany().getId(), role).stream()
+                .map(u -> new EligibleUserResponse(u.getId(), (u.getFirstName()+" "+u.getLastName()).trim(), u.getEmail(), role.toUpperCase())).toList()));
+    }
+
+    private String userEmail() { return tenantAccessService.currentUser().getEmail(); }
+
+    private ProjectSummaryResponse summary(Project p) {
+        List<ProjectAssignmentResponse> assignments = projectService.assignments(p.getId(), tenantAccessService.currentUser()).stream().map(this::assignment).toList();
+        return new ProjectSummaryResponse(p.getId(), p.getName(), p.getCode(), p.getLocation(), p.getDescription(), p.getBudget(), p.getSpent(), p.getProgressPercentage(), p.getStatus(), p.getStartDate(), p.getEstEndDate(), assignments);
+    }
+    private ProjectAssignmentResponse assignment(ProjectAssignment a) {
+        User u = a.getUser();
+        return new ProjectAssignmentResponse(a.getId(), u.getId(), (u.getFirstName()+" "+u.getLastName()).trim(), u.getEmail(), a.getAssignmentRole());
     }
 }

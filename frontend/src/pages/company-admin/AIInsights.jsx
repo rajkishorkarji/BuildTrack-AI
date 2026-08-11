@@ -1,96 +1,201 @@
-import { useState } from 'react';
-import { useData } from '../../context/DataContext';
-import { Bot, Cpu, TrendingUp, AlertTriangle, Zap, RefreshCw, Activity, Target } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Activity, AlertTriangle, Bot, BrainCircuit, RefreshCw, Target, TrendingUp, Users, Wrench } from 'lucide-react';
+import projectService from '../../services/projectService';
+import aiInsightService from '../../services/aiInsightService';
+
+const money = (value) => new Intl.NumberFormat('en-IN', {
+  style: 'currency',
+  currency: 'INR',
+  maximumFractionDigits: 0,
+}).format(Number(value || 0));
 
 export default function AIInsights() {
-  const { projects, workers, equipment, finances, issues } = useData();
-  const [loading, setLoading] = useState(false);
+  const [projects, setProjects] = useState([]);
+  const [insights, setInsights] = useState([]);
+  const [selectedProject, setSelectedProject] = useState('');
+  const [diagnostic, setDiagnostic] = useState(null);
+  const [skill, setSkill] = useState('Mason');
+  const [matches, setMatches] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [running, setRunning] = useState(false);
+  const [error, setError] = useState('');
 
-  const avgProgress = projects.length > 0 ? Math.round(projects.reduce((acc, p) => acc + (p.progress || 0), 0) / projects.length) : 0;
-  const highRiskIssues = (issues || []).filter(i => i.severity === 'High' || i.severity === 'Critical').length;
-  const activeWorkers = (workers || []).filter(w => (w.status || 'Active') === 'Active').length;
+  const load = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const [projectData, insightData] = await Promise.all([
+        projectService.getProjects(),
+        aiInsightService.list(),
+      ]);
+      setProjects(projectData);
+      setInsights(insightData);
+      if (!selectedProject && projectData[0]?.id) setSelectedProject(String(projectData[0].id));
+    } catch (e) {
+      setError(e.response?.data?.message || 'Unable to load AI insights.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const run = async () => {
+    if (!selectedProject) return;
+    setRunning(true);
+    setError('');
+    try {
+      const result = await aiInsightService.diagnose(Number(selectedProject));
+      setDiagnostic(result);
+      const latest = await aiInsightService.list(Number(selectedProject));
+      setInsights(prev => [
+        ...latest,
+        ...prev.filter(item => String(item.projectId) !== String(selectedProject)),
+      ]);
+    } catch (e) {
+      setError(e.response?.data?.message || 'AI diagnostics failed.');
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const findWorkers = async () => {
+    if (!selectedProject || !skill.trim()) return;
+    setError('');
+    try {
+      setMatches(await aiInsightService.workerMatches(Number(selectedProject), skill.trim()));
+    } catch (e) {
+      setError(e.response?.data?.message || 'Worker matching failed.');
+    }
+  };
+
+  const currentProject = projects.find(p => String(p.id) === String(selectedProject));
+  const latestRisk = diagnostic?.overallRiskLevel || insights.find(i => String(i.projectId) === String(selectedProject))?.riskLevel || 'LOW';
+
+  const stats = useMemo(() => {
+    const all = diagnostic?.operational || {};
+    return [
+      { label: 'Project risk', value: latestRisk, icon: AlertTriangle },
+      { label: 'Open tasks', value: all.openTasks ?? '—', icon: Target },
+      { label: 'Overdue tasks', value: all.overdueTasks ?? '—', icon: TrendingUp },
+      { label: 'Active workers', value: all.activeWorkers ?? '—', icon: Users },
+    ];
+  }, [diagnostic, latestRisk]);
 
   return (
     <div className="dashboard-page">
       <section className="hero-row">
         <div>
-          <p className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--blue)', fontWeight: 700 }}>
+          <p className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             <Bot size={14} /> AI Insights
           </p>
+          <h1>Project intelligence</h1>
+          <p className="muted">Diagnostics are calculated from live project, task, workforce, equipment and material data.</p>
         </div>
-        <button type="button" className="primary-button" onClick={() => { setLoading(true); setTimeout(() => setLoading(false), 800); }}>
-          <Cpu size={15} className={loading ? "spin-icon" : ""} /> {loading ? 'Recalculating Models...' : 'Run Real-Time AI Diagnostics'}
+        <button className="primary-button" disabled={!selectedProject || running} onClick={run}>
+          <BrainCircuit size={15} /> {running ? 'Analysing…' : 'Run AI Diagnostics'}
         </button>
       </section>
 
-      {/* 4 Key AI Dynamic Modules */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginTop: '20px' }}>
-        {[
-          { label: 'Portfolio Risk Level', value: highRiskIssues > 0 ? 'Elevated Risk' : 'Low Risk', color: highRiskIssues > 0 ? 'var(--orange)' : 'var(--green)', sub: `${highRiskIssues} active critical site alerts` },
-          { label: 'Overall Portfolio Completion', value: `${avgProgress}%`, color: 'var(--purple)', sub: `Weighted average progress` },
-          { label: 'Workforce Efficiency Rate', value: `${activeWorkers * 18 + 40}%`, color: 'var(--orange)', sub: `${activeWorkers} active personnel on site` },
-        ].map(({ label, value, color, sub }) => (
-          <div key={label} className="panel" style={{ padding: '20px' }}>
-            <span style={{ color: 'var(--muted)', fontSize: '12px', fontWeight: 600 }}>{label}</span>
-            <h2 style={{ fontSize: '22px', color, margin: '4px 0 2px 0', fontWeight: 800 }}>{value}</h2>
-            <span style={{ fontSize: '11px', color: 'var(--muted)' }}>{sub}</span>
+      {error && <div className="error-banner">{error}</div>}
+
+      <div className="panel" style={{ marginTop: 20, padding: 20 }}>
+        <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 8 }}>Project</label>
+        <select value={selectedProject} onChange={(e) => { setSelectedProject(e.target.value); setDiagnostic(null); }} style={{ maxWidth: 520 }}>
+          <option value="">Select a project</option>
+          {projects.map(project => <option key={project.id} value={project.id}>{project.name}</option>)}
+        </select>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 16, marginTop: 16 }}>
+        {stats.map(({ label, value, icon: Icon }) => (
+          <div className="panel" key={label} style={{ padding: 20 }}>
+            <Icon size={18} />
+            <div style={{ marginTop: 10, color: 'var(--muted)', fontSize: 12 }}>{label}</div>
+            <strong style={{ display: 'block', fontSize: 22, marginTop: 4 }}>{value}</strong>
           </div>
         ))}
       </div>
 
-      {/* Real-Time Project Milestone Intelligence */}
-      <div className="panel" style={{ marginTop: '20px', padding: '24px' }}>
-        <h3 style={{ fontSize: '17px', fontWeight: 600, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Activity size={18} style={{ color: 'var(--blue)' }} /> Real-Time Project Risk & Health Analysis
-        </h3>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          {projects.map((p) => {
-            const riskLevel = p.progress < 30 ? 'High Delay Risk' : p.progress < 70 ? 'Moderate Track' : 'On Schedule';
-            const riskColor = p.progress < 30 ? 'var(--red)' : p.progress < 70 ? 'var(--orange)' : 'var(--green)';
-            return (
-              <div key={p.id} style={{ padding: '16px', background: 'var(--panel-soft)', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text)' }}>{p.name}</div>
-                  <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '2px' }}>
-                    Assigned PM: <strong style={{ color: 'var(--blue)' }}>{p.pmName || 'Unassigned'}</strong> • Site: {p.location || 'Metro Zone'}
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '11px', color: 'var(--muted)' }}>Completion</div>
-                    <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--blue)' }}>{p.progress || 0}%</div>
-                  </div>
-                  <span style={{ padding: '5px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: 700, background: 'rgba(37,99,235,0.1)', color: riskColor, border: `1px solid ${riskColor}` }}>
-                    {riskLevel}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Smart AI Recommendations */}
-      <div className="panel" style={{ marginTop: '20px', padding: '24px' }}>
-        <h3 style={{ fontSize: '17px', fontWeight: 600, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Zap size={18} style={{ color: 'var(--orange)' }} /> Real-Time Smart AI Recommendations
-        </h3>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {[
-            { text: `Reallocate workers to low-progress sites (< 50%) to prevent critical milestone bottlenecks.`, type: 'Resource Optimization', color: 'var(--blue)' },
-            { text: `Ensure Site Engineers review daily logs promptly to update real-time CPI/SPI metrics.`, type: 'Quality Audit', color: 'var(--green)' },
-            { text: `Contractor performance tracking active: 100% of assigned contractors registered in live stream.`, type: 'Contractor AI Score', color: 'var(--purple)' },
-          ].map((rec, i) => (
-            <div key={i} style={{ padding: '14px 16px', background: 'var(--panel-soft)', borderRadius: '10px', borderLeft: `4px solid ${rec.color}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text)' }}>{rec.text}</span>
-              <span style={{ fontSize: '11px', fontWeight: 700, color: rec.color, background: 'var(--panel)', padding: '4px 10px', borderRadius: '6px', border: '1px solid var(--border)' }}>
-                {rec.type}
-              </span>
+      {diagnostic && (
+        <div className="panel" style={{ marginTop: 16, padding: 24 }}>
+          <h3 style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <Activity size={18} /> {diagnostic.projectName}
+          </h3>
+          <p className="muted">Overall risk score: <strong>{diagnostic.overallRiskScore}</strong></p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 16 }}>
+            <div>
+              <strong>Cost forecast</strong>
+              <p>Projected final cost: {money(diagnostic.cost?.projected_final_cost)}</p>
+              <p>Projected overrun: {money(diagnostic.cost?.projected_overrun_amount)}</p>
+              <p>Risk: {diagnostic.cost?.risk_level || '—'}</p>
             </div>
-          ))}
+            <div>
+              <strong>Schedule forecast</strong>
+              <p>Risk: {diagnostic.delay?.risk_level || '—'}</p>
+              <p>Risk score: {diagnostic.delay?.risk_score ?? '—'}</p>
+              <p>Estimated delay: {diagnostic.delay?.estimated_delay_days ?? 0} days</p>
+            </div>
+            <div>
+              <strong>Operations</strong>
+              <p>Equipment issues: {diagnostic.operational?.equipmentIssues ?? 0}</p>
+              <p>Low-stock materials: {diagnostic.operational?.lowStockMaterials ?? 0}</p>
+            </div>
+          </div>
+          <div style={{ marginTop: 18, padding: 16, borderRadius: 12, background: 'var(--panel-soft)' }}>
+            <strong>Recommendation</strong>
+            <p>{diagnostic.recommendation}</p>
+          </div>
         </div>
+      )}
+
+      <div className="panel" style={{ marginTop: 16, padding: 24 }}>
+        <h3 style={{ display: 'flex', gap: 8, alignItems: 'center' }}><Users size={18} /> AI worker matching</h3>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'end' }}>
+          <div>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Required skill</label>
+            <input value={skill} onChange={(e) => setSkill(e.target.value)} placeholder="e.g. Mason" />
+          </div>
+          <button className="secondary-button" disabled={!selectedProject} onClick={findWorkers}>
+            <Users size={14} /> Find best workers
+          </button>
+        </div>
+        {matches.length > 0 && (
+          <div style={{ marginTop: 14 }}>
+            {matches.slice(0, 10).map(worker => (
+              <div key={worker.worker_id || worker.workerId} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: 12, borderBottom: '1px solid var(--border)' }}>
+                <div>
+                  <strong>{worker.full_name || worker.fullName}</strong>
+                  <div className="muted">{worker.skill_trade || worker.skillTrade} · {worker.status}</div>
+                </div>
+                <strong>{Number(worker.match_score ?? worker.matchScore ?? 0).toFixed(0)}%</strong>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
+
+      <div className="panel" style={{ marginTop: 16, padding: 24 }}>
+        <h3 style={{ display: 'flex', gap: 8, alignItems: 'center' }}><Wrench size={18} /> Stored AI insights</h3>
+        {loading ? <p className="muted">Loading…</p> : insights.length === 0 ? (
+          <p className="muted">No AI insights have been generated yet.</p>
+        ) : insights.slice(0, 20).map(item => (
+          <div key={item.id} style={{ padding: 14, borderBottom: '1px solid var(--border)' }}>
+            <strong>{item.projectName}</strong>
+            <div style={{ fontSize: 12, marginTop: 4 }}>{item.insightType} · {item.riskLevel} · score {item.riskScore}</div>
+            <p style={{ marginBottom: 0 }}>{item.recommendation}</p>
+          </div>
+        ))}
+        <button className="secondary-button" style={{ marginTop: 14 }} onClick={load}>
+          <RefreshCw size={14} /> Refresh
+        </button>
+      </div>
+
+      {currentProject && (
+        <p className="muted" style={{ marginTop: 12 }}>
+          AI is scoped to <strong>{currentProject.name}</strong> and the current company tenant.
+        </p>
+      )}
     </div>
   );
 }

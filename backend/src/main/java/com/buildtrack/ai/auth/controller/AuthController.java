@@ -15,11 +15,6 @@ public class AuthController {
 
     private final AuthService authService;
 
-    @PostMapping("/register")
-    public ResponseEntity<ApiResponse<String>> register(@Valid @RequestBody RegisterRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(authService.register(request));
-    }
-
     @GetMapping("/verify-email")
     public ResponseEntity<ApiResponse<String>> verifyEmail(@RequestParam("token") String token) {
         return ResponseEntity.ok(authService.verifyEmail(token));
@@ -54,4 +49,22 @@ public class AuthController {
     public ResponseEntity<ApiResponse<String>> googleLogin() {
         return ResponseEntity.ok(ApiResponse.success("Google OAuth2 URL initialized. Redirecting to Google Login."));
     }
+
+    @GetMapping("/invitations/{token}")
+public ResponseEntity<ApiResponse<Object>> getInvitation(
+        @PathVariable String token
+) {
+    return ResponseEntity.ok(
+            authService.getInvitation(token)
+    );
+}
+
+@PostMapping("/invitations/accept")
+public ResponseEntity<ApiResponse<String>> acceptInvitation(
+        @Valid @RequestBody AcceptInvitationRequest request
+) {
+    return ResponseEntity.ok(
+            authService.acceptInvitation(request)
+    );
+}
 }

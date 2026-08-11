@@ -33,6 +33,11 @@ public class DashboardController {
         return ResponseEntity.ok(ApiResponse.success(dashboardService.getSiteMapZones()));
     }
 
+    @GetMapping("/progress")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getProjectProgress() {
+        return ResponseEntity.ok(ApiResponse.success(dashboardService.getProjectProgress()));
+    }
+
     @GetMapping("/analytics")
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getAnalytics() {
         return ResponseEntity.ok(ApiResponse.success(dashboardService.getAnalytics()));

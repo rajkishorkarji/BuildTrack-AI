@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useData } from '../context/DataContext';
 import {
   Zap,
   CheckCircle2,
@@ -16,7 +17,7 @@ import {
 const initialServices = [
   { id: 1, name: 'Google Maps API', category: 'GIS & Location Services', icon: MapPin, status: 'CONNECTED', apiKey: 'AIzaSyD9...X8a02', usage: '14,250 requests / month' },
   { id: 2, name: 'Cloudinary Media Asset Store', category: 'CDN & Photo Storage', icon: Cloud, status: 'CONNECTED', apiKey: 'cloud_name: buildtrack-cdn', usage: '124 GB / 500 GB' },
-  { id: 3, name: 'Razorpay Payment Gateway', category: 'Billing & Invoicing', icon: CreditCard, status: 'CONNECTED', apiKey: 'rzp_live_...93a1', usage: '₹14,50,000 processed' },
+  { id: 3, name: 'Razorpay Payment Gateway', category: 'Billing & Invoicing', icon: CreditCard, status: 'CONNECTED', apiKey: 'rzp_test_TNkUjy2dyhgFEz', usage: '₹14,50,000 processed' },
   { id: 4, name: 'SMTP Mailer Service (SendGrid)', category: 'Email Broadcasts & Notifications', icon: Mail, status: 'CONNECTED', apiKey: 'SG.x89a...291a', usage: '8,400 emails sent' },
   { id: 5, name: 'Apache Kafka Engine', category: 'Event Streaming', icon: Server, status: 'CONNECTED', apiKey: 'kafka-broker.internal:9092', usage: '14 Active Topics' },
   { id: 6, name: 'Redis Cache Cluster', category: 'In-Memory Key-Value', icon: Database, status: 'CONNECTED', apiKey: 'redis-cluster.internal:6379', usage: '1.2 GB Memory' },
@@ -25,6 +26,7 @@ const initialServices = [
 ];
 
 export default function Integrations() {
+  const { payWithRazorpay } = useData();
   const [services, setServices] = useState(initialServices);
   const [notice, setNotice] = useState('');
 
@@ -34,6 +36,14 @@ export default function Integrations() {
   };
 
   const handleTestConnection = (name) => {
+    if (name.includes('Razorpay') && payWithRazorpay) {
+      payWithRazorpay({
+        amount: 1000,
+        description: 'Razorpay Gateway Integration Test',
+        onSuccess: () => notify('Razorpay Checkout & Webhook verified successfully!')
+      });
+      return;
+    }
     notify(`Ping test successful for ${name}. Response latency: 14ms.`);
   };
 

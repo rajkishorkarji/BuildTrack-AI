@@ -1,11 +1,11 @@
 CREATE TABLE IF NOT EXISTS roles (
     id BIGSERIAL PRIMARY KEY,
-    name VARCHAR(64) NOT NULL UNIQUE
+    role_name VARCHAR(64) NOT NULL UNIQUE
 );
 
 CREATE TABLE IF NOT EXISTS permissions (
     id BIGSERIAL PRIMARY KEY,
-    name VARCHAR(96) NOT NULL UNIQUE,
+    permission_name VARCHAR(96) NOT NULL UNIQUE,
     description VARCHAR(255)
 );
 
@@ -67,4 +67,4 @@ CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id);
 INSERT INTO roles (name) VALUES
     ('SUPER_ADMIN'), ('COMPANY_ADMIN'), ('PROJECT_MANAGER'),
     ('SITE_ENGINEER'), ('CONTRACTOR'), ('WORKER')
-ON CONFLICT (name) DO NOTHING;
+ON CONFLICT (role_name) DO NOTHING;

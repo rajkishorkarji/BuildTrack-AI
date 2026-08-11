@@ -1,6 +1,6 @@
 import { realtimeBus } from './api';
 
-const TOPICS = ['updates', 'projects', 'tasks', 'workers', 'attendance', 'equipment', 'reports', 'notifications'];
+const TOPICS = ['updates', 'projects', 'tasks', 'workers', 'attendance', 'equipment', 'reports', 'ai'];
 
 function resolveSocketUrl() {
   if (import.meta.env.VITE_WS_URL) return import.meta.env.VITE_WS_URL;
@@ -80,9 +80,23 @@ class RealtimeClient {
     if (frame.command === 'CONNECTED') {
       this.connected = true;
       this.reconnectAttempts = 0;
+      const savedUser = JSON.parse(localStorage.getItem('buildtrack_user') || '{}');
+      const companyId = savedUser.companyId;
+      if (!companyId) {
+        realtimeBus.emit('REALTIME_STATUS', { connected: true });
+        return;
+      }
       TOPICS.forEach((topic, index) => {
-        this.socket?.send(stompFrame('SUBSCRIBE', { id: `buildtrack-${index}`, destination: `/topic/${topic}`, ack: 'auto' }));
+        this.socket?.send(stompFrame('SUBSCRIBE', { id: `buildtrack-company-${index}`, destination: `/topic/company/${companyId}/${topic}`, ack: 'auto' }));
       });
+      const userEmail = savedUser.email;
+      if (userEmail) {
+        this.socket?.send(stompFrame('SUBSCRIBE', {
+          id: 'buildtrack-private-notifications',
+          destination: '/user/queue/notifications',
+          ack: 'auto',
+        }));
+      }
       realtimeBus.emit('REALTIME_STATUS', { connected: true });
       return;
     }

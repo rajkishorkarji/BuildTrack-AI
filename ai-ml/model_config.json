@@ -1,0 +1,10 @@
+{
+  "version": "1.0",
+  "models": {
+    "cost_overrun": "ai-ml/inference/predict_cost_overrun.py",
+    "delay_risk": "ai-ml/inference/predict_delay.py",
+    "worker_matching": "ai-ml/inference/predict_worker_match.py"
+  },
+  "pythonExecutableEnv": "PYTHON_EXECUTABLE",
+  "fallback": "JAVA_HEURISTIC_FALLBACK"
+}

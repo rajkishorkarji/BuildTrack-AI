@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Bell, Search, CheckCheck, Trash2, Filter, AlertTriangle, Info, CheckCircle2, X, Megaphone, Clock, Shield } from 'lucide-react';
-import notificationService from '../services/notificationService';
-import { useAuth } from '../context/AuthContext';
+import notificationService from '../../services/notificationService';
+import { useAuth } from '../../context/AuthContext';
 
 const TAB = (active) => ({
   padding: '7px 14px', borderRadius: '7px', border: 'none',
@@ -25,7 +25,7 @@ export default function Notifications() {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('ALL');
   const [showBroadcast, setShowBroadcast] = useState(false);
-  const [broadcastForm, setBroadcastForm] = useState({ title: '', message: '', type: 'BROADCAST', target: 'All Users' });
+  const [broadcastForm, setBroadcastForm] = useState({ title: '', message: '', type: 'BROADCAST', targetRole: 'COMPANY_ADMIN' });
   const [notice, setNotice] = useState('');
 
   useEffect(() => {
@@ -53,9 +53,9 @@ export default function Notifications() {
   const sendBroadcast = (e) => {
     e.preventDefault();
     if (!broadcastForm.title || !broadcastForm.message) return;
-    notificationService.broadcast({ ...broadcastForm, from: user?.fullName || 'Super Admin' });
+    notificationService.broadcast({ ...broadcastForm });
     setShowBroadcast(false);
-    setBroadcastForm({ title: '', message: '', type: 'BROADCAST', target: 'All Users' });
+    setBroadcastForm({ title: '', message: '', type: 'BROADCAST', targetRole: 'COMPANY_ADMIN' });
     notify('Broadcast dispatched successfully!');
   };
 
@@ -211,9 +211,9 @@ export default function Notifications() {
                 </div>
                 <div>
                   <label style={{ color: 'var(--muted)', display: 'block', marginBottom: '4px' }}>Target Audience</label>
-                  <select value={broadcastForm.target} onChange={e => setBroadcastForm({ ...broadcastForm, target: e.target.value })}
+                  <select value={broadcastForm.targetRole} onChange={e => setBroadcastForm({ ...broadcastForm, targetRole: e.target.value })}
                     style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--panel-soft)', color: 'var(--text)', fontSize: '13px' }}>
-                    {['All Users', 'Company Admins', 'Project Managers', 'Site Engineers', 'Workers', 'Contractors'].map(t => <option key={t}>{t}</option>)}
+                    <option value="COMPANY_ADMIN">Company Admins</option>
                   </select>
                 </div>
               </div>

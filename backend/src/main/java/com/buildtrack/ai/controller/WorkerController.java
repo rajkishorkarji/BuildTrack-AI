@@ -5,12 +5,14 @@ import com.buildtrack.ai.entity.Worker;
 import com.buildtrack.ai.service.WorkerService;
 import com.buildtrack.ai.service.TenantAccessService;
 import com.buildtrack.ai.auth.entity.User;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
+@PreAuthorize("hasAnyRole('SUPER_ADMIN','WORKER','CONTRACTOR','SITE_ENGINEER','PROJECT_MANAGER','COMPANY_ADMIN')")
 @RequestMapping("/api/workers")
 public class WorkerController {
 

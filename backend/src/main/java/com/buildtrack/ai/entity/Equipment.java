@@ -1,5 +1,6 @@
 package com.buildtrack.ai.entity;
 
+import com.buildtrack.ai.auth.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -20,9 +21,13 @@ public class Equipment {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "project_id")
     private Project project;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assigned_user_id")
+    private User assignedUser;
 
     @Column(nullable = false)
     private String name;
@@ -30,25 +35,30 @@ public class Equipment {
     @Column(nullable = false)
     private String category;
 
+    @Column(name = "serial_number", unique = true)
     private String serialNumber;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private EquipmentStatus status;
 
-    @Column(nullable = false)
+    @Column(name = "daily_cost", nullable = false)
     private BigDecimal dailyCost;
 
+    @Column(name = "last_serviced_date")
     private LocalDate lastServicedDate;
+
+    @Column(name = "next_service_due")
     private LocalDate nextServiceDue;
 
-    @Column(nullable = false, updatable = false)
+    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @PrePersist
     void onCreate() {
         createdAt = LocalDateTime.now();
         if (status == null) status = EquipmentStatus.OPERATIONAL;
+        if (dailyCost == null) dailyCost = BigDecimal.ZERO;
     }
 
     public enum EquipmentStatus {

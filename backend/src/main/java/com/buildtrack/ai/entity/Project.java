@@ -15,6 +15,9 @@ public class Project {
     @Column(nullable = false)
     private String name;
 
+    @Column(length = 64)
+    private String code;
+
     private String location;
 
     @Column(columnDefinition = "TEXT")
@@ -44,6 +47,8 @@ public class Project {
     public void setId(Long id) { this.id = id; }
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
+    public String getCode() { return code; }
+    public void setCode(String code) { this.code = code; }
     public String getLocation() { return location; }
     public void setLocation(String location) { this.location = location; }
     public String getDescription() { return description; }

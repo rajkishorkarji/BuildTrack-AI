@@ -1,226 +1,1134 @@
-import { useState } from 'react';
+
+import { useMemo, useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
-import { Users, Search, Plus, Shield, Building2 } from 'lucide-react';
+import {
+  Users,
+  Search,
+  Shield,
+  Building2,
+  UserCheck,
+  UserX,
+  Filter,
+} from 'lucide-react';
+
+const ROLE_LABELS = {
+  SUPER_ADMIN: 'Super Admin',
+  COMPANY_ADMIN: 'Company Admin',
+  PROJECT_MANAGER: 'Project Manager',
+  SITE_ENGINEER: 'Site Engineer',
+  CONTRACTOR: 'Contractor',
+  WORKER: 'Worker',
+};
+
+const ROLE_OPTIONS = [
+  'ALL',
+  'SUPER_ADMIN',
+  'COMPANY_ADMIN',
+  'PROJECT_MANAGER',
+  'SITE_ENGINEER',
+  'CONTRACTOR',
+  'WORKER',
+];
+
+const STATUS_OPTIONS = [
+  'ALL',
+  'ACTIVE',
+  'INACTIVE',
+  'SUSPENDED',
+  'PENDING',
+];
+
+function formatRole(role) {
+  return (
+    ROLE_LABELS[role] ||
+    String(role || 'Unknown')
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (char) => char.toUpperCase())
+  );
+}
+
+function normalizeStatus(user) {
+  const rawStatus =
+    user?.status ||
+    (user?.enabled === false
+      ? 'INACTIVE'
+      : user?.blocked
+        ? 'SUSPENDED'
+        : 'ACTIVE');
+
+  return String(rawStatus)
+    .toUpperCase()
+    .replace(/\s+/g, '_');
+}
+
+function getStatusLabel(status) {
+  switch (status) {
+    case 'ACTIVE':
+      return 'Active';
+
+    case 'INACTIVE':
+      return 'Inactive';
+
+    case 'SUSPENDED':
+      return 'Suspended';
+
+    case 'PENDING':
+      return 'Pending';
+
+    default:
+      return 'Unknown';
+  }
+}
+
+function getStatusClass(status) {
+  switch (status) {
+    case 'ACTIVE':
+      return {
+        background: 'rgba(34, 197, 94, 0.12)',
+        color: 'var(--green)',
+      };
+
+    case 'SUSPENDED':
+      return {
+        background: 'rgba(239, 68, 68, 0.12)',
+        color: 'var(--red)',
+      };
+
+    case 'PENDING':
+      return {
+        background: 'rgba(245, 158, 11, 0.12)',
+        color: 'var(--orange)',
+      };
+
+    default:
+      return {
+        background: 'rgba(148, 163, 184, 0.12)',
+        color: 'var(--muted)',
+      };
+  }
+}
+
+function getUserName(user) {
+  return (
+    user?.fullName ||
+    user?.name ||
+    user?.email ||
+    'Unknown User'
+  );
+}
+
+function getCompanyName(user) {
+  return (
+    user?.companyName ||
+    user?.company?.name ||
+    user?.companyCode ||
+    'Platform'
+  );
+}
 
 export default function SuperAdminUsers() {
-  const { usersList = [], addUser, companies = [] } = useData();
+  const { usersList = [] } = useData();
   const { registeredUsers = [] } = useAuth();
+
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('ALL');
-  const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm] = useState({ fullName: '', email: '', role: 'COMPANY_ADMIN', companyName: 'Solviontech Infrastructure Ltd' });
+  const [statusFilter, setStatusFilter] = useState('ALL');
 
-  const allUsers = [...usersList, ...registeredUsers];
-  const uniqueUsers = [];
-  const seenEmails = new Set();
-  allUsers.forEach(u => {
-    const e = (u.email || '').toLowerCase().trim();
-    if (e && !seenEmails.has(e)) {
-      seenEmails.add(e);
-      uniqueUsers.push(u);
-    }
-  });
+  /*
+   * ============================================================
+   * MERGE USERS
+   * ============================================================
+   *
+   * The backend/server data is preferred.
+   * registeredUsers is kept as a secondary source because your
+   * existing AuthContext may still contain authenticated users.
+   *
+   * Duplicate users are removed by email.
+   */
 
-  const filtered = uniqueUsers.filter(u => {
-    const mSearch = (u.fullName || u.name || '').toLowerCase().includes(search.toLowerCase()) ||
-      (u.email || '').toLowerCase().includes(search.toLowerCase());
-    const mRole = roleFilter === 'ALL' || u.role === roleFilter;
-    return mSearch && mRole;
-  });
+  const allUsers = useMemo(() => {
+    const merged = [
+      ...usersList,
+      ...registeredUsers,
+    ];
 
-  const handleAddUser = (e) => {
-    e.preventDefault();
-    if (!form.fullName || !form.email) return;
-    addUser({
-      fullName: form.fullName.trim(),
-      email: form.email.trim(),
-      role: form.role,
-      companyName: form.companyName,
+    const usersByEmail = new Map();
+
+    merged.forEach((user) => {
+      const email = String(
+        user?.email || ''
+      )
+        .trim()
+        .toLowerCase();
+
+      if (!email) {
+        return;
+      }
+
+      /*
+       * Prefer the later/server representation when the same
+       * email exists in both sources.
+       */
+      usersByEmail.set(email, user);
     });
-    setShowAdd(false);
-    setForm({ fullName: '', email: '', role: 'COMPANY_ADMIN', companyName: 'Solviontech Infrastructure Ltd' });
-  };
+
+    return Array.from(usersByEmail.values());
+  }, [usersList, registeredUsers]);
+
+  /*
+   * ============================================================
+   * NORMALIZED USERS
+   * ============================================================
+   */
+
+  const normalizedUsers = useMemo(() => {
+    return allUsers.map((user) => ({
+      ...user,
+
+      displayName: getUserName(user),
+
+      displayRole: formatRole(
+        user?.role
+      ),
+
+      displayCompany:
+        getCompanyName(user),
+
+      normalizedRole:
+        String(user?.role || '')
+          .toUpperCase(),
+
+      normalizedStatus:
+        normalizeStatus(user),
+    }));
+  }, [allUsers]);
+
+  /*
+   * ============================================================
+   * FILTERED USERS
+   * ============================================================
+   */
+
+  const filteredUsers = useMemo(() => {
+    const query = search
+      .trim()
+      .toLowerCase();
+
+    return normalizedUsers.filter(
+      (user) => {
+        const matchesSearch =
+          !query ||
+          user.displayName
+            .toLowerCase()
+            .includes(query) ||
+          String(user.email || '')
+            .toLowerCase()
+            .includes(query) ||
+          user.displayCompany
+            .toLowerCase()
+            .includes(query);
+
+        const matchesRole =
+          roleFilter === 'ALL' ||
+          user.normalizedRole === roleFilter;
+
+        const matchesStatus =
+          statusFilter === 'ALL' ||
+          user.normalizedStatus === statusFilter;
+
+        return (
+          matchesSearch &&
+          matchesRole &&
+          matchesStatus
+        );
+      }
+    );
+  }, [
+    normalizedUsers,
+    search,
+    roleFilter,
+    statusFilter,
+  ]);
+
+  /*
+   * ============================================================
+   * STATISTICS
+   * ============================================================
+   */
+
+  const statistics = useMemo(() => {
+    return {
+      total: normalizedUsers.length,
+
+      active: normalizedUsers.filter(
+        (user) =>
+          user.normalizedStatus === 'ACTIVE'
+      ).length,
+
+      suspended: normalizedUsers.filter(
+        (user) =>
+          user.normalizedStatus === 'SUSPENDED'
+      ).length,
+
+      pending: normalizedUsers.filter(
+        (user) =>
+          user.normalizedStatus === 'PENDING'
+      ).length,
+    };
+  }, [normalizedUsers]);
+
+  /*
+   * ============================================================
+   * RENDER
+   * ============================================================
+   */
 
   return (
-    <div className="dashboard-page">
-      <section className="hero-row">
+    <div
+      style={{
+        paddingBottom: '32px',
+      }}
+    >
+      {/* ======================================================
+          HEADER
+      ======================================================= */}
+
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+          gap: '16px',
+          flexWrap: 'wrap',
+        }}
+      >
         <div>
-          <p className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--blue)', fontWeight: 700 }}>
-            <Users size={14} /> Users
+          <p
+            className="eyebrow"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              color: 'var(--blue)',
+              fontWeight: 700,
+              marginBottom: '6px',
+            }}
+          >
+            <Users size={15} />
+            PLATFORM USERS
           </p>
-        </div>
-      </section>
 
-      {/* Filter Bar */}
-      <div className="panel" style={{ marginTop: '20px', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-        <div className="search-box" style={{ width: '300px' }}>
-          <Search size={14} style={{ color: 'var(--muted)' }} />
-          <input placeholder="Search users by name or email..." value={search} onChange={e => setSearch(e.target.value)} />
         </div>
-        <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)} style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--text)', fontSize: '12px', fontWeight: 600 }}>
-          <option value="ALL">All Roles</option>
-          <option value="SUPER_ADMIN">Super Admin</option>
-          <option value="COMPANY_ADMIN">Company Admin</option>
-          <option value="PROJECT_MANAGER">Project Manager</option>
-          <option value="SITE_ENGINEER">Site Engineer</option>
-          <option value="CONTRACTOR">Contractor</option>
-          <option value="WORKER">Worker</option>
-        </select>
       </div>
 
-      {/* User Table */}
-      <div className="panel" style={{ marginTop: '16px', padding: 0, overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
-          <thead>
-  <tr
-    style={{
-      background: 'var(--panel-soft)',
-      color: 'var(--muted)',
-      borderBottom: '1px solid var(--border)'
-    }}
-  >
-    <th style={{ padding: '14px 20px', fontWeight: 600 }}>
-      User Name & Email
-    </th>
+      {/* ======================================================
+          STATISTICS
+      ======================================================= */}
 
-    <th style={{ padding: '14px', fontWeight: 600 }}>
-      Assigned Role
-    </th>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns:
+            'repeat(auto-fit, minmax(180px, 1fr))',
+          gap: '12px',
+          marginTop: '16px',
+        }}
+      >
+        <div
+          className="panel"
+          style={{
+            padding: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+          }}
+        >
+          <div
+            style={{
+              width: '38px',
+              height: '38px',
+              borderRadius: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background:
+                'rgba(59, 130, 246, 0.12)',
+              color: 'var(--blue)',
+            }}
+          >
+            <Users size={19} />
+          </div>
 
-    <th style={{ padding: '14px', fontWeight: 600 }}>
-      Company Tenant
-    </th>
+          <div>
+            <div
+              style={{
+                fontSize: '11px',
+                color: 'var(--muted)',
+                fontWeight: 600,
+              }}
+            >
+              Total Users
+            </div>
 
-    <th style={{ padding: '14px', fontWeight: 600 }}>
-      Status
-    </th>
-
-    <th
-      style={{
-        padding: '14px 20px',
-        fontWeight: 600,
-        textAlign: 'right'
-      }}
-    >
-      Actions
-    </th>
-  </tr>
-</thead>
-          <tbody>
-            {filtered.map(u => (
-              <tr key={u.id || u.email} style={{ borderBottom: '1px solid var(--border)' }}>
-                <td style={{ padding: '14px 20px', fontWeight: 700, color: 'var(--text)' }}>
-                  <div>{u.fullName || u.name || u.email}</div>
-                  <div style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 400 }}>{u.email}</div>
-                </td>
-                <td style={{ padding: '14px', color: 'var(--blue)', fontWeight: 600 }}>{u.role || 'USER'}</td>
-                <td style={{ padding: '14px', color: 'var(--muted)' }}>{u.companyName || 'Solviontech Infrastructure Ltd'}</td>
-                <td style={{ padding: '14px' }}>
-  <span
-    style={{
-      padding: '4px 10px',
-      borderRadius: '10px',
-      background:
-        (u.status || 'Active') === 'Active'
-          ? 'rgba(34,197,94,0.12)'
-          : 'rgba(245,154,22,0.12)',
-      color:
-        (u.status || 'Active') === 'Active'
-          ? 'var(--green)'
-          : 'var(--orange)',
-      fontSize: '11px',
-      fontWeight: 700,
-    }}
-  >
-    {u.status || 'Active'}
-  </span>
-</td>
-
-<td style={{ padding: '14px 20px', textAlign: 'right' }}>
-  <div
-    style={{
-      display: 'flex',
-      justifyContent: 'flex-end',
-      gap: '8px',
-    }}
-  >
-    <button
-      type="button"
-      className="secondary-button"
-      style={{
-        padding: '4px 10px',
-        fontSize: '11px',
-        fontWeight: 600,
-        color:
-          (u.status || 'Active') === 'Active'
-            ? 'var(--orange)'
-            : 'var(--green)',
-      }}
-      onClick={() => {
-        // TODO: Add suspend/activate logic
-      }}
-    >
-      {(u.status || 'Active') === 'Active'
-        ? 'Suspend'
-        : 'Activate'}
-    </button>
-
-    <button
-      type="button"
-      className="secondary-button"
-      style={{
-        padding: '4px 10px',
-        fontSize: '11px',
-        color: 'var(--red)',
-      }}
-      onClick={() => {
-        // TODO: Add delete logic
-      }}
-    >
-      Delete
-    </button>
-  </div>
-</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Modal */}
-      {showAdd && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
-          <div className="panel" style={{ width: '100%', maxWidth: '480px', padding: '28px', borderRadius: '16px' }}>
-            <h2 style={{ fontSize: '20px', marginBottom: '16px' }}>Register Platform User</h2>
-            <form onSubmit={handleAddUser} style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '13px' }}>
-              <div>
-                <label style={{ color: 'var(--muted)', display: 'block', marginBottom: '4px' }}>Full Name *</label>
-                <input type="text" required value={form.fullName} onChange={e => setForm({ ...form, fullName: e.target.value })} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--panel)' }} />
-              </div>
-              <div>
-                <label style={{ color: 'var(--muted)', display: 'block', marginBottom: '4px' }}>Email Address *</label>
-                <input type="email" required value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--panel)' }} />
-              </div>
-              <div>
-                <label style={{ color: 'var(--muted)', display: 'block', marginBottom: '4px' }}>Assigned System Role</label>
-                <select value={form.role} onChange={e => setForm({ ...form, role: e.target.value })} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--panel)' }}>
-                  <option value="COMPANY_ADMIN">Company Admin</option>
-                  <option value="PROJECT_MANAGER">Project Manager</option>
-                  <option value="SITE_ENGINEER">Site Engineer</option>
-                  <option value="CONTRACTOR">Contractor</option>
-                  <option value="WORKER">Worker</option>
-                  <option value="SUPER_ADMIN">Super Admin</option>
-                </select>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '8px' }}>
-                <button type="button" className="secondary-button" onClick={() => setShowAdd(false)}>Cancel</button>
-                <button type="submit" className="primary-button">Create User</button>
-              </div>
-            </form>
+            <div
+              style={{
+                marginTop: '3px',
+                fontSize: '22px',
+                fontWeight: 800,
+              }}
+            >
+              {statistics.total}
+            </div>
           </div>
         </div>
-      )}
+
+        <div
+          className="panel"
+          style={{
+            padding: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+          }}
+        >
+          <div
+            style={{
+              width: '38px',
+              height: '38px',
+              borderRadius: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background:
+                'rgba(34, 197, 94, 0.12)',
+              color: 'var(--green)',
+            }}
+          >
+            <UserCheck size={19} />
+          </div>
+
+          <div>
+            <div
+              style={{
+                fontSize: '11px',
+                color: 'var(--muted)',
+                fontWeight: 600,
+              }}
+            >
+              Active
+            </div>
+
+            <div
+              style={{
+                marginTop: '3px',
+                fontSize: '22px',
+                fontWeight: 800,
+              }}
+            >
+              {statistics.active}
+            </div>
+          </div>
+        </div>
+
+        <div
+          className="panel"
+          style={{
+            padding: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+          }}
+        >
+          <div
+            style={{
+              width: '38px',
+              height: '38px',
+              borderRadius: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background:
+                'rgba(239, 68, 68, 0.12)',
+              color: 'var(--red)',
+            }}
+          >
+            <UserX size={19} />
+          </div>
+
+          <div>
+            <div
+              style={{
+                fontSize: '11px',
+                color: 'var(--muted)',
+                fontWeight: 600,
+              }}
+            >
+              Suspended
+            </div>
+
+            <div
+              style={{
+                marginTop: '3px',
+                fontSize: '22px',
+                fontWeight: 800,
+              }}
+            >
+              {statistics.suspended}
+            </div>
+          </div>
+        </div>
+
+        <div
+          className="panel"
+          style={{
+            padding: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+          }}
+        >
+          <div
+            style={{
+              width: '38px',
+              height: '38px',
+              borderRadius: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background:
+                'rgba(245, 158, 11, 0.12)',
+              color: 'var(--orange)',
+            }}
+          >
+            <Shield size={19} />
+          </div>
+
+          <div>
+            <div
+              style={{
+                fontSize: '11px',
+                color: 'var(--muted)',
+                fontWeight: 600,
+              }}
+            >
+              Pending
+            </div>
+
+            <div
+              style={{
+                marginTop: '3px',
+                fontSize: '22px',
+                fontWeight: 800,
+              }}
+            >
+              {statistics.pending}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ======================================================
+          FILTER BAR
+      ======================================================= */}
+
+      <div
+        className="panel"
+        style={{
+          marginTop: '20px',
+          padding: '16px 20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            color: 'var(--muted)',
+            fontSize: '12px',
+            fontWeight: 700,
+          }}
+        >
+          <Filter size={15} />
+          Filters
+        </div>
+
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            flexWrap: 'wrap',
+            flex: 1,
+            justifyContent: 'flex-end',
+          }}
+        >
+          {/* Search */}
+
+          <div
+            className="search-box"
+            style={{
+              width: '300px',
+              maxWidth: '100%',
+            }}
+          >
+            <Search
+              size={14}
+              style={{
+                color: 'var(--muted)',
+              }}
+            />
+
+            <input
+              type="search"
+              placeholder="Search name, email or company..."
+              value={search}
+              onChange={(event) =>
+                setSearch(event.target.value)
+              }
+            />
+          </div>
+
+          {/* Role */}
+
+          <select
+            value={roleFilter}
+            onChange={(event) =>
+              setRoleFilter(event.target.value)
+            }
+            aria-label="Filter users by role"
+            style={{
+              padding: '8px 12px',
+              borderRadius: '8px',
+              border:
+                '1px solid var(--border)',
+              background:
+                'var(--panel)',
+              color: 'var(--text)',
+              fontSize: '12px',
+              fontWeight: 600,
+            }}
+          >
+            {ROLE_OPTIONS.map((role) => (
+              <option
+                key={role}
+                value={role}
+              >
+                {role === 'ALL'
+                  ? 'All Roles'
+                  : formatRole(role)}
+              </option>
+            ))}
+          </select>
+
+          {/* Status */}
+
+          <select
+            value={statusFilter}
+            onChange={(event) =>
+              setStatusFilter(event.target.value)
+            }
+            aria-label="Filter users by status"
+            style={{
+              padding: '8px 12px',
+              borderRadius: '8px',
+              border:
+                '1px solid var(--border)',
+              background:
+                'var(--panel)',
+              color: 'var(--text)',
+              fontSize: '12px',
+              fontWeight: 600,
+            }}
+          >
+            {STATUS_OPTIONS.map((status) => (
+              <option
+                key={status}
+                value={status}
+              >
+                {status === 'ALL'
+                  ? 'All Statuses'
+                  : getStatusLabel(status)}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* ======================================================
+          RESULTS SUMMARY
+      ======================================================= */}
+
+      <div
+        style={{
+          marginTop: '14px',
+          marginBottom: '8px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '10px',
+          flexWrap: 'wrap',
+        }}
+      >
+        <span
+          style={{
+            color: 'var(--muted)',
+            fontSize: '12px',
+          }}
+        >
+          Showing{' '}
+          <strong
+            style={{
+              color: 'var(--text)',
+            }}
+          >
+            {filteredUsers.length}
+          </strong>{' '}
+          of{' '}
+          <strong
+            style={{
+              color: 'var(--text)',
+            }}
+          >
+            {normalizedUsers.length}
+          </strong>{' '}
+          users
+        </span>
+
+        {(search ||
+          roleFilter !== 'ALL' ||
+          statusFilter !== 'ALL') && (
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => {
+              setSearch('');
+              setRoleFilter('ALL');
+              setStatusFilter('ALL');
+            }}
+            style={{
+              padding: '6px 10px',
+              fontSize: '11px',
+            }}
+          >
+            Clear Filters
+          </button>
+        )}
+      </div>
+
+      {/* ======================================================
+          USER TABLE
+      ======================================================= */}
+
+      <div
+        className="panel"
+        style={{
+          marginTop: '8px',
+          padding: 0,
+          overflow: 'hidden',
+        }}
+      >
+        <div
+          style={{
+            overflowX: 'auto',
+          }}
+        >
+          <table
+            style={{
+              width: '100%',
+              minWidth: '850px',
+              borderCollapse: 'collapse',
+              fontSize: '13px',
+              textAlign: 'left',
+            }}
+          >
+            <thead>
+              <tr
+                style={{
+                  borderBottom:
+                    '1px solid var(--border)',
+                  background:
+                    'var(--panel-alt)',
+                }}
+              >
+                <th
+                  style={{
+                    padding: '14px 20px',
+                    fontWeight: 700,
+                  }}
+                >
+                  User
+                </th>
+
+                <th
+                  style={{
+                    padding: '14px',
+                    fontWeight: 700,
+                  }}
+                >
+                  Assigned Role
+                </th>
+
+                <th
+                  style={{
+                    padding: '14px',
+                    fontWeight: 700,
+                  }}
+                >
+                  Company Tenant
+                </th>
+
+                <th
+                  style={{
+                    padding: '14px',
+                    fontWeight: 700,
+                  }}
+                >
+                  Status
+                </th>
+
+                <th
+                  style={{
+                    padding: '14px 20px',
+                    fontWeight: 700,
+                    textAlign: 'right',
+                  }}
+                >
+                  Account
+                </th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {filteredUsers.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={5}
+                    style={{
+                      padding: '50px 20px',
+                      textAlign: 'center',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '10px',
+                      }}
+                    >
+                      <Users
+                        size={32}
+                        style={{
+                          color: 'var(--muted)',
+                        }}
+                      />
+
+                      <div
+                        style={{
+                          fontWeight: 700,
+                          fontSize: '14px',
+                        }}
+                      >
+                        No users found
+                      </div>
+
+                      <div
+                        style={{
+                          color: 'var(--muted)',
+                          fontSize: '12px',
+                        }}
+                      >
+                        Try changing your search or
+                        filter criteria.
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filteredUsers.map(
+                  (user, index) => {
+                    const status =
+                      user.normalizedStatus;
+
+                    const statusStyle =
+                      getStatusClass(status);
+
+                    return (
+                      <tr
+                        key={
+                          user.id ||
+                          user.email ||
+                          index
+                        }
+                        style={{
+                          borderBottom:
+                            '1px solid var(--border)',
+                        }}
+                      >
+                        {/* User */}
+
+                        <td
+                          style={{
+                            padding:
+                              '14px 20px',
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems:
+                                'center',
+                              gap: '11px',
+                            }}
+                          >
+                            <div
+                              style={{
+                                width: '36px',
+                                height: '36px',
+                                borderRadius:
+                                  '10px',
+                                display: 'flex',
+                                alignItems:
+                                  'center',
+                                justifyContent:
+                                  'center',
+                                background:
+                                  'rgba(59, 130, 246, 0.10)',
+                                color:
+                                  'var(--blue)',
+                                fontWeight: 800,
+                                fontSize:
+                                  '13px',
+                                flexShrink: 0,
+                              }}
+                            >
+                              {user.displayName
+                                .charAt(0)
+                                .toUpperCase()}
+                            </div>
+
+                            <div
+                              style={{
+                                minWidth: 0,
+                              }}
+                            >
+                              <div
+                                style={{
+                                  fontWeight: 700,
+                                  whiteSpace:
+                                    'nowrap',
+                                  overflow:
+                                    'hidden',
+                                  textOverflow:
+                                    'ellipsis',
+                                  maxWidth:
+                                    '240px',
+                                }}
+                              >
+                                {
+                                  user.displayName
+                                }
+                              </div>
+
+                              <div
+                                style={{
+                                  marginTop:
+                                    '3px',
+                                  color:
+                                    'var(--muted)',
+                                  fontSize:
+                                    '11px',
+                                  whiteSpace:
+                                    'nowrap',
+                                }}
+                              >
+                                {user.email ||
+                                  'No email'}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Role */}
+
+                        <td
+                          style={{
+                            padding: '14px',
+                          }}
+                        >
+                          <span
+                            style={{
+                              display:
+                                'inline-flex',
+                              alignItems:
+                                'center',
+                              gap: '6px',
+                              padding:
+                                '5px 9px',
+                              borderRadius:
+                                '7px',
+                              background:
+                                'rgba(59, 130, 246, 0.08)',
+                              color:
+                                'var(--blue)',
+                              fontSize:
+                                '11px',
+                              fontWeight: 700,
+                              whiteSpace:
+                                'nowrap',
+                            }}
+                          >
+                            <Shield
+                              size={12}
+                            />
+                            {
+                              user.displayRole
+                            }
+                          </span>
+                        </td>
+
+                        {/* Company */}
+
+                        <td
+                          style={{
+                            padding: '14px',
+                          }}
+                        >
+                          <div
+                            style={{
+                              display:
+                                'flex',
+                              alignItems:
+                                'center',
+                              gap: '7px',
+                              color:
+                                'var(--text)',
+                              fontWeight: 600,
+                            }}
+                          >
+                            <Building2
+                              size={14}
+                              style={{
+                                color:
+                                  'var(--muted)',
+                              }}
+                            />
+
+                            <span
+                              style={{
+                                maxWidth:
+                                  '190px',
+                                overflow:
+                                  'hidden',
+                                textOverflow:
+                                  'ellipsis',
+                                whiteSpace:
+                                  'nowrap',
+                              }}
+                            >
+                              {
+                                user.displayCompany
+                              }
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* Status */}
+
+                        <td
+                          style={{
+                            padding: '14px',
+                          }}
+                        >
+                          <span
+                            style={{
+                              display:
+                                'inline-flex',
+                              alignItems:
+                                'center',
+                              padding:
+                                '5px 9px',
+                              borderRadius:
+                                '7px',
+                              background:
+                                statusStyle.background,
+                              color:
+                                statusStyle.color,
+                              fontSize:
+                                '11px',
+                              fontWeight: 700,
+                            }}
+                          >
+                            {getStatusLabel(
+                              status
+                            )}
+                          </span>
+                        </td>
+
+                        {/* Account */}
+
+                        <td
+                          style={{
+                            padding:
+                              '14px 20px',
+                            textAlign:
+                              'right',
+                          }}
+                        >
+                          <span
+                            style={{
+                              color:
+                                'var(--muted)',
+                              fontSize:
+                                '11px',
+                            }}
+                          >
+                            {user.id
+                              ? `ID: ${user.id}`
+                              : 'Platform account'}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  }
+                )
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ======================================================
+          FOOTER NOTE
+      ======================================================= */}
+
+      <div
+        style={{
+          marginTop: '14px',
+          color: 'var(--muted)',
+          fontSize: '11px',
+          lineHeight: 1.5,
+        }}
+      >
+        <strong
+          style={{
+            color: 'var(--text)',
+          }}
+        >
+          Account creation:
+        </strong>{' '}
+        New company personnel must be invited by
+        their Company Admin. The invitation email
+        contains a secure token that the user uses
+        to activate the account and create a password.
+      </div>
     </div>
   );
 }
+

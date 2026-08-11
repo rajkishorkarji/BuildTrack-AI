@@ -1,5 +1,6 @@
 package com.buildtrack.ai.entity;
 
+import com.buildtrack.ai.auth.entity.User;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -41,14 +42,16 @@ public class Worker {
     @JoinColumn(name = "assigned_project_id")
     private Project assignedProject;
 
+    @Column(name = "company_id")
     private Long companyId;
 
     private String contractorName;
-
     private String siteEngineerName;
-
-    // DIRECT_PROJECT, CONTRACTOR, SITE_ENGINEER
     private String assignmentType = "DIRECT_PROJECT";
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", unique = true)
+    private User user;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;

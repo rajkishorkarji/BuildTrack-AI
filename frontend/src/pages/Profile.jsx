@@ -59,7 +59,7 @@ export default function Profile() {
         <div style={{ flex: 1 }}>
           <h2 style={{ fontSize: '20px', margin: 0 }}>{user?.fullName || 'BuildTrack User'}</h2>
           <span style={{ color: 'var(--blue)', fontWeight: 600, fontSize: '14px' }}>{user?.roleLabel || 'Active Session'}</span>
-          <p style={{ color: 'var(--muted)', fontSize: '13px', margin: '4px 0 0 0' }}>{user?.companyName || 'Solviontech Infrastructure Ltd'}</p>
+          <p style={{ color: 'var(--muted)', fontSize: '13px', margin: '4px 0 0 0' }}>{user?.companyName || 'Company'}</p>
         </div>
         <button
           type="button"

@@ -31,10 +31,17 @@ public class Notification {
     @Column(nullable = false)
     private boolean read;
 
-    @Column(nullable = false)
+    @Column(name = "recipient_email", nullable = false)
     private String recipientEmail;
 
+    @Column(name = "recipient_user_id")
+    private Long recipientUserId;
+
+    @Column(name = "company_id")
     private Long companyId;
+
+    @Column(name = "project_id")
+    private Long projectId;
 
     private String senderName;
 

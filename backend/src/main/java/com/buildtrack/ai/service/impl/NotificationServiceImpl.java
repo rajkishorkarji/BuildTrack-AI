@@ -6,23 +6,19 @@ import com.buildtrack.ai.auth.repository.UserRepository;
 import com.buildtrack.ai.repository.NotificationRepository;
 import com.buildtrack.ai.service.NotificationService;
 import com.buildtrack.ai.service.RealtimePublisher;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Locale;
 
 @Service
+@RequiredArgsConstructor
 public class NotificationServiceImpl implements NotificationService {
-
-    @Autowired
-    private NotificationRepository notificationRepository;
-
-    @Autowired
-    private RealtimePublisher realtimePublisher;
-
-    @Autowired
-    private UserRepository userRepository;
+    private final NotificationRepository notificationRepository;
+    private final RealtimePublisher realtimePublisher;
+    private final UserRepository userRepository;
 
     @Override
     public List<Notification> getNotifications() {
@@ -30,57 +26,65 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     @Override
+    @Transactional
     public Notification createNotification(Notification notification) {
         Notification saved = notificationRepository.save(notification);
-        realtimePublisher.publish("notifications", "created", saved.getId());
+        if (saved.getRecipientEmail() != null) {
+            realtimePublisher.publishToUser(saved.getRecipientEmail(), "notifications", "created", saved);
+        }
         return saved;
     }
 
     @Override
+    @Transactional
     public void markAllAsRead() {
-        List<Notification> list = notificationRepository.findAll();
-        for (Notification n : list) {
-            n.setRead(true);
-        }
-        notificationRepository.saveAll(list);
-        realtimePublisher.publish("notifications", "marked_read", null);
+        notificationRepository.findAll().forEach(n -> n.setRead(true));
+        notificationRepository.flush();
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<Notification> getNotificationsForUser(User user) {
         return notificationRepository.findByRecipientEmailOrderByCreatedAtDesc(user.getEmail());
     }
 
     @Override
+    @Transactional
     public List<Notification> broadcast(User sender, String targetRole, String title, String message, Notification.NotificationType type) {
         String normalizedTarget = targetRole == null ? "" : targetRole.trim().toUpperCase(Locale.ROOT);
-        List<User> recipients = userRepository.findAll().stream()
-                .filter(user -> user.getCompanyId() != null)
-                .filter(user -> sender.getCompanyId() == null || sender.getCompanyId().equals(user.getCompanyId()))
-                .filter(user -> user.getRoles().stream().anyMatch(role -> normalizedTarget.equalsIgnoreCase(role.getRoleName())))
-                .toList();
+        List<User> recipients = sender.getCompanyId() == null
+                ? userRepository.findAll().stream()
+                    .filter(User::isEnabled)
+                    .filter(u -> u.getRoles().stream().anyMatch(r -> normalizedTarget.equalsIgnoreCase(r.getRoleName())))
+                    .toList()
+                : userRepository.findEnabledByCompanyAndRole(sender.getCompanyId(), normalizedTarget);
+
         List<Notification> saved = recipients.stream()
                 .map(recipient -> notifyUser(recipient, recipient.getCompanyId(), sender.getFirstName() + " " + sender.getLastName(), title, message, type))
                 .toList();
-        realtimePublisher.publish("notifications", "broadcast", null);
         return saved;
     }
 
     @Override
+    @Transactional
     public Notification notifyUser(User recipient, Long companyId, String senderName, String title, String message, Notification.NotificationType type) {
         Notification notification = Notification.builder()
                 .title(title)
                 .message(message)
                 .type(type == null ? Notification.NotificationType.INFO : type)
                 .recipientEmail(recipient.getEmail())
+                .recipientUserId(recipient.getId())
                 .companyId(companyId)
                 .senderName(senderName)
                 .read(false)
                 .build();
-        return notificationRepository.save(notification);
+        Notification saved = notificationRepository.save(notification);
+        realtimePublisher.publishToUser(recipient.getEmail(), "notifications", "created", saved);
+        return saved;
     }
 
     @Override
+    @Transactional
     public void markAsReadForUser(Long notificationId, User user) {
         Notification notification = notificationRepository.findById(notificationId)
                 .orElseThrow(() -> new IllegalArgumentException("Notification not found"));
@@ -88,7 +92,7 @@ public class NotificationServiceImpl implements NotificationService {
             throw new IllegalArgumentException("Notification does not belong to the current user");
         }
         notification.setRead(true);
-        notificationRepository.save(notification);
-        realtimePublisher.publish("notifications", "marked_read", notificationId);
+        Notification saved = notificationRepository.save(notification);
+        realtimePublisher.publishToUser(user.getEmail(), "notifications", "read", saved);
     }
 }

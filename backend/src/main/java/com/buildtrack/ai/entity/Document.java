@@ -33,6 +33,9 @@ public class Document {
 
     private String uploadedBy;
 
+    @Column(name = "file_size_bytes")
+    private Long fileSizeBytes;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

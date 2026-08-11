@@ -1,47 +1,21 @@
 import { NavLink } from 'react-router-dom';
-import {
-  Building2, Users, HardHat, FolderKanban, Receipt, Gauge,
-  ShieldCheck, FileText, Bell, LayoutDashboard, Settings,
-  ChevronRight, Bot,
-} from 'lucide-react';
+import { FolderKanban, Users, Clock3, CheckSquare, Wrench, Receipt, FileText, Bell, LayoutDashboard, Settings, Bot, ChevronRight } from 'lucide-react';
 
 const menuItems = [
-  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/projects', label: 'Projects', icon: FolderKanban },
-  { to: '/workforce', label: 'Workforce', icon: Users },
-  { to: '/equipment', label: 'Equipment', icon: ShieldCheck },
-  { to: '/finance', label: 'Finance', icon: Receipt },
-  { to: '/ai-insights', label: 'AI Insights', icon: Bot },
-  { to: '/reports', label: 'Reports', icon: Gauge },
-  { to: '/notifications', label: 'Notifications', icon: Bell },
-  { to: '/documents', label: 'Documents', icon: FileText },
-  { to: '/company-settings', label: 'Settings', icon: Settings },
+  ['/dashboard', 'Dashboard', LayoutDashboard],
+  ['/projects', 'Projects', FolderKanban],
+  ['/workforce', 'Workforce', Users],
+  ['/attendance', 'Attendance', Clock3],
+  ['/task-management', 'Task Management', CheckSquare],
+  ['/equipment', 'Equipment', Wrench],
+  ['/finance', 'Finance', Receipt],
+  ['/reports', 'Reports', FileText],
+  ['/documents', 'Documents', FileText],
+  ['/notifications', 'Notifications', Bell],
+  ['/ai-insights', 'AI Insights', Bot],
+  ['/company-settings', 'Settings', Settings],
 ];
 
 export default function CompanyAdminSidebar() {
-  return (
-    <aside className="sidebar">
-      <div className="sidebar-brand">
-        <img src="/logo-brand.svg" alt="BuildTrack AI" className="brand-logo-full" />
-      </div>
-
-      <nav className="sidebar-nav">
-      
-        {menuItems.map((item) => {
-          const Icon = item.icon;
-          return (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-            >
-              <Icon size={18} className="nav-icon" />
-              <span className="nav-label">{item.label}</span>
-              <ChevronRight size={14} className="nav-arrow" />
-            </NavLink>
-          );
-        })}
-      </nav>
-    </aside>
-  );
+  return <aside className="sidebar"><div className="sidebar-brand"><img src="/logo-brand.svg" alt="BuildTrack AI" className="brand-logo-full" /></div><nav className="sidebar-nav">{menuItems.map(([to,label,Icon]) => <NavLink key={to} to={to} className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`}><Icon size={18} className="nav-icon"/><span className="nav-label">{label}</span><ChevronRight size={14} className="nav-arrow"/></NavLink>)}</nav></aside>;
 }

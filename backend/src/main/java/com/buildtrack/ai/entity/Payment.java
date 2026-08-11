@@ -12,7 +12,12 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "payments")
+@Table(name = "payments",
+       indexes = {
+           @Index(name = "idx_payments_company", columnList = "company_id"),
+           @Index(name = "idx_payments_order", columnList = "razorpay_order_id"),
+           @Index(name = "idx_payments_payment", columnList = "razorpay_payment_id")
+       })
 public class Payment {
 
     @Id
@@ -22,17 +27,35 @@ public class Payment {
     @Column(nullable = false, unique = true)
     private String transactionRef;
 
-    @Column(nullable = false)
+    @Column(nullable = false, precision = 15, scale = 2)
     private BigDecimal amount;
 
-    @Column(nullable = false)
-    private String paymentMethod; // RAZORPAY, NEFT, CASH, BANK_TRANSFER
+    @Column(nullable = false, length = 10)
+    private String currency = "INR";
 
-    @Column(nullable = false)
-    private String category; // MATERIAL, LABOR, EQUIPMENT
+    @Column(nullable = false, length = 40)
+    private String paymentMethod;
+
+    @Column(nullable = false, length = 40)
+    private String category;
+
+    @Column(length = 120, unique = true)
+    private String razorpayOrderId;
+
+    @Column(length = 120, unique = true)
+    private String razorpayPaymentId;
+
+    @Column(name = "company_id", nullable = false)
+    private Long companyId;
+
+    @Column(length = 60)
+    private String planCode;
+
+    @Column(length = 120)
+    private String planName;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, length = 20)
     private PaymentStatus status;
 
     @Column(nullable = false, updatable = false)
@@ -44,8 +67,9 @@ public class Payment {
 
     @PrePersist
     void onCreate() {
-        paymentDate = LocalDateTime.now();
-        if (status == null) status = PaymentStatus.COMPLETED;
+        if (paymentDate == null) paymentDate = LocalDateTime.now();
+        if (status == null) status = PaymentStatus.PENDING;
+        if (currency == null) currency = "INR";
     }
 
     public enum PaymentStatus {

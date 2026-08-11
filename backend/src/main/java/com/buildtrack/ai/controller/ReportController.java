@@ -1,28 +1,67 @@
 package com.buildtrack.ai.controller;
 
 import com.buildtrack.ai.auth.dto.ApiResponse;
+import com.buildtrack.ai.auth.entity.User;
+import com.buildtrack.ai.dto.report.ReportCreateRequest;
+import com.buildtrack.ai.dto.report.ReportResponse;
 import com.buildtrack.ai.service.ReportService;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.buildtrack.ai.service.TenantAccessService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/reports")
+@PreAuthorize(
+        "hasAnyRole(" +
+        "'SUPER_ADMIN'," +
+        "'COMPANY_ADMIN'," +
+        "'PROJECT_MANAGER'" +
+        ")"
+)
+@RequiredArgsConstructor
 public class ReportController {
 
-    @Autowired
-    private ReportService reportService;
+    private final ReportService reportService;
+    private final TenantAccessService tenantAccessService;
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getReports() {
-        return ResponseEntity.ok(ApiResponse.success(reportService.getReports()));
+    public ResponseEntity<ApiResponse<List<ReportResponse>>> getReports(
+            @RequestParam(required = false) Long projectId
+    ) {
+
+        User user =
+                tenantAccessService.currentUser();
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        reportService.getReports(
+                                user,
+                                projectId
+                        )
+                )
+        );
     }
 
     @PostMapping
-    public ResponseEntity<ApiResponse<Map<String, Object>>> createReport(@RequestBody Map<String, Object> reportData) {
-        return ResponseEntity.ok(ApiResponse.success(reportService.createReport(reportData)));
+    public ResponseEntity<ApiResponse<ReportResponse>> createReport(
+            @Valid @RequestBody ReportCreateRequest request
+    ) {
+
+        User user =
+                tenantAccessService.currentUser();
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        reportService.createReport(
+                                request,
+                                user
+                        )
+                )
+        );
     }
 }

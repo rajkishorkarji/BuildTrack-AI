@@ -1,7 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import DashboardLayout from '../layouts/DashboardLayout';
 
-// ── Super Admin Role Pages ──
 import SuperAdminDashboard from '../pages/super-admin/Dashboard';
 import SuperAdminCompanies from '../pages/super-admin/Companies';
 import SuperAdminProjects from '../pages/super-admin/Projects';
@@ -11,8 +10,8 @@ import SuperAdminAIInsights from '../pages/super-admin/AIInsights';
 import SuperAdminUsers from '../pages/super-admin/Users';
 import SuperAdminSettings from '../pages/super-admin/Settings';
 import SuperAdminWorkforce from '../pages/super-admin/Workforce';
+import SuperAdminNotifications from '../pages/super-admin/Notifications';
 
-// ── Company Admin Role Pages ──
 import CompanyAdminDashboard from '../pages/company-admin/Dashboard';
 import CompanyAdminProjects from '../pages/company-admin/Projects';
 import CompanyAdminWorkforce from '../pages/company-admin/Workforce';
@@ -24,8 +23,10 @@ import CompanyAdminReports from '../pages/company-admin/Reports';
 import CompanyAdminNotifications from '../pages/company-admin/Notifications';
 import CompanyAdminDocuments from '../pages/company-admin/Documents';
 import CompanyAdminSettings from '../pages/company-admin/Settings';
+import CompanyAdminAttendance from '../pages/company-admin/Attendance';
+import CompanyAdminTaskManagement from '../pages/company-admin/TaskManagement';
+import PersonnelInvitations from '../pages/company-admin/PersonnelInvitations';
 
-// ── Project Manager Role Pages ──
 import PMDashboard from '../pages/project-manager/Dashboard';
 import PMProjects from '../pages/project-manager/Projects';
 import PMTaskManagement from '../pages/project-manager/TaskManagement';
@@ -36,8 +37,8 @@ import PMEquipment from '../pages/project-manager/Equipment';
 import PMDocuments from '../pages/project-manager/Documents';
 import PMNotifications from '../pages/project-manager/Notifications';
 import PMSettings from '../pages/project-manager/Settings';
+import PMAttendance from '../pages/project-manager/Attendance';
 
-// ── Site Engineer Role Pages ──
 import SEDashboard from '../pages/site-engineer/Dashboard';
 import SEInspectionImages from '../pages/site-engineer/InspectionImages';
 import SESiteIssues from '../pages/site-engineer/SiteIssues';
@@ -46,17 +47,17 @@ import SEMaterials from '../pages/site-engineer/Materials';
 import SEAttendance from '../pages/site-engineer/Attendance';
 import SEEquipment from '../pages/site-engineer/Equipment';
 import SEDocuments from '../pages/site-engineer/Documents';
+import SETaskManagement from '../pages/site-engineer/TaskManagement';
 import SESettings from '../pages/site-engineer/Settings';
 
-// ── Contractor Role Pages ──
 import ContractorDashboard from '../pages/contractor/Dashboard';
 import ContractorWorkforce from '../pages/contractor/Workforce';
 import ContractorAttendance from '../pages/contractor/Attendance';
 import ContractorTasks from '../pages/contractor/Tasks';
+import ContractorMaterials from '../pages/contractor/Materials';
 import ContractorProjects from '../pages/contractor/Projects';
 import ContractorSettings from '../pages/contractor/Settings';
 
-// ── Worker Role Pages ──
 import WorkerDashboard from '../pages/worker/Dashboard';
 import WorkerTasks from '../pages/worker/Tasks';
 import WorkerAttendance from '../pages/worker/Attendance';
@@ -65,437 +66,437 @@ import WorkerDocuments from '../pages/worker/Documents';
 import WorkerMaterials from '../pages/worker/Materials';
 import WorkerSettings from '../pages/worker/Settings';
 
-// ── Core Utility Pages ──
 import Login from '../pages/Login';
 import VerifyEmail from '../pages/VerifyEmail';
 import ResetPassword from '../pages/ResetPassword';
 import OAuthRedirect from '../pages/OAuthRedirect';
 import Notifications from '../pages/Notifications';
 import Documents from '../pages/Documents';
-import CompanyProfile from '../pages/CompanyProfile';
-import SecurityCenter from '../pages/SecurityCenter';
-import SystemMonitoring from '../pages/SystemMonitoring';
-import BackupRestore from '../pages/BackupRestore';
-import Integrations from '../pages/Integrations';
-import FileManager from '../pages/FileManager';
-import Subscriptions from '../pages/Subscriptions';
 import Profile from '../pages/Profile';
-import TeamManagement from '../pages/TeamManagement';
+import Step7DailyLogs from '../pages/Step7DailyLogs';
+import AcceptInvitation from '../pages/AcceptInvitation';
 
 import ProtectedRoute from './ProtectedRoute';
 import { useAuth } from '../context/AuthContext';
 import { PERMISSIONS } from '../config/rbac';
 
-// Role-Based Route Component Resolvers
+function RoleAccessDenied() {
+  return (
+    <div className="page-content">
+      <div className="panel">
+        <h2>Access denied</h2>
+        <p>Your role does not have access to this feature.</p>
+      </div>
+    </div>
+  );
+}
+
+function roleComponent(user, allowedRoles, Component) {
+  const role = String(user?.role || '').toUpperCase();
+  return allowedRoles.includes(role) ? <Component /> : <RoleAccessDenied />;
+}
+
 function RoleDashboard() {
   const { user } = useAuth();
-  switch (user?.role) {
-    case 'SUPER_ADMIN': return <SuperAdminDashboard />;
-    case 'COMPANY_ADMIN': return <CompanyAdminDashboard />;
-    case 'PROJECT_MANAGER': return <PMDashboard />;
-    case 'SITE_ENGINEER': return <SEDashboard />;
-    case 'CONTRACTOR': return <ContractorDashboard />;
-    case 'WORKER': return <WorkerDashboard />;
-    default: return <SuperAdminDashboard />;
-  }
+
+  const map = {
+    SUPER_ADMIN: SuperAdminDashboard,
+    COMPANY_ADMIN: CompanyAdminDashboard,
+    PROJECT_MANAGER: PMDashboard,
+    SITE_ENGINEER: SEDashboard,
+    CONTRACTOR: ContractorDashboard,
+    WORKER: WorkerDashboard,
+  };
+
+  const Component = map[String(user?.role || '').toUpperCase()];
+  return Component ? <Component /> : <RoleAccessDenied />;
 }
 
 function RoleCompanies() {
-  return <SuperAdminCompanies />;
+  const { user } = useAuth();
+  return roleComponent(user, ['SUPER_ADMIN'], SuperAdminCompanies);
 }
 
 function RoleFinance() {
   const { user } = useAuth();
-  return user?.role === 'SUPER_ADMIN' ? <SuperAdminFinance /> : <CompanyAdminFinance />;
+  const map = {
+    SUPER_ADMIN: SuperAdminFinance,
+    COMPANY_ADMIN: CompanyAdminFinance,
+  };
+  const Component = map[String(user?.role || '').toUpperCase()];
+  return roleComponent(user, Object.keys(map), Component || RoleAccessDenied);
 }
 
 function RoleReports() {
   const { user } = useAuth();
-  switch (user?.role) {
-    case 'SUPER_ADMIN': return <SuperAdminReports />;
-    case 'COMPANY_ADMIN': return <CompanyAdminReports />;
-    case 'PROJECT_MANAGER': return <PMReports />;
-    default: return <SuperAdminReports />;
-  }
+  const map = {
+    SUPER_ADMIN: SuperAdminReports,
+    COMPANY_ADMIN: CompanyAdminReports,
+    PROJECT_MANAGER: PMReports,
+  };
+  const Component = map[String(user?.role || '').toUpperCase()];
+  return roleComponent(user, Object.keys(map), Component || RoleAccessDenied);
 }
 
 function RoleAIInsights() {
   const { user } = useAuth();
-  return user?.role === 'COMPANY_ADMIN' ? <CompanyAdminAIInsights /> : <SuperAdminAIInsights />;
+  const map = {
+    SUPER_ADMIN: SuperAdminAIInsights,
+    COMPANY_ADMIN: CompanyAdminAIInsights,
+  };
+  const Component = map[String(user?.role || '').toUpperCase()];
+  return roleComponent(user, Object.keys(map), Component || RoleAccessDenied);
 }
 
 function RoleUsers() {
-  return <SuperAdminUsers />;
+  const { user } = useAuth();
+  return roleComponent(user, ['SUPER_ADMIN'], SuperAdminUsers);
 }
 
 function RoleSettings() {
   const { user } = useAuth();
-  switch (user?.role) {
-    case 'SUPER_ADMIN': return <SuperAdminSettings />;
-    case 'COMPANY_ADMIN': return <CompanyAdminSettings />;
-    case 'PROJECT_MANAGER': return <PMSettings />;
-    case 'SITE_ENGINEER': return <SESettings />;
-    case 'CONTRACTOR': return <ContractorSettings />;
-    case 'WORKER': return <WorkerSettings />;
-    default: return <SuperAdminSettings />;
-  }
+  const map = {
+    SUPER_ADMIN: SuperAdminSettings,
+    COMPANY_ADMIN: CompanyAdminSettings,
+    PROJECT_MANAGER: PMSettings,
+    SITE_ENGINEER: SESettings,
+    CONTRACTOR: ContractorSettings,
+    WORKER: WorkerSettings,
+  };
+  const Component = map[String(user?.role || '').toUpperCase()];
+  return roleComponent(user, Object.keys(map), Component || RoleAccessDenied);
 }
 
 function RoleProjects() {
   const { user } = useAuth();
-  switch (user?.role) {
-    case 'SUPER_ADMIN': return <SuperAdminProjects />;
-    case 'COMPANY_ADMIN': return <CompanyAdminProjects />;
-    case 'PROJECT_MANAGER': return <PMProjects />;
-    case 'CONTRACTOR': return <ContractorProjects />;
-    default: return <SuperAdminProjects />;
-  }
+  const map = {
+    SUPER_ADMIN: SuperAdminProjects,
+    COMPANY_ADMIN: CompanyAdminProjects,
+    PROJECT_MANAGER: PMProjects,
+    CONTRACTOR: ContractorProjects,
+  };
+  const Component = map[String(user?.role || '').toUpperCase()];
+  return roleComponent(user, Object.keys(map), Component || RoleAccessDenied);
 }
 
 function RoleWorkforce() {
   const { user } = useAuth();
-  switch (user?.role) {
-    case 'SUPER_ADMIN': return <SuperAdminWorkforce />;
-    case 'COMPANY_ADMIN': return <CompanyAdminWorkforce />;
-    case 'CONTRACTOR': return <ContractorWorkforce />;
-    default: return <SuperAdminWorkforce />;
-  }
+  const map = {
+    SUPER_ADMIN: SuperAdminWorkforce,
+    COMPANY_ADMIN: CompanyAdminWorkforce,
+    PROJECT_MANAGER: PMSiteWorkforce,
+    CONTRACTOR: ContractorWorkforce,
+  };
+  const Component = map[String(user?.role || '').toUpperCase()];
+  return roleComponent(user, Object.keys(map), Component || RoleAccessDenied);
 }
 
 function RoleEquipment() {
   const { user } = useAuth();
-  switch (user?.role) {
-    case 'COMPANY_ADMIN': return <CompanyAdminEquipment />;
-    case 'PROJECT_MANAGER': return <PMEquipment />;
-    case 'SITE_ENGINEER': return <SEEquipment />;
-    case 'WORKER': return <WorkerEquipment />;
-    default: return <CompanyAdminEquipment />;
-  }
+  const map = {
+    COMPANY_ADMIN: CompanyAdminEquipment,
+    PROJECT_MANAGER: PMEquipment,
+    SITE_ENGINEER: SEEquipment,
+    WORKER: WorkerEquipment,
+  };
+  const Component = map[String(user?.role || '').toUpperCase()];
+  return roleComponent(user, Object.keys(map), Component || RoleAccessDenied);
 }
 
 function RoleMaterials() {
   const { user } = useAuth();
-  switch (user?.role) {
-    case 'COMPANY_ADMIN': return <CompanyAdminMaterials />;
-    case 'SITE_ENGINEER': return <SEMaterials />;
-    case 'WORKER': return <WorkerMaterials />;
-    default: return <CompanyAdminMaterials />;
-  }
+  const map = {
+    COMPANY_ADMIN: CompanyAdminMaterials,
+    SITE_ENGINEER: SEMaterials,
+    CONTRACTOR: ContractorMaterials,
+    WORKER: WorkerMaterials,
+  };
+  const Component = map[String(user?.role || '').toUpperCase()];
+  return roleComponent(user, Object.keys(map), Component || RoleAccessDenied);
 }
 
 function RoleTaskManagement() {
   const { user } = useAuth();
-  switch (user?.role) {
-    case 'PROJECT_MANAGER': return <PMTaskManagement />;
-    case 'CONTRACTOR': return <ContractorTasks />;
-    case 'WORKER': return <WorkerTasks />;
-    default: return <PMTaskManagement />;
-  }
+  const map = {
+    COMPANY_ADMIN: CompanyAdminTaskManagement,
+    PROJECT_MANAGER: PMTaskManagement,
+    SITE_ENGINEER: SETaskManagement,
+    CONTRACTOR: ContractorTasks,
+    WORKER: WorkerTasks,
+  };
+  const Component = map[String(user?.role || '').toUpperCase()];
+  return roleComponent(user, Object.keys(map), Component || RoleAccessDenied);
 }
 
 function RoleAttendance() {
   const { user } = useAuth();
-  switch (user?.role) {
-    case 'WORKER': return <WorkerAttendance />;
-    case 'SITE_ENGINEER': return <SEAttendance />;
-    default: return <ContractorAttendance />;
-  }
+  const map = {
+    COMPANY_ADMIN: CompanyAdminAttendance,
+    PROJECT_MANAGER: PMAttendance,
+    SITE_ENGINEER: SEAttendance,
+    CONTRACTOR: ContractorAttendance,
+    WORKER: WorkerAttendance,
+  };
+  const Component = map[String(user?.role || '').toUpperCase()];
+  return roleComponent(user, Object.keys(map), Component || RoleAccessDenied);
 }
 
 function RoleDailyReport() {
   const { user } = useAuth();
-  switch (user?.role) {
-    case 'SITE_ENGINEER': return <SEDailyProgressReport />;
-    case 'WORKER': return <Navigate to="/dashboard" replace />;
-    default: return <PMDailyProgressReport />;
-  }
+  const map = {
+    COMPANY_ADMIN: Step7DailyLogs,
+    PROJECT_MANAGER: PMDailyProgressReport,
+    SITE_ENGINEER: SEDailyProgressReport,
+  };
+  const Component = map[String(user?.role || '').toUpperCase()];
+  return roleComponent(user, Object.keys(map), Component || RoleAccessDenied);
 }
 
 function RoleSafety() {
   const { user } = useAuth();
-  return user?.role === 'WORKER' ? <Navigate to="/dashboard" replace /> : <SESiteIssues />;
+  return roleComponent(user, ['SITE_ENGINEER'], SESiteIssues);
+}
+
+function RoleInspectionImages() {
+  const { user } = useAuth();
+  return roleComponent(user, ['SITE_ENGINEER'], SEInspectionImages);
 }
 
 function RoleNotifications() {
   const { user } = useAuth();
-  switch (user?.role) {
-    case 'COMPANY_ADMIN': return <Notifications />;
-    case 'PROJECT_MANAGER': return <PMNotifications />;
-    default: return <Notifications />;
-  }
+  const map = {
+    SUPER_ADMIN: SuperAdminNotifications,
+    COMPANY_ADMIN: CompanyAdminNotifications,
+    PROJECT_MANAGER: PMNotifications,
+    SITE_ENGINEER: Notifications,
+    CONTRACTOR: Notifications,
+    WORKER: Notifications,
+  };
+  const Component = map[String(user?.role || '').toUpperCase()];
+  return roleComponent(user, Object.keys(map), Component || RoleAccessDenied);
 }
 
 function RoleDocuments() {
   const { user } = useAuth();
-  switch (user?.role) {
-    case 'COMPANY_ADMIN': return <CompanyAdminDocuments />;
-    case 'PROJECT_MANAGER': return <PMDocuments />;
-    case 'SITE_ENGINEER': return <SEDocuments />;
-    case 'WORKER': return <WorkerDocuments />;
-    default: return <CompanyAdminDocuments />;
-  }
+  const map = {
+    COMPANY_ADMIN: CompanyAdminDocuments,
+    PROJECT_MANAGER: PMDocuments,
+    SITE_ENGINEER: SEDocuments,
+    CONTRACTOR: Documents,
+    WORKER: WorkerDocuments,
+  };
+  const Component = map[String(user?.role || '').toUpperCase()];
+  return roleComponent(user, Object.keys(map), Component || RoleAccessDenied);
+}
+
+function RoleInvitations() {
+  const { user } = useAuth();
+  return roleComponent(user, ['COMPANY_ADMIN'], PersonnelInvitations);
+}
+
+function ProtectedPage({ permission, children }) {
+  return (
+    <ProtectedRoute requiredPermission={permission}>
+      {children}
+    </ProtectedRoute>
+  );
 }
 
 export default function AppRoutes() {
   return (
     <Routes>
+      {/* Public authentication routes */}
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route path="/login" element={<Login />} />
       <Route path="/verify-email" element={<VerifyEmail />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/oauth2/redirect" element={<OAuthRedirect />} />
+      <Route path="/accept-invitation" element={<AcceptInvitation />} />
 
+      {/* Protected application routes */}
       <Route element={<DashboardLayout />}>
         <Route
           path="/dashboard"
           element={
-            <ProtectedRoute requiredPermission={PERMISSIONS.DASHBOARD_VIEW}>
+            <ProtectedPage permission={PERMISSIONS.DASHBOARD_VIEW}>
               <RoleDashboard />
-            </ProtectedRoute>
+            </ProtectedPage>
           }
         />
+
         <Route
           path="/companies"
           element={
-            <ProtectedRoute requiredPermission={PERMISSIONS.COMPANY_ADMIN_MANAGE}>
+            <ProtectedPage permission={PERMISSIONS.COMPANY_ADMIN_MANAGE}>
               <RoleCompanies />
-            </ProtectedRoute>
+            </ProtectedPage>
           }
         />
-        <Route
-          path="/company-profile"
-          element={
-            <ProtectedRoute requiredPermission={PERMISSIONS.COMPANY_ADMIN_MANAGE}>
-              <CompanyProfile />
-            </ProtectedRoute>
-          }
-        />
+
         <Route
           path="/users"
           element={
-            <ProtectedRoute requiredPermission={PERMISSIONS.COMPANY_ADMIN_MANAGE}>
+            <ProtectedPage permission={PERMISSIONS.USER_VIEW}>
               <RoleUsers />
-            </ProtectedRoute>
+            </ProtectedPage>
           }
         />
+
         <Route
           path="/projects"
           element={
-            <ProtectedRoute requiredPermission={PERMISSIONS.PROJECT_VIEW}>
+            <ProtectedPage permission={PERMISSIONS.PROJECT_VIEW}>
               <RoleProjects />
-            </ProtectedRoute>
+            </ProtectedPage>
           }
         />
+
         <Route
           path="/workforce"
           element={
-            <ProtectedRoute requiredPermission={PERMISSIONS.WORKFORCE_VIEW}>
+            <ProtectedPage permission={PERMISSIONS.WORKFORCE_VIEW}>
               <RoleWorkforce />
-            </ProtectedRoute>
+            </ProtectedPage>
           }
         />
-        <Route
-          path="/team-management"
-          element={
-            <ProtectedRoute requiredPermission={PERMISSIONS.WORKFORCE_MANAGE}>
-              <TeamManagement />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/site-workforce"
-          element={
-            <ProtectedRoute requiredPermission={PERMISSIONS.WORKFORCE_VIEW}>
-              <PMSiteWorkforce />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/materials"
-          element={
-            <ProtectedRoute requiredPermission={PERMISSIONS.WORKFORCE_VIEW}>
-              <RoleMaterials />
-            </ProtectedRoute>
-          }
-        />
+
         <Route
           path="/attendance"
           element={
-            <ProtectedRoute requiredPermission={PERMISSIONS.ATTENDANCE_MARK}>
+            <ProtectedPage permission={PERMISSIONS.ATTENDANCE_VIEW}>
               <RoleAttendance />
-            </ProtectedRoute>
+            </ProtectedPage>
           }
         />
+
         <Route
-          path="/task-management"
+          path="/tasks"
           element={
-            <ProtectedRoute requiredPermission={PERMISSIONS.TASK_MANAGE}>
+            <ProtectedPage permission={PERMISSIONS.TASK_VIEW}>
               <RoleTaskManagement />
-            </ProtectedRoute>
+            </ProtectedPage>
           }
         />
-        <Route
-          path="/daily-report"
-          element={
-            <ProtectedRoute requiredPermission={PERMISSIONS.TASK_MANAGE}>
-              <RoleDailyReport />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/daily-logs"
-          element={
-            <ProtectedRoute requiredPermission={PERMISSIONS.TASK_MANAGE}>
-              <RoleDailyReport />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/inspection"
-          element={
-            <ProtectedRoute requiredPermission={PERMISSIONS.DOCUMENT_MANAGE}>
-              <SEInspectionImages />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/safety"
-          element={
-            <ProtectedRoute requiredPermission={PERMISSIONS.WORKFORCE_MANAGE}>
-              <RoleSafety />
-            </ProtectedRoute>
-          }
-        />
+
         <Route
           path="/equipment"
           element={
-            <ProtectedRoute requiredPermission={PERMISSIONS.EQUIPMENT_VIEW}>
+            <ProtectedPage permission={PERMISSIONS.EQUIPMENT_VIEW}>
               <RoleEquipment />
-            </ProtectedRoute>
+            </ProtectedPage>
           }
         />
+
+        <Route
+          path="/materials"
+          element={
+            <ProtectedPage permission={PERMISSIONS.MATERIAL_VIEW}>
+              <RoleMaterials />
+            </ProtectedPage>
+          }
+        />
+
         <Route
           path="/finance"
           element={
-            <ProtectedRoute requiredPermission={PERMISSIONS.FINANCE_VIEW}>
+            <ProtectedPage permission={PERMISSIONS.FINANCE_VIEW}>
               <RoleFinance />
-            </ProtectedRoute>
+            </ProtectedPage>
           }
         />
-        <Route
-          path="/ai-insights"
-          element={
-            <ProtectedRoute requiredPermission={PERMISSIONS.AI_VIEW}>
-              <RoleAIInsights />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/subscriptions"
-          element={
-            <ProtectedRoute requiredPermission={PERMISSIONS.SYSTEM_ADMIN_MANAGE}>
-              <Subscriptions />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/notifications"
-          element={
-            <ProtectedRoute requiredPermission={PERMISSIONS.NOTIFICATION_VIEW}>
-              <RoleNotifications />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/audit-logs"
-          element={
-            <ProtectedRoute requiredPermission={PERMISSIONS.REPORT_VIEW}>
-              <RoleReports />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/security"
-          element={
-            <ProtectedRoute requiredPermission={PERMISSIONS.SYSTEM_ADMIN_MANAGE}>
-              <SecurityCenter />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/settings"
-          element={
-            <ProtectedRoute requiredPermission={PERMISSIONS.PROFILE_EDIT}>
-              <RoleSettings />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/company-settings"
-          element={
-            <ProtectedRoute requiredPermission={PERMISSIONS.COMPANY_ADMIN_MANAGE}>
-              <CompanyAdminSettings />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/files"
-          element={
-            <ProtectedRoute requiredPermission={PERMISSIONS.DOCUMENT_VIEW}>
-              <FileManager />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/integrations"
-          element={
-            <ProtectedRoute requiredPermission={PERMISSIONS.SYSTEM_ADMIN_MANAGE}>
-              <Integrations />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/system-monitoring"
-          element={
-            <ProtectedRoute requiredPermission={PERMISSIONS.SYSTEM_ADMIN_MANAGE}>
-              <SystemMonitoring />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/backup"
-          element={
-            <ProtectedRoute requiredPermission={PERMISSIONS.SYSTEM_ADMIN_MANAGE}>
-              <BackupRestore />
-            </ProtectedRoute>
-          }
-        />
+
         <Route
           path="/reports"
           element={
-            <ProtectedRoute requiredPermission={PERMISSIONS.REPORT_VIEW}>
+            <ProtectedPage permission={PERMISSIONS.REPORT_VIEW}>
               <RoleReports />
-            </ProtectedRoute>
+            </ProtectedPage>
           }
         />
+
+        <Route
+          path="/ai-insights"
+          element={
+            <ProtectedPage permission={PERMISSIONS.AI_VIEW}>
+              <RoleAIInsights />
+            </ProtectedPage>
+          }
+        />
+
         <Route
           path="/documents"
           element={
-            <ProtectedRoute requiredPermission={PERMISSIONS.DOCUMENT_VIEW}>
+            <ProtectedPage permission={PERMISSIONS.DOCUMENT_VIEW}>
               <RoleDocuments />
-            </ProtectedRoute>
+            </ProtectedPage>
           }
         />
+
+        <Route
+          path="/notifications"
+          element={
+            <ProtectedPage permission={PERMISSIONS.NOTIFICATION_VIEW}>
+              <RoleNotifications />
+            </ProtectedPage>
+          }
+        />
+
+        <Route
+          path="/daily-logs"
+          element={
+            <ProtectedPage permission={PERMISSIONS.DAILY_LOG_VIEW}>
+              <RoleDailyReport />
+            </ProtectedPage>
+          }
+        />
+
+        <Route
+          path="/site-issues"
+          element={
+            <ProtectedPage permission={PERMISSIONS.SITE_ISSUE_VIEW}>
+              <RoleSafety />
+            </ProtectedPage>
+          }
+        />
+
+        <Route
+          path="/inspection-images"
+          element={
+            <ProtectedPage permission={PERMISSIONS.DOCUMENT_VIEW}>
+              <RoleInspectionImages />
+            </ProtectedPage>
+          }
+        />
+
+        <Route
+          path="/invitations"
+          element={
+            <ProtectedPage permission={PERMISSIONS.COMPANY_ADMIN_MANAGE}>
+              <RoleInvitations />
+            </ProtectedPage>
+          }
+        />
+
         <Route
           path="/profile"
           element={
-            <ProtectedRoute requiredPermission={PERMISSIONS.PROFILE_EDIT}>
+            <ProtectedRoute>
               <Profile />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <RoleSettings />
             </ProtectedRoute>
           }
         />
       </Route>
 
+      {/* Fallback */}
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );

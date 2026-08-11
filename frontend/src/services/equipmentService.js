@@ -1,31 +1,29 @@
-import api, { realtimeBus } from './api';
+import api from './api';
 
-let equipmentList = [
-  { id: 1, name: 'Tower Crane TC-500', category: 'Lifting', status: 'ACTIVE', location: 'Zone A', health: '98%', hours: 1420 },
-  { id: 2, name: 'Concrete Pump 5000', category: 'Pouring', status: 'MAINTENANCE', location: 'Zone B', health: '74%', hours: 890 },
-  { id: 3, name: 'Hydraulic Excavator EX-200', category: 'Excavation', status: 'ACTIVE', location: 'Zone C', health: '92%', hours: 2100 },
-  { id: 4, name: 'Wheel Loader WL-30', category: 'Earthmoving', status: 'IDLE', location: 'Zone D', health: '88%', hours: 650 },
-];
-
-export const equipmentService = {
-  async getEquipment() {
-    try {
-      const res = await api.get('/equipment');
-      return res.data?.data || equipmentList;
-    } catch {
-      return equipmentList;
-    }
+const equipmentService = {
+  async list() {
+    const { data } = await api.get('/equipment');
+    return data?.data || [];
   },
-
-  async updateEquipmentStatus(id, status) {
-    equipmentList = equipmentList.map((eq) => (eq.id === id ? { ...eq, status } : eq));
-    realtimeBus.emit('EQUIPMENT_UPDATE', equipmentList);
-    return equipmentList;
+  async create(payload) {
+    const { data } = await api.post('/equipment', payload);
+    return data?.data;
   },
-
-  subscribeToEquipment(callback) {
-    callback(equipmentList);
-    return realtimeBus.subscribe('EQUIPMENT_UPDATE', callback);
+  async updateStatus(id, status) {
+    const { data } = await api.patch(`/equipment/${id}/status`, { status });
+    return data?.data;
+  },
+  async assign(id, userId) {
+    const { data } = await api.patch(`/equipment/${id}/assignment`, { userId });
+    return data?.data;
+  },
+  async maintenance(id) {
+    const { data } = await api.get(`/equipment/${id}/maintenance`);
+    return data?.data || [];
+  },
+  async scheduleMaintenance(id, payload) {
+    const { data } = await api.post(`/equipment/${id}/maintenance`, payload);
+    return data?.data;
   },
 };
 

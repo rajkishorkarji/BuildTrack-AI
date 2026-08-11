@@ -1,9 +1,9 @@
 package com.buildtrack.ai.service;
-
+import com.buildtrack.ai.auth.entity.User;
+import com.buildtrack.ai.dto.report.ReportCreateRequest;
+import com.buildtrack.ai.dto.report.ReportResponse;
 import java.util.List;
-import java.util.Map;
-
 public interface ReportService {
-    List<Map<String, Object>> getReports();
-    Map<String, Object> createReport(Map<String, Object> reportData);
+    List<ReportResponse> getReports(User user, Long projectId);
+    ReportResponse createReport(ReportCreateRequest request, User user);
 }

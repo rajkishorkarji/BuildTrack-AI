@@ -1,75 +1,82 @@
-import { useState } from 'react';
-import { useData } from '../../context/DataContext';
-import { Cpu, Activity, Zap, TrendingUp, AlertTriangle, Building2, ShieldCheck, Bot } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Activity, Bot, BrainCircuit, Building2, RefreshCw, ShieldCheck } from 'lucide-react';
+import aiInsightService from '../../services/aiInsightService';
+
+const money = (value) => new Intl.NumberFormat('en-IN', {
+  style: 'currency',
+  currency: 'INR',
+  maximumFractionDigits: 0,
+}).format(Number(value || 0));
 
 export default function SuperAdminAIInsights() {
-  const { companies = [], projects = [], finances = [], issues = [] } = useData();
-  const [loading, setLoading] = useState(false);
+  const [insights, setInsights] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [running, setRunning] = useState(false);
+  const [error, setError] = useState('');
 
-  const totalPlatformBudget = projects.reduce((acc, p) => acc + (parseFloat(p.budget) || 0), 0);
-  const criticalIssues = (issues || []).filter(i => i.severity === 'Critical' || i.severity === 'High').length;
-  const avgCompletion = projects.length > 0 ? Math.round(projects.reduce((acc, p) => acc + (p.progress || 0), 0) / projects.length) : 0;
+  const load = async () => {
+    setLoading(true);
+    try {
+      setInsights(await aiInsightService.list());
+    } catch (e) {
+      setError(e.response?.data?.message || 'Unable to load platform AI insights.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const run = async () => {
+    setRunning(true);
+    setError('');
+    try {
+      await load();
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const highRisk = insights.filter(i => ['HIGH', 'CRITICAL'].includes(i.riskLevel)).length;
+  const averageRisk = insights.length
+    ? Math.round(insights.reduce((sum, item) => sum + Number(item.riskScore || 0), 0) / insights.length)
+    : 0;
 
   return (
     <div className="dashboard-page">
       <section className="hero-row">
         <div>
-          <p className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--blue)', fontWeight: 700 }}>
+          <p className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             <Bot size={14} /> AI Insights
           </p>
-        </div>
-        <button type="button" className="primary-button" onClick={() => { setLoading(true); setTimeout(() => setLoading(false), 800); }}>
-          <Cpu size={15} className={loading ? "spin-icon" : ""} /> {loading ? 'Running Global ML Suite...' : 'Run Global Platform Diagnostics'}
+          </div>
+        <button className="primary-button" onClick={run} disabled={running}>
+          <BrainCircuit size={15} /> {running ? 'Refreshing…' : 'Refresh AI Intelligence'}
         </button>
       </section>
 
-      {/* KPI Row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginTop: '20px' }}>
-        {[
-          { label: 'Global Platform Risk', value: criticalIssues > 0 ? 'High Risk' : 'Low Risk', color: criticalIssues > 0 ? 'var(--orange)' : 'var(--green)', sub: `${criticalIssues} critical platform hazards` },
-          { label: 'Monitored Portfolio Budget', value: `$${(totalPlatformBudget / 1e6).toFixed(1)}M`, color: 'var(--blue)', sub: `Spread across ${projects.length} sites` },
-          { label: 'Platform Completion Average', value: `${avgCompletion}%`, color: 'var(--purple)', sub: `Across ${companies.length} active tenants` },
-          { label: 'Tenant System Health', value: '99.98%', color: 'var(--green)', sub: 'Zero latency degradation' },
-        ].map(({ label, value, color, sub }) => (
-          <div key={label} className="panel" style={{ padding: '20px' }}>
-            <span style={{ color: 'var(--muted)', fontSize: '12px', fontWeight: 600 }}>{label}</span>
-            <h2 style={{ fontSize: '24px', color, margin: '6px 0 2px 0', fontWeight: 800 }}>{value}</h2>
-            <span style={{ fontSize: '11px', color: 'var(--muted)' }}>{sub}</span>
-          </div>
-        ))}
+      {error && <div className="error-banner">{error}</div>}
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 16, marginTop: 20 }}>
+        <div className="panel" style={{ padding: 20 }}><ShieldCheck size={18} /><div className="muted">High / critical insights</div><strong style={{ fontSize: 24 }}>{highRisk}</strong></div>
+        <div className="panel" style={{ padding: 20 }}><Activity size={18} /><div className="muted">Average risk score</div><strong style={{ fontSize: 24 }}>{averageRisk}</strong></div>
+        <div className="panel" style={{ padding: 20 }}><Building2 size={18} /><div className="muted">Projects analysed</div><strong style={{ fontSize: 24 }}>{new Set(insights.map(i => i.projectId)).size}</strong></div>
       </div>
 
-      {/* Multi-Tenant Portfolio AI Diagnostics */}
-      <div className="panel" style={{ marginTop: '20px', padding: '24px' }}>
-        <h3 style={{ fontSize: '17px', fontWeight: 700, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Activity size={18} style={{ color: 'var(--blue)' }} /> Global Multi-Tenant Risk Intelligence
-        </h3>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          {companies.map((company) => {
-            const companyProjects = projects.filter(p => (p.companyName || p.company) === company.name);
-            const compProgress = companyProjects.length > 0 ? Math.round(companyProjects.reduce((s, p) => s + (p.progress || 0), 0) / companyProjects.length) : 50;
-            return (
-              <div key={company.id} style={{ padding: '16px', background: 'var(--panel-soft)', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-                <div>
-                  <strong style={{ fontSize: '15px', color: 'var(--text)' }}>{company.name}</strong>
-                  <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: '2px' }}>
-                    Active Sites: <strong>{companyProjects.length}</strong> • Admin: {company.adminName || company.adminEmail || 'Company Admin'}
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '11px', color: 'var(--muted)' }}>Health Score</div>
-                    <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--green)' }}>{compProgress}%</div>
-                  </div>
-                  <span style={{ padding: '4px 12px', borderRadius: '10px', background: 'rgba(34,197,94,0.12)', color: 'var(--green)', fontSize: '11px', fontWeight: 700 }}>
-                    Normal Operations
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+      <div className="panel" style={{ marginTop: 20, padding: 24 }}>
+        <h3>Latest platform insights</h3>
+        {loading ? <p className="muted">Loading…</p> : insights.length === 0 ? (
+          <p className="muted">No AI diagnostics have been generated yet.</p>
+        ) : insights.slice(0, 50).map(item => (
+          <div key={item.id} style={{ padding: 14, borderBottom: '1px solid var(--border)' }}>
+            <strong>{item.projectName}</strong>
+            <div style={{ fontSize: 12, marginTop: 4 }}>{item.insightType} · {item.riskLevel} · score {item.riskScore}</div>
+            <p style={{ marginBottom: 0 }}>{item.recommendation}</p>
+          </div>
+        ))}
+        <button className="secondary-button" style={{ marginTop: 14 }} onClick={load}>
+          <RefreshCw size={14} /> Refresh
+        </button>
       </div>
     </div>
   );

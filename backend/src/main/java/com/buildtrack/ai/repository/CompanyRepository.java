@@ -7,6 +7,10 @@ import java.util.Optional;
 
 @Repository
 public interface CompanyRepository extends JpaRepository<Company, Long> {
+
+    long countBySubscriptionStatus(String subscriptionStatus);
+
+    long countByStatus(String status);
     Optional<Company> findByName(String name);
     boolean existsByName(String name);
     Optional<Company> findByCode(String code);

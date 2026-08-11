@@ -26,6 +26,10 @@ public class TaskEntity {
     @JoinColumn(name = "project_id", nullable = false)
     private Project project;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assigned_user_id")
+    private com.buildtrack.ai.auth.entity.User assignedUser;
+
     public TaskEntity() {}
 
     // Getters & Setters
@@ -45,4 +49,6 @@ public class TaskEntity {
     public void setDueDate(LocalDate dueDate) { this.dueDate = dueDate; }
     public Project getProject() { return project; }
     public void setProject(Project project) { this.project = project; }
+    public com.buildtrack.ai.auth.entity.User getAssignedUser() { return assignedUser; }
+    public void setAssignedUser(com.buildtrack.ai.auth.entity.User assignedUser) { this.assignedUser = assignedUser; }
 }
