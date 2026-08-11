@@ -1,9 +1,6 @@
 package com.buildtrack.ai.auth.security.oauth2;
 
-import com.buildtrack.ai.auth.entity.AuthProvider;
-import com.buildtrack.ai.auth.entity.Role;
 import com.buildtrack.ai.auth.entity.User;
-import com.buildtrack.ai.auth.repository.RoleRepository;
 import com.buildtrack.ai.auth.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
@@ -13,14 +10,12 @@ import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
-import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
     private final UserRepository userRepository;
-    private final RoleRepository roleRepository;
 
     @Override
     public OAuth2User loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {
@@ -36,28 +31,22 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         }
 
         Optional<User> userOptional = userRepository.findByEmail(googleUser.getEmail());
-        User user;
 
         if (userOptional.isPresent()) {
-            user = userOptional.get();
+            User user = userOptional.get();
+            // Update name from Google profile if available
             user.setFirstName(googleUser.getFirstName() != null ? googleUser.getFirstName() : user.getFirstName());
             user.setLastName(googleUser.getLastName() != null ? googleUser.getLastName() : user.getLastName());
-            user = userRepository.save(user);
+            user.setProvider(com.buildtrack.ai.auth.entity.AuthProvider.GOOGLE);
+            userRepository.save(user);
         } else {
-            Role companyAdminRole = roleRepository.findByRoleName("COMPANY_ADMIN")
-                    .orElseGet(() -> roleRepository.save(Role.builder().roleName("COMPANY_ADMIN").build()));
-
-            user = User.builder()
-                    .firstName(googleUser.getFirstName() != null ? googleUser.getFirstName() : "Google")
-                    .lastName(googleUser.getLastName() != null ? googleUser.getLastName() : "User")
-                    .email(googleUser.getEmail())
-                    .password("") // External OAuth user
-                    .enabled(true)
-                    .provider(AuthProvider.GOOGLE)
-                    .roles(Set.of(companyAdminRole))
-                    .build();
-
-            user = userRepository.save(user);
+            // Reject Google login for emails not already registered on the platform.
+            // Users must be invited by a Company Admin and must complete the invitation
+            // page (set a password) before they can use Google OAuth.
+            throw new OAuth2AuthenticationException(
+                "Your Google account email is not registered on the BuildTrack AI platform. " +
+                "Please accept your invitation and sign in with your password first."
+            );
         }
 
         return oAuth2User;

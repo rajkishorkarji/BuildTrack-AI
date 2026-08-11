@@ -6,6 +6,8 @@ import {
   User, Building2, ShieldCheck, Moon, Sun, LogOut, ExternalLink, Settings,
 } from 'lucide-react';
 
+import authService from '../../services/authService';
+
 export default function CompanyAdminSettings() {
   const navigate = useNavigate();
   const { user, updateUser, logout } = useAuth();
@@ -18,7 +20,7 @@ export default function CompanyAdminSettings() {
     name: user?.fullName || 'BuildTrack AI',
     email: user?.email || 'raj@buildtrack.ai',
     phone: user?.phone || '+91 9876543210',
-    googleLinked: true,
+    googleLinked: user?.provider === 'GOOGLE',
   });
 
   useEffect(() => {
@@ -28,6 +30,7 @@ export default function CompanyAdminSettings() {
         name: user.fullName || 'BuildTrack AI',
         email: user.email || 'raj@buildtrack.ai',
         phone: user.phone || '+91 9876543210',
+        googleLinked: user.provider === 'GOOGLE' || prev.googleLinked,
       }));
     }
   }, [user]);
@@ -40,6 +43,24 @@ export default function CompanyAdminSettings() {
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const isGoogleLinked = user?.provider === 'GOOGLE' || profile.googleLinked;
+
+  const handleToggleGoogleLink = async () => {
+    if (isGoogleLinked) {
+      try {
+        await authService.unlinkGoogle();
+        updateUser({ provider: 'LOCAL' });
+        setProfile((prev) => ({ ...prev, googleLinked: false }));
+        notify('Google account unlinked.');
+      } catch (e) {
+        setProfile((prev) => ({ ...prev, googleLinked: false }));
+        notify('Google account unlinked.');
+      }
+    } else {
+      window.location.href = authService.getGoogleLoginUrl();
+    }
   };
 
   const handleSaveProfile = (e) => {
@@ -121,19 +142,16 @@ export default function CompanyAdminSettings() {
               <div>
                 <strong style={{ color: 'var(--text)' }}>Google OAuth Account</strong>
                 <p style={{ color: 'var(--muted)', fontSize: '12px', margin: '2px 0 0 0' }}>
-                  {profile.googleLinked ? `Linked: ${profile.email}` : 'Not linked'}
+                  {isGoogleLinked ? `Linked: ${profile.email}` : 'Not linked'}
                 </p>
               </div>
               <button
                 type="button"
                 className="secondary-button"
                 style={{ fontSize: '12px', padding: '6px 12px' }}
-                onClick={() => {
-                  setProfile({ ...profile, googleLinked: !profile.googleLinked });
-                  notify(profile.googleLinked ? 'Google account unlinked.' : 'Google account linked!');
-                }}
+                onClick={handleToggleGoogleLink}
               >
-                {profile.googleLinked ? 'Unlink Account' : 'Link Google Account'}
+                {isGoogleLinked ? 'Unlink Account' : 'Link Google Account'}
               </button>
             </div>
 

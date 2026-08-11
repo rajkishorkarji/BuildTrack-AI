@@ -244,7 +244,8 @@ public class AuthServiceImpl implements AuthService {
                         user.getCompanyCode(),
                         companyName,
                         user.getAssignedProjectId(),
-                        permissions
+                        permissions,
+                        user.getProvider() != null ? user.getProvider().name() : "LOCAL"
                 );
 
         AuthDataResponse authData =
@@ -418,7 +419,8 @@ public class AuthServiceImpl implements AuthService {
                         user.getCompanyCode(),
                         companyName,
                         user.getAssignedProjectId(),
-                        permissions
+                        permissions,
+                        user.getProvider() != null ? user.getProvider().name() : "LOCAL"
                 );
 
 

@@ -1,23 +1,59 @@
 import { useState } from 'react';
 import { useData } from '../../context/DataContext';
-import { HardHat, Search, Building2, UserCheck, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { HardHat, Search, Building2, UserCheck, Download } from 'lucide-react';
+
+const STATUS_META = {
+  ACTIVE: { label: 'Active', color: 'var(--green)', bg: 'rgba(34,197,94,0.12)' },
+  INACTIVE: { label: 'Inactive', color: 'var(--muted)', bg: 'var(--panel-soft)' },
+  ON_LEAVE: { label: 'On Leave', color: 'var(--orange)', bg: 'rgba(245,158,11,0.12)' },
+  TERMINATED: { label: 'Terminated', color: 'var(--red)', bg: 'rgba(239,68,68,0.12)' },
+};
+
+function getStatusMeta(status) {
+  const key = String(status || 'ACTIVE').toUpperCase().replace(/\s+/g, '_');
+  return STATUS_META[key] || { label: status || 'Active', color: 'var(--green)', bg: 'rgba(34,197,94,0.12)' };
+}
 
 export default function SuperAdminWorkforce() {
   const { workers = [], usersList = [], companies = [] } = useData();
   const [search, setSearch] = useState('');
   const [selectedCompany, setSelectedCompany] = useState('ALL');
+  const [statusFilter, setStatusFilter] = useState('ALL');
 
-  // Filter global workforce
   const filtered = workers.filter(w => {
     const matchSearch =
       (w.fullName || w.name || '').toLowerCase().includes(search.toLowerCase()) ||
       (w.role || '').toLowerCase().includes(search.toLowerCase()) ||
+      (w.skillTrade || w.skill || '').toLowerCase().includes(search.toLowerCase()) ||
       (w.contractorName || '').toLowerCase().includes(search.toLowerCase()) ||
       (w.projectName || '').toLowerCase().includes(search.toLowerCase());
-    
     const matchCompany = selectedCompany === 'ALL' || w.companyName === selectedCompany;
-    return matchSearch && matchCompany;
+    const normalStatus = String(w.status || 'Active').toUpperCase().replace(/\s+/g, '_');
+    const matchStatus = statusFilter === 'ALL' || normalStatus === statusFilter;
+    return matchSearch && matchCompany && matchStatus;
   });
+
+  const activeCount = workers.filter(w => {
+    const s = String(w.status || 'Active').toUpperCase();
+    return s === 'ACTIVE' || s === 'ACTIVE';
+  }).length;
+
+  const exportCsv = () => {
+    const header = 'Name,Role,Skill,Contractor,Project,Company,Status\n';
+    const rows = filtered.map(w => [
+      w.fullName || w.name || '',
+      w.role || '',
+      w.skillTrade || w.skill || '',
+      w.contractorName || '',
+      w.projectName || '',
+      w.companyName || '',
+      w.status || 'Active',
+    ].join(',')).join('\n');
+    const a = document.createElement('a');
+    a.href = `data:text/csv;charset=utf-8,${encodeURIComponent(header + rows)}`;
+    a.download = 'workforce.csv';
+    a.click();
+  };
 
   return (
     <div className="dashboard-page">
@@ -26,35 +62,36 @@ export default function SuperAdminWorkforce() {
           <p className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--blue)', fontWeight: 700 }}>
             <HardHat size={14} /> Workforce
           </p>
+          <h1>Global Workforce</h1>
         </div>
+        <button type="button" className="secondary-button" onClick={exportCsv}>
+          <Download size={15} /> Export CSV
+        </button>
       </section>
 
       {/* KPI Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginTop: '20px' }}>
-        <div className="panel" style={{ padding: '18px' }}>
-          <span style={{ color: 'var(--muted)', fontSize: '12px', fontWeight: 600 }}>Total Registered Workers</span>
-          <h2 style={{ fontSize: '26px', color: 'var(--blue)', margin: '4px 0 0 0', fontWeight: 800 }}>{workers.length}</h2>
-          <small style={{ color: 'var(--muted)', fontSize: '11px' }}>Global labor pool</small>
-        </div>
-        <div className="panel" style={{ padding: '18px' }}>
-          <span style={{ color: 'var(--muted)', fontSize: '12px', fontWeight: 600 }}>Active Field Labor</span>
-          <h2 style={{ fontSize: '26px', color: 'var(--green)', margin: '4px 0 0 0', fontWeight: 800 }}>
-            {workers.filter(w => (w.status || 'Active') === 'Active').length}
-          </h2>
-          <small style={{ color: 'var(--green)', fontSize: '11px', fontWeight: 600 }}>Currently deployed</small>
-        </div>
-        <div className="panel" style={{ padding: '18px' }}>
-          <span style={{ color: 'var(--muted)', fontSize: '12px', fontWeight: 600 }}>Tenant Companies</span>
-          <h2 style={{ fontSize: '26px', color: 'var(--purple)', margin: '4px 0 0 0', fontWeight: 800 }}>{companies.length}</h2>
-          <small style={{ color: 'var(--muted)', fontSize: '11px' }}>Enterprise tenants</small>
-        </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '16px', marginTop: '20px' }}>
+        {
+          [
+            { label: 'Total Registered Workers', value: workers.length, color: 'var(--blue)', sub: 'Global labor pool' },
+            { label: 'Active Field Labor', value: activeCount, color: 'var(--green)', sub: 'Currently deployed' },
+            { label: 'Tenant Companies', value: companies.length, color: 'var(--purple)', sub: 'Enterprise tenants' },
+            { label: 'Total Platform Users', value: (usersList || []).length, color: 'var(--orange)', sub: 'System accounts' },
+          ].map(({ label, value, color, sub }) => (
+            <div key={label} className="panel" style={{ padding: '18px' }}>
+              <span style={{ color: 'var(--muted)', fontSize: '12px', fontWeight: 600 }}>{label}</span>
+              <h2 style={{ fontSize: '26px', color, margin: '4px 0 2px', fontWeight: 800 }}>{value}</h2>
+              <small style={{ color: 'var(--muted)', fontSize: '11px' }}>{sub}</small>
+            </div>
+          ))
+        }
       </div>
 
-      {/* Search Toolbar */}
-      <div className="panel" style={{ marginTop: '20px', padding: '16px 20px', display: 'flex', gap: '16px', alignItems: 'center' }}>
-        <div className="search-box" style={{ width: '320px' }}>
+      {/* Search + Filter Toolbar */}
+      <div className="panel" style={{ marginTop: '20px', padding: '14px 20px', display: 'flex', gap: '14px', alignItems: 'center', flexWrap: 'wrap' }}>
+        <div className="search-box" style={{ flex: 1, minWidth: 220 }}>
           <Search size={14} style={{ color: 'var(--muted)' }} />
-          <input placeholder="Search worker by name, role, site..." value={search} onChange={e => setSearch(e.target.value)} />
+          <input placeholder="Search worker by name, role, skill, site..." value={search} onChange={e => setSearch(e.target.value)} />
         </div>
         <select
           value={selectedCompany}
@@ -66,42 +103,78 @@ export default function SuperAdminWorkforce() {
             <option key={c.id || c.name} value={c.name}>{c.name}</option>
           ))}
         </select>
+        <select
+          value={statusFilter}
+          onChange={e => setStatusFilter(e.target.value)}
+          style={{ padding: '8px 14px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--panel-soft)', color: 'var(--text)', fontSize: '13px', fontWeight: 600 }}
+        >
+          <option value="ALL">All Statuses</option>
+          <option value="ACTIVE">Active</option>
+          <option value="INACTIVE">Inactive</option>
+          <option value="ON_LEAVE">On Leave</option>
+          <option value="TERMINATED">Terminated</option>
+        </select>
+        <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>
+          {filtered.length} of {workers.length} workers
+        </span>
       </div>
 
       {/* Table */}
       <div className="panel" style={{ marginTop: '16px', padding: 0, overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
-          <thead>
-            <tr style={{ background: 'var(--panel-soft)', color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
-              <th style={{ padding: '14px 20px', fontWeight: 600 }}>Worker Name & Skill</th>
-              <th style={{ padding: '14px', fontWeight: 600 }}>Subcontractor Entity</th>
-              <th style={{ padding: '14px', fontWeight: 600 }}>Assigned Project Site</th>
-              <th style={{ padding: '14px 20px', fontWeight: 600 }}>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map(w => (
-              <tr key={w.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                <td style={{ padding: '14px 20px', fontWeight: 700, color: 'var(--text)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <HardHat size={16} style={{ color: 'var(--blue)' }} />
-                    <div>
-                      <div>{w.fullName || w.name}</div>
-                      <span style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 500 }}>{w.role || 'General Mason'}</span>
-                    </div>
-                  </div>
-                </td>
-                <td style={{ padding: '14px', fontWeight: 600 }}>{w.contractorName || '—'}</td>
-                <td style={{ padding: '14px', color: 'var(--muted)' }}>{w.projectName || '—'}</td>
-                <td style={{ padding: '14px 20px' }}>
-                  <span style={{ padding: '4px 10px', borderRadius: '10px', background: 'rgba(34,197,94,0.12)', color: 'var(--green)', fontSize: '11px', fontWeight: 700 }}>
-                    {w.status || 'Active'}
-                  </span>
-                </td>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', minWidth: 780, borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+            <thead>
+              <tr style={{ background: 'var(--panel-soft)', color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                {['Worker Name & Skill', 'Company Tenant', 'Subcontractor', 'Assigned Project Site', 'Status'].map(h => (
+                  <th key={h} style={{ padding: '14px 16px', fontWeight: 600 }}>{h}</th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={5} style={{ padding: 40, textAlign: 'center' }}>
+                    <HardHat size={32} style={{ color: 'var(--muted)', display: 'block', margin: '0 auto 10px' }} />
+                    <div style={{ color: 'var(--text)', fontWeight: 700 }}>No workers found</div>
+                    <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 4 }}>Try adjusting your search or filter.</div>
+                  </td>
+                </tr>
+              ) : (
+                filtered.map(w => {
+                  const meta = getStatusMeta(w.status);
+                  return (
+                    <tr key={w.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                      <td style={{ padding: '14px 16px', fontWeight: 700, color: 'var(--text)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div style={{ width: 34, height: 34, borderRadius: 9, background: 'rgba(37,99,235,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <HardHat size={16} style={{ color: 'var(--blue)' }} />
+                          </div>
+                          <div>
+                            <div>{w.fullName || w.name}</div>
+                            <span style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 500 }}>{w.skillTrade || w.role || 'General Mason'}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td style={{ padding: '14px 16px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <Building2 size={13} style={{ color: 'var(--muted)', flexShrink: 0 }} />
+                          <span style={{ fontWeight: 600, color: 'var(--blue)' }}>{w.companyName || '—'}</span>
+                        </div>
+                      </td>
+                      <td style={{ padding: '14px 16px', fontWeight: 600 }}>{w.contractorName || '—'}</td>
+                      <td style={{ padding: '14px 16px', color: 'var(--muted)' }}>{w.projectName || '—'}</td>
+                      <td style={{ padding: '14px 16px' }}>
+                        <span style={{ padding: '4px 10px', borderRadius: '10px', background: meta.bg, color: meta.color, fontSize: '11px', fontWeight: 700 }}>
+                          {meta.label}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

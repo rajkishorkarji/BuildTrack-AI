@@ -127,9 +127,9 @@ export function AuthProvider({ children }) {
             return true;
         }
 
-        const permissions = Array.isArray(user.permissions) && user.permissions.length > 0
-            ? user.permissions
-            : getRolePermissions(userRole);
+        const rolePerms = getRolePermissions(userRole);
+        const userPerms = Array.isArray(user.permissions) ? user.permissions : [];
+        const permissions = Array.from(new Set([...userPerms, ...rolePerms]));
 
         return checkPermission(
             permissions,

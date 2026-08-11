@@ -284,25 +284,28 @@ export default function SuperAdminUsers() {
    * ============================================================
    */
 
+  const exportCsv = () => {
+    const header = 'Name,Email,Role,Company,Status\n';
+    const rows = filteredUsers.map(u => [
+      u.displayName,
+      u.email || '',
+      u.displayRole,
+      u.displayCompany,
+      getStatusLabel(u.normalizedStatus),
+    ].join(',')).join('\n');
+    const a = document.createElement('a');
+    a.href = `data:text/csv;charset=utf-8,${encodeURIComponent(header + rows)}`;
+    a.download = 'platform_users.csv';
+    a.click();
+  };
+
   return (
-    <div
-      style={{
-        paddingBottom: '32px',
-      }}
-    >
+    <div className="dashboard-page" style={{ paddingBottom: '32px' }}>
       {/* ======================================================
           HEADER
       ======================================================= */}
 
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'space-between',
-          gap: '16px',
-          flexWrap: 'wrap',
-        }}
-      >
+      <section className="hero-row">
         <div>
           <p
             className="eyebrow"
@@ -312,15 +315,17 @@ export default function SuperAdminUsers() {
               gap: '6px',
               color: 'var(--blue)',
               fontWeight: 700,
-              marginBottom: '6px',
             }}
           >
             <Users size={15} />
-            PLATFORM USERS
+            Users
           </p>
-
+          <h1>Platform Users</h1>
         </div>
-      </div>
+        <button type="button" className="secondary-button" onClick={exportCsv}>
+          <Filter size={14} /> Export CSV ({filteredUsers.length})
+        </button>
+      </section>
 
       {/* ======================================================
           STATISTICS

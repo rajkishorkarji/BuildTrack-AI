@@ -13,7 +13,7 @@ const menuItems = [
   ['/documents', 'Documents', FileText],
   ['/notifications', 'Notifications', Bell],
   ['/ai-insights', 'AI Insights', Bot],
-  ['/company-settings', 'Settings', Settings],
+  ['/settings', 'Settings', Settings],
 ];
 
 export default function CompanyAdminSidebar() {

@@ -37,7 +37,7 @@ public class DocumentServiceImpl implements DocumentService {
     @Transactional(readOnly = true)
     public List<DocumentResponse> listForUser(User user) {
         List<Document> docs;
-        if (isSuper(user)) docs = documentRepository.findAll();
+        if (hasRole(user, "SUPER_ADMIN")) docs = documentRepository.findAll();
         else if (user.getCompanyId() != null) docs = documentRepository.findByProjectCompanyId(user.getCompanyId());
         else docs = List.of();
         return docs.stream().filter(d -> d.getProject() == null || canAccess(d.getProject(), user)).map(this::toResponse).toList();
@@ -93,13 +93,12 @@ public class DocumentServiceImpl implements DocumentService {
 
     private boolean canAccess(Project p, User u) { try { assertProjectAccess(p,u); return true; } catch (RuntimeException e) { return false; } }
     private void assertProjectAccess(Project p, User u) {
-        if (isSuper(u)) return;
+        if (hasRole(u, "SUPER_ADMIN")) return;
         if (u.getCompanyId() == null || !u.getCompanyId().equals(p.getCompany().getId())) throw new BadRequestException("Document belongs to another company");
-        String r = role(u); if ("COMPANY_ADMIN".equals(r)) return;
+        if (hasRole(u, "COMPANY_ADMIN")) return;
         if (!assignmentRepository.existsByProjectIdAndUserIdAndStatus(p.getId(), u.getId(), "ACTIVE")) throw new BadRequestException("You are not assigned to this project");
     }
-    private boolean isSuper(User u) { return "SUPER_ADMIN".equals(role(u)); }
-    private String role(User u) { return u.getRoles().stream().findFirst().map(x -> x.getRoleName().toUpperCase(Locale.ROOT)).orElse(""); }
+    private boolean hasRole(User u, String roleName) { return u.getRoles().stream().anyMatch(r -> roleName.equalsIgnoreCase(r.getRoleName())); }
     private String fullName(User u) { return ((u.getFirstName()==null?"":u.getFirstName())+" "+(u.getLastName()==null?"":u.getLastName())).trim(); }
     private DocumentResponse toResponse(Document d) { return new DocumentResponse(d.getId(), d.getProject()==null?null:d.getProject().getId(), d.getProject()==null?null:d.getProject().getName(), d.getTitle(), d.getFileType(), d.getFileUrl(), d.getUploadedBy(), d.getFileSizeBytes(), d.getCreatedAt()); }
 }

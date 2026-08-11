@@ -8,12 +8,13 @@ const documentService = {
 
   upload: async (projectId, file) => {
     const form = new FormData();
-    form.append('projectId', projectId);
     form.append('file', file);
+    form.append('projectId', projectId);
 
     const response = await api.post('/documents', form, {
+      params: { projectId },
       headers: {
-        'Content-Type': 'multipart/form-data',
+        'Content-Type': undefined,
       },
     });
 

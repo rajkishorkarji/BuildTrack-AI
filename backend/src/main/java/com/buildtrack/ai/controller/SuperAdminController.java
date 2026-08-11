@@ -12,6 +12,8 @@ import com.buildtrack.ai.auth.repository.UserRepository;
 import com.buildtrack.ai.auth.service.EmailService;
 import com.buildtrack.ai.dto.company.CreateCompanyRequest;
 import com.buildtrack.ai.entity.Company;
+import com.buildtrack.ai.entity.Payment;
+import com.buildtrack.ai.repository.PaymentRepository;
 import com.buildtrack.ai.repository.CompanyRepository;
 import com.buildtrack.ai.service.RealtimePublisher;
 import com.buildtrack.ai.service.TenantAccessService;
@@ -36,6 +38,7 @@ public class SuperAdminController {
 
     private final PasswordEncoder passwordEncoder;
     private final CompanyRepository companyRepository;
+    private final PaymentRepository paymentRepository;
     private final RealtimePublisher realtimePublisher;
     private final TenantAccessService tenantAccessService;
     private final UserRepository userRepository;
@@ -45,6 +48,12 @@ public class SuperAdminController {
 
     @org.springframework.beans.factory.annotation.Value("${app.frontend-url:http://localhost:5173}")
     private String frontendUrl;
+
+    @GetMapping("/payments")
+    public ResponseEntity<ApiResponse<java.util.List<Payment>>> getAllPayments() {
+        tenantAccessService.requireSuperAdmin(tenantAccessService.currentUser());
+        return ResponseEntity.ok(ApiResponse.success(paymentRepository.findAllByOrderByPaymentDateDesc()));
+    }
 
     @GetMapping("/companies")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getCompanies() {

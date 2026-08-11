@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import notificationService from '../../services/notificationService';
-import { Bell, CheckCircle2, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { Bell, CheckCircle2, AlertTriangle, ShieldCheck, CheckCheck } from 'lucide-react';
 
 export default function PMNotifications() {
   const [notifications, setNotifications] = useState([]);
@@ -10,6 +10,8 @@ export default function PMNotifications() {
     return () => unsubscribe();
   }, []);
 
+  const unread = notifications.some(n => !n.read && !n.isRead);
+
   return (
     <div className="dashboard-page">
       <section className="hero-row">
@@ -18,6 +20,9 @@ export default function PMNotifications() {
             <Bell size={14} /> Notifications
           </p>
         </div>
+        <button type="button" className="secondary-button" onClick={() => notificationService.markAllAsRead()} disabled={!unread}>
+          <CheckCheck size={15} /> Mark All as Read
+        </button>
       </section>
 
       <div className="panel" style={{ marginTop: '20px', padding: '24px' }}>

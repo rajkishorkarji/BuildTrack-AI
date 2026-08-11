@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CreditCard, Search, Download, RefreshCw } from 'lucide-react';
+import { CreditCard, Search, Download, RefreshCw, CheckCircle2, Clock, AlertTriangle, TrendingUp } from 'lucide-react';
 import {
   getCompanyPayments,
   getSubscriptionPlans,
@@ -18,32 +18,21 @@ function money(value) {
   return INR.format(Number(value || 0));
 }
 
+const STATUS_META = {
+  PAID: { label: 'Paid', color: 'var(--green)', bg: 'rgba(34,197,94,0.12)', icon: CheckCircle2 },
+  PENDING: { label: 'Pending', color: 'var(--orange)', bg: 'rgba(245,158,11,0.12)', icon: Clock },
+  OVERDUE: { label: 'Overdue', color: 'var(--red)', bg: 'rgba(239,68,68,0.12)', icon: AlertTriangle },
+};
+
+function getStatusMeta(status) {
+  const key = String(status || '').toUpperCase();
+  return STATUS_META[key] || { label: status || 'Pending', color: 'var(--muted)', bg: 'var(--panel-soft)', icon: Clock };
+}
+
 const PLAN_BENEFITS = {
-  STARTER: [
-    'Up to 5 projects',
-    'Up to 25 workers',
-    'Basic reporting & dashboards',
-    'Email support',
-    'Document management',
-  ],
-  PROFESSIONAL: [
-    'Up to 20 projects',
-    'Up to 100 workers',
-    'Advanced analytics & reports',
-    'Priority support',
-    'Equipment tracking',
-    'Attendance management',
-    'Daily log management',
-  ],
-  ENTERPRISE: [
-    'Unlimited projects & workers',
-    'AI-powered insights',
-    'Dedicated account manager',
-    'Custom integrations',
-    'White-label branding',
-    'Advanced security & audit logs',
-    'SLA guarantee',
-  ],
+  STARTER: ['Up to 5 projects', 'Up to 25 workers', 'Basic reporting & dashboards', 'Email support', 'Document management'],
+  PROFESSIONAL: ['Up to 20 projects', 'Up to 100 workers', 'Advanced analytics & reports', 'Priority support', 'Equipment tracking', 'Attendance management', 'Daily log management'],
+  ENTERPRISE: ['Unlimited projects & workers', 'AI-powered insights', 'Dedicated account manager', 'Custom integrations', 'White-label branding', 'Advanced security & audit logs', 'SLA guarantee'],
 };
 
 export default function CompanyAdminFinance() {
@@ -55,6 +44,7 @@ export default function CompanyAdminFinance() {
   const [busyPlan, setBusyPlan] = useState('');
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState('info');
 
   async function loadFinance() {
     setLoading(true);
@@ -65,21 +55,19 @@ export default function CompanyAdminFinance() {
         getSubscriptionStatus(),
         getCompanyPayments(),
       ]);
-
       setInvoices(invoiceResponse.data?.data || []);
       setPlans(planData || {});
       setSubscription(subscriptionData || null);
       setPayments(paymentData || []);
     } catch (error) {
       setMessage(error?.response?.data?.message || 'Unable to load finance data.');
+      setMessageType('error');
     } finally {
       setLoading(false);
     }
   }
 
-  useEffect(() => {
-    loadFinance();
-  }, []);
+  useEffect(() => { loadFinance(); }, []);
 
   const total = useMemo(
     () => invoices.reduce((sum, item) => sum + Number(item.totalAmount || item.amount || 0) + Number(item.gstAmount || 0), 0),
@@ -88,7 +76,7 @@ export default function CompanyAdminFinance() {
 
   const paid = useMemo(
     () => invoices
-      .filter(item => item.status === 'PAID')
+      .filter(item => String(item.status || '').toUpperCase() === 'PAID')
       .reduce((sum, item) => sum + Number(item.totalAmount || item.amount || 0) + Number(item.gstAmount || 0), 0),
     [invoices]
   );
@@ -106,9 +94,11 @@ export default function CompanyAdminFinance() {
     try {
       await startSubscriptionPayment(planCode, planName);
       setMessage('Payment verified successfully. Your subscription is now active.');
+      setMessageType('success');
       await loadFinance();
     } catch (error) {
       setMessage(error.message || 'Payment could not be completed.');
+      setMessageType('error');
     } finally {
       setBusyPlan('');
     }
@@ -124,12 +114,17 @@ export default function CompanyAdminFinance() {
       item.gstAmount || 0,
       item.status || '',
     ].join(',')).join('\n');
-
     const a = document.createElement('a');
     a.href = `data:text/csv;charset=utf-8,${encodeURIComponent(header + rows)}`;
     a.download = 'buildtrack-finance.csv';
     a.click();
   }
+
+  const kpiCards = [
+    { label: 'Total Invoice Value', value: money(total), color: 'var(--blue)', sub: `${invoices.length} invoices` },
+    { label: 'Collected (Paid)', value: money(paid), color: 'var(--green)', sub: `${invoices.filter(i => String(i.status || '').toUpperCase() === 'PAID').length} paid invoices` },
+    { label: 'Outstanding (Pending)', value: money(pending), color: 'var(--orange)', sub: `${invoices.filter(i => String(i.status || '').toUpperCase() !== 'PAID').length} unpaid invoices` },
+  ];
 
   return (
     <div className="dashboard-page">
@@ -138,15 +133,10 @@ export default function CompanyAdminFinance() {
           <p className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--blue)', fontWeight: 700 }}>
             <CreditCard size={14} /> Finance
           </p>
-          <h1>Finance & Subscription</h1>
-          <p style={{ color: 'var(--muted)' }}>
-            Real company finance data and Razorpay subscription payments.
-          </p>
         </div>
-
         <div style={{ display: 'flex', gap: 8 }}>
-          <button type="button" className="secondary-button" onClick={loadFinance}>
-            <RefreshCw size={15} /> Refresh
+          <button type="button" className="secondary-button" onClick={loadFinance} disabled={loading}>
+            <RefreshCw size={15} style={loading ? { animation: 'spin 1s linear infinite' } : {}} /> Refresh
           </button>
           <button type="button" className="secondary-button" onClick={exportCsv}>
             <Download size={15} /> Export CSV
@@ -155,42 +145,55 @@ export default function CompanyAdminFinance() {
       </section>
 
       {message && (
-        <div className="panel" style={{ marginTop: 16, padding: 14 }}>
+        <div style={{
+          marginTop: 16, padding: '12px 16px', borderRadius: 10, fontSize: 13,
+          display: 'flex', alignItems: 'center', gap: 8,
+          background: messageType === 'success' ? 'rgba(34,197,94,0.1)' : messageType === 'error' ? 'rgba(239,68,68,0.1)' : 'rgba(37,99,235,0.1)',
+          border: `1px solid ${messageType === 'success' ? 'rgba(34,197,94,0.3)' : messageType === 'error' ? 'rgba(239,68,68,0.3)' : 'rgba(37,99,235,0.3)'}`,
+          color: messageType === 'success' ? 'var(--green)' : messageType === 'error' ? 'var(--red)' : 'var(--blue)',
+        }}>
+          {messageType === 'success' ? <CheckCircle2 size={15} /> : messageType === 'error' ? <AlertTriangle size={15} /> : <TrendingUp size={15} />}
           {message}
         </div>
       )}
 
+      {/* KPI Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 16, marginTop: 20 }}>
-        {[
-          ['Total invoice value', total],
-          ['Paid', paid],
-          ['Pending', pending],
-        ].map(([label, value]) => (
+        {kpiCards.map(({ label, value, color, sub }) => (
           <div key={label} className="panel" style={{ padding: 20 }}>
-            <span style={{ color: 'var(--muted)', fontSize: 12 }}>{label}</span>
-            <h2 style={{ margin: '6px 0 0', fontSize: 24 }}>{money(value)}</h2>
+            <span style={{ color: 'var(--muted)', fontSize: 12, fontWeight: 600 }}>{label}</span>
+            <h2 style={{ margin: '6px 0 2px', fontSize: 22, fontWeight: 800, color }}>{value}</h2>
+            <span style={{ fontSize: 11, color: 'var(--muted)' }}>{sub}</span>
           </div>
         ))}
-
         <div className="panel" style={{ padding: 20 }}>
-          <span style={{ color: 'var(--muted)', fontSize: 12 }}>Subscription</span>
-          <h2 style={{ margin: '6px 0 0', fontSize: 20 }}>
-            {subscription?.plan || 'No plan'}
+          <span style={{ color: 'var(--muted)', fontSize: 12, fontWeight: 600 }}>Subscription Plan</span>
+          <h2 style={{ margin: '6px 0 2px', fontSize: 18, fontWeight: 800 }}>
+            {subscription?.plan || 'No Plan'}
           </h2>
           <span style={{
+            display: 'inline-block',
+            padding: '2px 10px',
+            borderRadius: 999,
+            fontSize: 11,
+            fontWeight: 700,
+            background: subscription?.status === 'ACTIVE' ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)',
             color: subscription?.status === 'ACTIVE' ? 'var(--green)' : 'var(--orange)',
-            fontSize: 12, fontWeight: 700,
           }}>
             {subscription?.status || 'PENDING'}
           </span>
         </div>
       </div>
 
+      {/* Subscription Plans */}
       <div style={{ marginTop: 28 }}>
-        <h2>Subscription Plans</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+          <TrendingUp size={18} style={{ color: 'var(--blue)' }} />
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Subscription Plans</h2>
+        </div>
         <p style={{ color: 'var(--muted)', marginBottom: 18, fontSize: 13 }}>
           {subscription?.status === 'ACTIVE'
-            ? `Your current plan: ${subscription?.plan || 'N/A'}. You can upgrade anytime.`
+            ? `Current plan: ${subscription?.plan || 'N/A'}. You can upgrade anytime.`
             : 'Choose a plan and pay via Razorpay to activate your subscription.'}
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: 18 }}>
@@ -202,6 +205,7 @@ export default function CompanyAdminFinance() {
                 padding: 24,
                 border: isCurrent ? '2px solid var(--green)' : '1px solid var(--border)',
                 position: 'relative',
+                transition: 'border-color 0.2s',
               }}>
                 {isCurrent && (
                   <span style={{
@@ -212,13 +216,13 @@ export default function CompanyAdminFinance() {
                   }}>Current Plan</span>
                 )}
                 <h3 style={{ marginTop: 0, fontSize: 18 }}>{plan.name}</h3>
-                <div style={{ fontSize: 30, fontWeight: 800 }}>
+                <div style={{ fontSize: 30, fontWeight: 800, marginBottom: 4 }}>
                   {money(plan.amount)}
                   <span style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 400 }}>/month</span>
                 </div>
-                <ul style={{ padding: '16px 0 0 18px', margin: 0, fontSize: 13, color: 'var(--muted)', lineHeight: '1.9' }}>
+                <ul style={{ padding: '16px 0 0 18px', margin: 0, fontSize: 13, lineHeight: '1.9' }}>
                   {benefits.map((b, i) => (
-                    <li key={i} style={{ color: 'var(--foreground)' }}>{b}</li>
+                    <li key={i} style={{ color: 'var(--text)' }}>{b}</li>
                   ))}
                 </ul>
                 <button
@@ -237,54 +241,86 @@ export default function CompanyAdminFinance() {
         </div>
       </div>
 
+      {/* Invoice Table */}
       <div className="panel" style={{ marginTop: 24, padding: 0, overflow: 'hidden' }}>
-        <div style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
-          <Search size={16} />
-          <input
-            className="search-box"
-            placeholder="Search invoice, vendor or project..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            style={{ width: 360 }}
-          />
+        <div style={{ padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, borderBottom: '1px solid var(--border)' }}>
+          <span style={{ fontWeight: 700, fontSize: 15 }}>Invoice Ledger</span>
+          <div className="search-box" style={{ width: 320 }}>
+            <Search size={15} />
+            <input
+              placeholder="Search invoice, vendor or project..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
         </div>
 
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
-            <tr style={{ background: 'var(--panel-soft)' }}>
-              <th style={{ padding: 14, textAlign: 'left' }}>Invoice</th>
-              <th style={{ padding: 14, textAlign: 'left' }}>Vendor</th>
-              <th style={{ padding: 14, textAlign: 'left' }}>Project</th>
-              <th style={{ padding: 14, textAlign: 'left' }}>Amount</th>
-              <th style={{ padding: 14, textAlign: 'left' }}>Status</th>
+            <tr style={{ background: 'var(--panel-soft)', borderBottom: '1px solid var(--border)' }}>
+              {['Invoice #', 'Vendor', 'Project', 'Amount (incl. GST)', 'Status'].map(h => (
+                <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontWeight: 600, color: 'var(--muted)' }}>{h}</th>
+              ))}
             </tr>
           </thead>
           <tbody>
-            {!loading && filtered.map(item => (
-              <tr key={item.id} style={{ borderTop: '1px solid var(--border)' }}>
-                <td style={{ padding: 14 }}>{item.invoiceNumber}</td>
-                <td style={{ padding: 14 }}>{item.vendorName}</td>
-                <td style={{ padding: 14 }}>{item.project?.name || '-'}</td>
-                <td style={{ padding: 14, fontWeight: 700 }}>{money(Number(item.amount || 0) + Number(item.gstAmount || 0))}</td>
-                <td style={{ padding: 14 }}>{item.status}</td>
-              </tr>
-            ))}
-            {!loading && filtered.length === 0 && (
-              <tr><td colSpan="5" style={{ padding: 30, textAlign: 'center', color: 'var(--muted)' }}>No invoices found.</td></tr>
+            {loading && (
+              <tr><td colSpan={5} style={{ padding: 30, textAlign: 'center', color: 'var(--muted)' }}>Loading invoices...</td></tr>
             )}
+            {!loading && filtered.length === 0 && (
+              <tr><td colSpan={5} style={{ padding: 30, textAlign: 'center', color: 'var(--muted)' }}>No invoices found.</td></tr>
+            )}
+            {!loading && filtered.map(item => {
+              const meta = getStatusMeta(item.status);
+              const StatusIcon = meta.icon;
+              return (
+                <tr key={item.id} style={{ borderTop: '1px solid var(--border)' }}>
+                  <td style={{ padding: '12px 16px', fontWeight: 700 }}>
+                    <code style={{ background: 'var(--panel-soft)', padding: '3px 7px', borderRadius: 5, fontSize: 12 }}>
+                      {item.invoiceNumber || '—'}
+                    </code>
+                  </td>
+                  <td style={{ padding: '12px 16px' }}>{item.vendorName || '—'}</td>
+                  <td style={{ padding: '12px 16px', color: 'var(--blue)', fontWeight: 600 }}>{item.project?.name || '—'}</td>
+                  <td style={{ padding: '12px 16px', fontWeight: 700 }}>
+                    {money(Number(item.amount || 0) + Number(item.gstAmount || 0))}
+                  </td>
+                  <td style={{ padding: '12px 16px' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 10, background: meta.bg, color: meta.color, fontSize: 11, fontWeight: 700 }}>
+                      <StatusIcon size={11} /> {meta.label}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
 
+      {/* Razorpay Payment History */}
       <div className="panel" style={{ marginTop: 24, padding: 20 }}>
-        <h3>Razorpay payment history</h3>
+        <h3 style={{ margin: '0 0 14px', fontWeight: 700, fontSize: 15 }}>Razorpay Payment History</h3>
         {payments.length === 0 ? (
-          <p style={{ color: 'var(--muted)' }}>No Razorpay payments yet.</p>
+          <p style={{ color: 'var(--muted)', fontSize: 13 }}>No Razorpay payments recorded yet.</p>
         ) : (
           payments.slice(0, 10).map(payment => (
-            <div key={payment.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderTop: '1px solid var(--border)' }}>
-              <span>{payment.planName || payment.category}</span>
-              <strong>{money(payment.amount)} · {payment.status}</strong>
+            <div key={payment.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderTop: '1px solid var(--border)' }}>
+              <div>
+                <span style={{ fontWeight: 600, fontSize: 13 }}>{payment.planName || payment.category || 'Payment'}</span>
+                <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+                  {payment.createdAt ? new Date(payment.createdAt).toLocaleDateString('en-IN') : ''}
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <strong style={{ fontWeight: 800 }}>{money(payment.amount)}</strong>
+                <span style={{
+                  padding: '3px 8px', borderRadius: 8, fontSize: 11, fontWeight: 700,
+                  background: String(payment.status || '').toUpperCase() === 'CAPTURED' ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)',
+                  color: String(payment.status || '').toUpperCase() === 'CAPTURED' ? 'var(--green)' : 'var(--orange)',
+                }}>
+                  {payment.status || 'Unknown'}
+                </span>
+              </div>
             </div>
           ))
         )}

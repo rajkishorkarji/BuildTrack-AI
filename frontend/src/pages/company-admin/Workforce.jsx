@@ -33,7 +33,7 @@ export default function CompanyAdminWorkforce() {
       await companyAdminService.invitePersonnel(form);
       setShow(false);
       setForm({ fullName: '', email: '', role: 'PROJECT_MANAGER' });
-      setError('Invitation sent successfully. The person must accept the email invitation before appearing as active personnel.');
+      setError('Invitation sent successfully');
     } catch (err) {
       setError(err.response?.data?.message || 'Unable to send invitation');
     }
@@ -84,7 +84,7 @@ export default function CompanyAdminWorkforce() {
       <section className="hero-row">
         <div>
           <p className="eyebrow"><HardHat size={14} /> Workforce</p>
-          <h1>Company Workforce</h1>
+          
         </div>
         <button className="primary-button" onClick={() => setShow(true)}><UserPlus size={16} /> Invite Personnel</button>
       </section>
@@ -212,7 +212,6 @@ export default function CompanyAdminWorkforce() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
           <form className="panel" onSubmit={invite} style={{ width: '100%', maxWidth: 460, padding: 24, display: 'grid', gap: 12 }}>
             <h2>Invite Company Personnel</h2>
-            <p style={{ color: 'var(--muted)', fontSize: 13 }}>Only Company Admin can invite Project Manager, Site Engineer, Contractor or Worker.</p>
             <input required style={INPUT} placeholder="Full name" value={form.fullName} onChange={e => setForm({ ...form, fullName: e.target.value })} />
             <input required type="email" style={INPUT} placeholder="Email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
             <select style={INPUT} value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>

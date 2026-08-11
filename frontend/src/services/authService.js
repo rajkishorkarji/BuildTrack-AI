@@ -114,6 +114,26 @@ async acceptInvitation(
 
     return response.data;
 },
+
+/**
+ * Pre-validates whether the given email is eligible to use "Continue with Google".
+ *
+ * The backend checks three conditions:
+ *  1. The email exists in the users table (was invited + accepted invitation).
+ *  2. The invitation for this email is claimed (password was created on the invite page).
+ *  3. A refresh token exists for this user (proves at least one prior password login).
+ *
+ * Returns: { eligible: boolean, reason?: string }
+ */
+async checkGoogleEligibility(email) {
+    const response = await api.post('/auth/google-eligibility', { email });
+    return response.data?.data || response.data;
+},
+
+async unlinkGoogle() {
+    const response = await api.post('/auth/unlink-google');
+    return response.data;
+},
 };
 
 

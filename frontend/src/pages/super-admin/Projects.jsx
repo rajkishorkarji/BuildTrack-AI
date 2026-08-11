@@ -1,15 +1,44 @@
 import { useState } from 'react';
 import { useData } from '../../context/DataContext';
-import { FolderKanban, Search, Building2, UserCheck, ShieldCheck } from 'lucide-react';
+import { FolderKanban, Search, Building2, UserCheck } from 'lucide-react';
+import { formatINR } from '../../utils/currency';
+
+const STATUS_META = {
+  ACTIVE: { label: 'Active', color: 'var(--green)', bg: 'rgba(34,197,94,0.12)' },
+  IN_PROGRESS: { label: 'In Progress', color: 'var(--green)', bg: 'rgba(34,197,94,0.12)' },
+  PLANNED: { label: 'Planned', color: 'var(--orange)', bg: 'rgba(245,158,11,0.12)' },
+  COMPLETED: { label: 'Completed', color: 'var(--blue)', bg: 'rgba(37,99,235,0.12)' },
+  ON_HOLD: { label: 'On Hold', color: 'var(--muted)', bg: 'var(--panel-soft)' },
+  SUSPENDED: { label: 'Suspended', color: 'var(--red)', bg: 'rgba(239,68,68,0.12)' },
+  CANCELLED: { label: 'Cancelled', color: 'var(--red)', bg: 'rgba(239,68,68,0.12)' },
+};
+
+function getStatusMeta(status) {
+  const key = String(status || '').toUpperCase().replace(/\s+/g, '_');
+  return STATUS_META[key] || { label: status || 'Unknown', color: 'var(--muted)', bg: 'var(--panel-soft)' };
+}
 
 export default function SuperAdminProjects() {
   const { projects = [] } = useData();
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
 
-  const filtered = projects.filter(p =>
-    (p.name || '').toLowerCase().includes(search.toLowerCase()) ||
-    (p.companyName || '').toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = projects.filter(p => {
+    const matchSearch =
+      (p.name || '').toLowerCase().includes(search.toLowerCase()) ||
+      (p.companyName || '').toLowerCase().includes(search.toLowerCase()) ||
+      (p.code || '').toLowerCase().includes(search.toLowerCase());
+    const normalStatus = String(p.status || '').toUpperCase().replace(/\s+/g, '_');
+    const matchStatus = statusFilter === 'ALL' || normalStatus === statusFilter;
+    return matchSearch && matchStatus;
+  });
+
+  const activeCount = projects.filter(p => {
+    const s = String(p.status || '').toUpperCase();
+    return s === 'ACTIVE' || s === 'IN_PROGRESS';
+  }).length;
+  const plannedCount = projects.filter(p => String(p.status || '').toUpperCase() === 'PLANNED').length;
+  const completedCount = projects.filter(p => String(p.status || '').toUpperCase() === 'COMPLETED').length;
 
   return (
     <div className="dashboard-page">
@@ -18,67 +47,117 @@ export default function SuperAdminProjects() {
           <p className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--blue)', fontWeight: 700 }}>
             <FolderKanban size={14} /> Projects
           </p>
+          <h1>Global Project Portfolio</h1>
         </div>
       </section>
 
-      <div className="panel" style={{ marginTop: '20px', padding: '16px 20px' }}>
-        <div className="search-box" style={{ width: '340px' }}>
-          <Search size={14} style={{ color: 'var(--muted)' }} />
-          <input placeholder="Search projects by name or tenant..." value={search} onChange={e => setSearch(e.target.value)} />
-        </div>
+      {/* KPI Summary */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 16, marginTop: 20 }}>
+        {[
+          { label: 'Total Projects', value: projects.length, color: 'var(--blue)' },
+          { label: 'Active / In Progress', value: activeCount, color: 'var(--green)' },
+          { label: 'Planned', value: plannedCount, color: 'var(--orange)' },
+          { label: 'Completed', value: completedCount, color: 'var(--purple)' },
+        ].map(({ label, value, color }) => (
+          <div key={label} className="panel" style={{ padding: '18px' }}>
+            <span style={{ color: 'var(--muted)', fontSize: 12, fontWeight: 600 }}>{label}</span>
+            <h2 style={{ fontSize: 24, color, margin: '4px 0 0', fontWeight: 800 }}>{value}</h2>
+          </div>
+        ))}
       </div>
 
+      {/* Search & Filter Toolbar */}
+      <div className="panel" style={{ marginTop: '20px', padding: '14px 20px', display: 'flex', gap: '14px', alignItems: 'center', flexWrap: 'wrap' }}>
+        <div className="search-box" style={{ flex: 1, minWidth: 240 }}>
+          <Search size={14} style={{ color: 'var(--muted)' }} />
+          <input placeholder="Search by project name, tenant or code..." value={search} onChange={e => setSearch(e.target.value)} />
+        </div>
+        <select
+          value={statusFilter}
+          onChange={e => setStatusFilter(e.target.value)}
+          style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--panel-soft)', color: 'var(--text)', fontSize: 13, fontWeight: 600 }}
+        >
+          <option value="ALL">All Statuses</option>
+          <option value="ACTIVE">Active</option>
+          <option value="IN_PROGRESS">In Progress</option>
+          <option value="PLANNED">Planned</option>
+          <option value="COMPLETED">Completed</option>
+          <option value="ON_HOLD">On Hold</option>
+          <option value="SUSPENDED">Suspended</option>
+        </select>
+        <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 600, whiteSpace: 'nowrap' }}>
+          {filtered.length} of {projects.length} projects
+        </span>
+      </div>
+
+      {/* Projects Table */}
       <div className="panel" style={{ marginTop: '16px', padding: 0, overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
-          <thead>
-            <tr style={{ background: 'var(--panel-soft)', color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
-              <th style={{ padding: '14px 20px', fontWeight: 600 }}>Project Site</th>
-              <th style={{ padding: '14px', fontWeight: 600 }}>Tenant Company</th>
-              <th style={{ padding: '14px', fontWeight: 600 }}>Assigned PM</th>
-              <th style={{ padding: '14px', fontWeight: 600 }}>Budget</th>
-              <th style={{ padding: '14px', fontWeight: 600 }}>Progress</th>
-              <th style={{ padding: '14px 20px', fontWeight: 600 }}>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map(p => (
-              <tr key={p.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                <td style={{ padding: '14px 20px', fontWeight: 700, color: 'var(--text)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <FolderKanban size={16} style={{ color: 'var(--blue)' }} />
-                    {p.name}
-                  </div>
-                </td>
-                <td style={{ padding: '14px', fontWeight: 600 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Building2 size={14} style={{ color: 'var(--muted)' }} />
-                    {p.companyName || '—'}
-                  </div>
-                </td>
-                <td style={{ padding: '14px', color: 'var(--muted)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <UserCheck size={14} style={{ color: 'var(--blue)' }} />
-                    {p.pmName || 'Rajesh Verma'}
-                  </div>
-                </td>
-                <td style={{ padding: '14px', fontWeight: 700 }}>${(parseFloat(p.budget) || 0).toLocaleString()}</td>
-                <td style={{ padding: '14px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '120px' }}>
-                    <div style={{ flex: 1, height: '6px', background: 'var(--panel-soft)', borderRadius: '3px', overflow: 'hidden' }}>
-                      <div style={{ width: `${p.progress || 0}%`, height: '100%', background: 'var(--blue)' }} />
-                    </div>
-                    <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--muted)' }}>{p.progress || 0}%</span>
-                  </div>
-                </td>
-                <td style={{ padding: '14px 20px' }}>
-                  <span style={{ padding: '4px 10px', borderRadius: '10px', background: 'rgba(34,197,94,0.12)', color: 'var(--green)', fontSize: '11px', fontWeight: 700 }}>
-                    {p.status || 'Active'}
-                  </span>
-                </td>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', minWidth: 800, borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+            <thead>
+              <tr style={{ background: 'var(--panel-soft)', color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                {['Project Site', 'Tenant Company', 'Assigned PM', 'Budget', 'Progress', 'Status'].map(h => (
+                  <th key={h} style={{ padding: '14px 16px', fontWeight: 600 }}>{h}</th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={6} style={{ padding: 40, textAlign: 'center' }}>
+                    <FolderKanban size={32} style={{ color: 'var(--muted)', display: 'block', margin: '0 auto 10px' }} />
+                    <div style={{ color: 'var(--text)', fontWeight: 700 }}>No projects found</div>
+                    <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 4 }}>Try adjusting your search or filter.</div>
+                  </td>
+                </tr>
+              ) : (
+                filtered.map(p => {
+                  const meta = getStatusMeta(p.status);
+                  const progress = Number(p.progress || p.progressPercentage || 0);
+                  return (
+                    <tr key={p.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                      <td style={{ padding: '14px 16px', fontWeight: 700, color: 'var(--text)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <FolderKanban size={16} style={{ color: 'var(--blue)', flexShrink: 0 }} />
+                          <div>
+                            <div>{p.name}</div>
+                            {p.code && <div style={{ fontSize: 11, color: 'var(--blue)', marginTop: 2 }}>{p.code}</div>}
+                          </div>
+                        </div>
+                      </td>
+                      <td style={{ padding: '14px 16px', fontWeight: 600 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <Building2 size={14} style={{ color: 'var(--muted)', flexShrink: 0 }} />
+                          {p.companyName || '—'}
+                        </div>
+                      </td>
+                      <td style={{ padding: '14px 16px', color: 'var(--muted)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <UserCheck size={14} style={{ color: 'var(--blue)', flexShrink: 0 }} />
+                          {p.pmName || '—'}
+                        </div>
+                      </td>
+                      <td style={{ padding: '14px 16px', fontWeight: 700 }}>{formatINR(p.budget)}</td>
+                      <td style={{ padding: '14px 16px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 100 }}>
+                          <div style={{ flex: 1, height: '6px', background: 'var(--panel-soft)', borderRadius: '3px', overflow: 'hidden' }}>
+                            <div style={{ width: `${Math.min(progress, 100)}%`, height: '100%', background: meta.color, borderRadius: 3 }} />
+                          </div>
+                          <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--muted)', whiteSpace: 'nowrap' }}>{progress}%</span>
+                        </div>
+                      </td>
+                      <td style={{ padding: '14px 16px' }}>
+                        <span style={{ padding: '4px 10px', borderRadius: '10px', background: meta.bg, color: meta.color, fontSize: '11px', fontWeight: 700 }}>
+                          {meta.label}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

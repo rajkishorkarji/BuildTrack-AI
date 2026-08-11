@@ -22,7 +22,7 @@ export default function Notifications() {
   return (
     <div className="dashboard-page">
       <section className="hero-row">
-        <div><p className="eyebrow"><Bell size={14} /> Notifications</p><h1>Company notifications</h1></div>
+        <div><p className="eyebrow"><Bell size={14} /> Notifications</p></div>
         <button type="button" className="secondary-button" onClick={() => notificationService.markAllAsRead()}><CheckCheck size={15} /> Mark All Read</button>
       </section>
 

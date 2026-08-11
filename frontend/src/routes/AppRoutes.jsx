@@ -254,7 +254,15 @@ function RoleDailyReport() {
 
 function RoleSafety() {
   const { user } = useAuth();
-  return roleComponent(user, ['SITE_ENGINEER'], SESiteIssues);
+  const map = {
+    SUPER_ADMIN: SESiteIssues,
+    COMPANY_ADMIN: SESiteIssues,
+    PROJECT_MANAGER: SESiteIssues,
+    SITE_ENGINEER: SESiteIssues,
+    CONTRACTOR: SESiteIssues,
+  };
+  const Component = map[String(user?.role || '').toUpperCase()];
+  return roleComponent(user, Object.keys(map), Component || RoleAccessDenied);
 }
 
 function RoleInspectionImages() {
@@ -488,6 +496,15 @@ export default function AppRoutes() {
 
         <Route
           path="/settings"
+          element={
+            <ProtectedRoute>
+              <RoleSettings />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/company-settings"
           element={
             <ProtectedRoute>
               <RoleSettings />

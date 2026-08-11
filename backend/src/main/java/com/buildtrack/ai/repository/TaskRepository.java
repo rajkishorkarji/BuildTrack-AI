@@ -17,6 +17,6 @@ public interface TaskRepository extends JpaRepository<TaskEntity, Long> {
     @Query("select t from TaskEntity t where t.assignedUser.id = :userId order by t.dueDate asc, t.id desc")
     List<TaskEntity> findAssignedToUser(@Param("userId") Long userId);
 
-    @Query("select t from TaskEntity t where t.project.id in (select a.project.id from ProjectAssignment a where a.user.id = :userId and a.status = 'ACTIVE') order by t.dueDate asc, t.id desc")
+    @Query("select distinct t from TaskEntity t where (t.assignedUser is not null and t.assignedUser.id = :userId) or t.project.id in (select a.project.id from ProjectAssignment a where a.user.id = :userId and a.status = 'ACTIVE') order by t.dueDate asc, t.id desc")
     List<TaskEntity> findForAssignedProjects(@Param("userId") Long userId);
 }

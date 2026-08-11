@@ -11,5 +11,6 @@ public record UserDto(
     String companyCode,
     String companyName,
     Long assignedProjectId,
-    List<String> permissions
+    List<String> permissions,
+    String provider
 ) {}

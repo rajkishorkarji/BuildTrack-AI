@@ -28,6 +28,7 @@ const EMPTY_DATA = {
   documents: [],
   progressReports: [],
   teamMembers: [],
+  payments: [],
 };
 
 export function DataProvider({ children }) {
@@ -102,6 +103,7 @@ export function DataProvider({ children }) {
         '/daily-logs',
         '/issues',
         '/workforce',
+        '/superadmin/payments',
       ];
 
       const responses =
@@ -354,6 +356,10 @@ export function DataProvider({ children }) {
               severity: String(issue.severity || 'HIGH').replace(/_/g, ' '),
             }))
           : current.issues,
+
+        payments: Array.isArray(payload(12))
+          ? payload(12)
+          : current.payments,
       }));
 
 

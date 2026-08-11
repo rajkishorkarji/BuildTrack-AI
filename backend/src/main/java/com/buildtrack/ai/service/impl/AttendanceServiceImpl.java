@@ -47,7 +47,7 @@ public class AttendanceServiceImpl implements AttendanceService {
             return attendanceRepository.findAll();
         }
         if (user.getCompanyId() == null) return List.of();
-        if ("COMPANY_ADMIN".equalsIgnoreCase(role)) {
+        if ("COMPANY_ADMIN".equalsIgnoreCase(role) || "SITE_ENGINEER".equalsIgnoreCase(role) || "PROJECT_MANAGER".equalsIgnoreCase(role)) {
             return attendanceRepository.findByProjectCompanyIdOrderByCheckInDesc(user.getCompanyId());
         }
         if ("WORKER".equalsIgnoreCase(role)) {
@@ -184,7 +184,7 @@ public class AttendanceServiceImpl implements AttendanceService {
         Project project = attendance.getProject();
         if (actor.getCompanyId() == null || worker.getCompanyId() == null || !actor.getCompanyId().equals(worker.getCompanyId())) throw new BadRequestException("Attendance belongs to another company");
         String role = primaryRole(actor);
-        if ("SUPER_ADMIN".equalsIgnoreCase(role) || "COMPANY_ADMIN".equalsIgnoreCase(role)) return;
+        if ("SUPER_ADMIN".equalsIgnoreCase(role) || "COMPANY_ADMIN".equalsIgnoreCase(role) || "SITE_ENGINEER".equalsIgnoreCase(role) || "PROJECT_MANAGER".equalsIgnoreCase(role)) return;
         if (worker.getUser() != null && worker.getUser().getId().equals(actor.getId())) return;
         if (project != null && assignmentRepository.existsByProjectIdAndUserIdAndStatus(project.getId(), actor.getId(), "ACTIVE")) return;
         throw new BadRequestException("You do not have access to this attendance record");

@@ -87,14 +87,19 @@ export default function CompanyAdminProjects() {
     catch (e) { setError(e.response?.data?.message || e.message || 'Unable to remove assignment'); }
   };
 
+  const changeStatus = async (projectId, status) => {
+    try {
+      await projectService.updateStatus(projectId, status);
+      await loadProjects();
+    } catch (e) { setError(e.response?.data?.message || e.message || 'Unable to update status'); }
+  };
+
   return (
     <div className="dashboard-page">
       <section className="hero-row">
         <div>
           <p className="eyebrow" style={{display:'inline-flex',alignItems:'center',gap:6,color:'var(--blue)',fontWeight:700}}><FolderKanban size={14}/> Projects</p>
-          <h1>Project Management</h1>
-          <p>Create company projects and assign the right personnel to each site.</p>
-        </div>
+           </div>
         <button className="primary-button" onClick={() => setShowCreate(true)}><Plus size={16}/> Create Project</button>
       </section>
 
@@ -119,7 +124,7 @@ export default function CompanyAdminProjects() {
                 <td style={{padding:14,color:'var(--muted)'}}>{p.location || '—'}</td>
                 <td style={{padding:14,fontWeight:700}}>{formatINR(p.budget)}</td>
                 <td style={{padding:14}}><div style={{display:'flex',gap:8,alignItems:'center'}}><div style={{width:100,height:6,background:'var(--panel-soft)',borderRadius:3}}><div style={{width:`${p.progressPercentage || 0}%`,height:'100%',background:'var(--blue)',borderRadius:3}}/></div><b>{p.progressPercentage || 0}%</b></div></td>
-                <td style={{padding:14}}><span style={{padding:'4px 9px',borderRadius:10,background:'rgba(34,197,94,.12)',color:'var(--green)',fontSize:11,fontWeight:700}}>{p.status}</span></td>
+                <td style={{padding:14}}><select value={p.status} onChange={e=>changeStatus(p.id,e.target.value)} style={{fontSize:12,padding:'4px 8px',borderRadius:8,border:'1px solid var(--border)',background:'var(--panel-soft)',color:'var(--text)',cursor:'pointer'}}><option value="PLANNED">Planned</option><option value="IN_PROGRESS">In Progress</option><option value="ACTIVE">Active</option><option value="ON_HOLD">On Hold</option><option value="COMPLETED">Completed</option><option value="SUSPENDED">Suspended</option></select></td>
                 <td style={{padding:14}}><span style={{display:'inline-flex',alignItems:'center',gap:5}}><Users size={14}/>{p.assignments?.length || 0}</span></td>
                 <td style={{padding:'14px 16px',display:'flex',gap:7}}>
                   <button className="secondary-button" onClick={()=>openAssignments(p)}><Users size={13}/> Assign</button>
@@ -131,10 +136,9 @@ export default function CompanyAdminProjects() {
           </tbody>
         </table>
       </div>
-
       {showCreate && <div className="modal-backdrop" style={overlay}>
         <div className="panel" style={modal}>
-          <div style={header}><div><h2>Create Project</h2><p>Project belongs to your company.</p></div><button className="secondary-button" onClick={()=>setShowCreate(false)}><X size={16}/></button></div>
+          <div style={header}><div><h2>Create Project</h2></div><button className="secondary-button" onClick={()=>setShowCreate(false)}><X size={16}/></button></div>
           <form onSubmit={create} style={grid}>
             <label>Project name<input required value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></label>
             <label>Project code<input value={form.code} placeholder="e.g. METRO-T1" onChange={e=>setForm({...form,code:e.target.value.toUpperCase()})}/></label>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Eye, EyeOff, X } from 'lucide-react';
 
@@ -27,6 +27,7 @@ export default function Login() {
 
   const [loading, setLoading] = useState(false);
   const [forgotLoading, setForgotLoading] = useState(false);
+  const [googleCheckLoading, setGoogleCheckLoading] = useState(false);
 
   const [message, setMessage] = useState({
     text: '',
@@ -165,7 +166,62 @@ export default function Login() {
   };
 
   // ============================================================
-  // GOOGLE LOGIN
+  // GOOGLE LOGIN — GATED
+  // ============================================================
+  // GOOGLE LOGIN & QUERY ERROR HANDLING
+  // ============================================================
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const errorParam = params.get('error');
+    if (errorParam) {
+      setMessage({
+        text: decodeURIComponent(errorParam).replace(/^"|"$/g, '') || 'Google authentication failed.',
+        type: 'error',
+      });
+    }
+  }, []);
+
+  const handleGoogleLoginGated = async () => {
+    const email = formData.email.trim().toLowerCase();
+
+    if (!email) {
+      handleGoogleLogin();
+      return;
+    }
+
+    setGoogleCheckLoading(true);
+
+    setMessage({
+      text: '',
+      type: '',
+    });
+
+    try {
+      const result = await authService.checkGoogleEligibility(email);
+
+      if (!result?.eligible) {
+        setMessage({
+          text:
+            result?.reason ||
+            'Your account is not eligible for Google login. Please sign in with your password.',
+          type: 'error',
+        });
+        return;
+      }
+
+      handleGoogleLogin();
+
+    } catch (error) {
+      console.error('Google eligibility check failed:', error);
+      handleGoogleLogin();
+    } finally {
+      setGoogleCheckLoading(false);
+    }
+  };
+
+  // ============================================================
+  // GOOGLE LOGIN (original — called only after eligibility is confirmed)
   // ============================================================
 
   const handleGoogleLogin = () => {
@@ -642,8 +698,8 @@ export default function Login() {
 
           <button
             type="button"
-            onClick={handleGoogleLogin}
-            disabled={loading}
+            onClick={handleGoogleLoginGated}
+            disabled={loading || googleCheckLoading}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -658,10 +714,10 @@ export default function Login() {
               color: '#1e293b',
               fontWeight: 700,
               fontSize: '13px',
-              cursor: loading
+              cursor: loading || googleCheckLoading
                 ? 'not-allowed'
                 : 'pointer',
-              opacity: loading ? 0.7 : 1,
+              opacity: loading || googleCheckLoading ? 0.7 : 1,
               boxSizing: 'border-box',
             }}
           >
@@ -693,7 +749,7 @@ export default function Login() {
               />
             </svg>
 
-            Continue with Google
+            {googleCheckLoading ? 'Verifying...' : 'Continue with Google'}
           </button>
 
         </form>

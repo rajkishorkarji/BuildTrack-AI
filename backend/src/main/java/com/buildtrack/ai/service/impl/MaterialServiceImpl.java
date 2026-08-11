@@ -145,6 +145,8 @@ public class MaterialServiceImpl implements MaterialService {
         }
 
         if (!tenantAccessService.hasRole(user, "COMPANY_ADMIN")
+                && !tenantAccessService.hasRole(user, "SITE_ENGINEER")
+                && !tenantAccessService.hasRole(user, "PROJECT_MANAGER")
                 && !assignmentRepository.existsByProjectIdAndUserIdAndStatus(projectId, user.getId(), "ACTIVE")) {
             throw new IllegalArgumentException("You are not assigned to this project");
         }

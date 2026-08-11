@@ -21,4 +21,6 @@ public interface UserInvitationRepository
     List<UserInvitation> findAllByCompanyIdOrderByCreatedAtDesc(
         Long companyId
 );
+
+    boolean existsByEmailIgnoreCaseAndClaimed(String email, boolean claimed);
 }

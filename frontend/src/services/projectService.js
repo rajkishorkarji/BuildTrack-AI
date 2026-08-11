@@ -39,6 +39,10 @@ const projectService = {
   async unassign(id, userId) {
     await api.delete(`/projects/${id}/assignments/${userId}`);
   },
+  async updateStatus(id, status) {
+    const { data } = await api.patch(`/projects/${id}/status`, { status });
+    return data?.data;
+  },
 };
 
 export default projectService;

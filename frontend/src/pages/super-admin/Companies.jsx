@@ -208,15 +208,9 @@ export default function SuperAdminCompanies() {
 
       console.log('Creating company:', payload);
 
-      const result = await addCompany(payload);
-      const inviteUrl = result?.invitationUrl;
+      await addCompany(payload);
 
-      let msg = `Company "${companyName}" created successfully.`;
-      if (inviteUrl) {
-        msg += `\n\nCompany Admin Invitation Link:\n${inviteUrl}\n\n(You can copy this link and send it directly to ${adminEmail})`;
-      } else {
-        msg += `\n\nAn invitation email has been queued for ${adminEmail}.`;
-      }
+      const msg = `Company "${companyName}" created successfully.\n\nAn invitation email has been sent to ${adminEmail}. They can use it to set up their account.`;
 
       window.alert(msg);
 
@@ -262,11 +256,20 @@ export default function SuperAdminCompanies() {
     } catch (error) {
       console.error('Failed to delete company:', error);
 
-      window.alert(
+      let errorMessage =
         error?.response?.data?.message ||
-          error?.message ||
-          'Failed to delete company.'
-      );
+        error?.message ||
+        'Failed to delete company.';
+
+      if (
+        errorMessage.includes('foreign key constraint') ||
+        errorMessage.includes('violates foreign key') ||
+        errorMessage.includes('fk_payments_company')
+      ) {
+        errorMessage = `Cannot delete "${company.name}" because it is linked to active records (such as payments, projects, or workforce data). Please remove those associated records first.`;
+      }
+
+      window.alert(errorMessage);
     }
   };
 

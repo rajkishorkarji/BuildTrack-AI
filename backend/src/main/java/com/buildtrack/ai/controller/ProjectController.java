@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/projects")
@@ -83,10 +84,9 @@ public class ProjectController {
     }
 
     @PostMapping("/{id}/assignments")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','COMPANY_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','COMPANY_ADMIN','PROJECT_MANAGER')")
     public ResponseEntity<ApiResponse<ProjectAssignmentResponse>> assign(@PathVariable Long id, @Valid @RequestBody ProjectAssignmentRequest request) {
         User actor = tenantAccessService.currentUser();
-        tenantAccessService.requireCompanyAdmin(actor);
         ProjectAssignment a = projectService.assign(id, request.getUserId(), request.getRole(), actor);
         realtimePublisher.publishForCompany(a.getProject().getCompany().getId(), "projects", "assignment-created", id);
         domainEventPublisher.publish("PROJECT_ASSIGNMENT_CREATED", a.getProject().getCompany().getId(), userEmail(), "PROJECT", id, "Project personnel assigned");
@@ -94,13 +94,34 @@ public class ProjectController {
     }
 
     @DeleteMapping("/{id}/assignments/{userId}")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','COMPANY_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','COMPANY_ADMIN','PROJECT_MANAGER')")
     public ResponseEntity<ApiResponse<Void>> unassign(@PathVariable Long id, @PathVariable Long userId) {
         User actor = tenantAccessService.currentUser();
-        tenantAccessService.requireCompanyAdmin(actor);
         projectService.unassign(id, userId, actor);
         realtimePublisher.publishForCompany(tenantAccessService.currentCompany().getId(), "projects", "assignment-removed", id);
         return ResponseEntity.ok(ApiResponse.success(null));
+    }
+
+    @PatchMapping("/{id}/status")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','COMPANY_ADMIN','PROJECT_MANAGER')")
+    public ResponseEntity<ApiResponse<ProjectSummaryResponse>> updateStatus(
+            @PathVariable Long id, @RequestBody Map<String, String> body) {
+        User user = tenantAccessService.currentUser();
+        Project project = projectService.getProjectForUser(id, user);
+        String newStatus = body.getOrDefault("status", project.getStatus());
+        com.buildtrack.ai.dto.project.ProjectCreateRequest req = new com.buildtrack.ai.dto.project.ProjectCreateRequest();
+        req.setName(project.getName());
+        req.setCode(project.getCode());
+        req.setLocation(project.getLocation());
+        req.setDescription(project.getDescription());
+        req.setBudget(project.getBudget() != null ? project.getBudget() : java.math.BigDecimal.ZERO);
+        req.setStartDate(project.getStartDate());
+        req.setEstEndDate(project.getEstEndDate());
+        req.setStatus(newStatus);
+        Project updated = projectService.update(id, req, user);
+        realtimePublisher.publishForCompany(updated.getCompany().getId(), "projects", "updated", updated.getId());
+        domainEventPublisher.publish("PROJECT_STATUS_UPDATED", updated.getCompany().getId(), userEmail(), "PROJECT", updated.getId(), "Project status changed to " + newStatus);
+        return ResponseEntity.ok(ApiResponse.success(summary(updated)));
     }
 
     @GetMapping("/eligible-users")
