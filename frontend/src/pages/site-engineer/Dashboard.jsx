@@ -2,7 +2,7 @@ import { useData } from '../../context/DataContext';
 import { HardHat, ShieldAlert, CheckCircle2, FileText, Camera, Activity } from 'lucide-react';
 
 export default function SEDashboard() {
-  const { workers = [], equipment = [], issues = [], tasks = [], projects = [], attendanceLogs = [] } = useData();
+  const { workers = [], equipment = [], issues = [], tasks = [], projects = [], attendanceLogs = [], dailyLogs = [] } = useData();
 
   const openIssuesList = issues.filter(i => {
     const s = String(i.status || '').toUpperCase();
@@ -18,10 +18,12 @@ export default function SEDashboard() {
   const activeWorkersCount = workers.filter(w => w.enabled !== false).length;
   const presentCount = attendanceLogs.filter(a => !a.checkOutTime || String(a.status || '').toUpperCase() === 'PRESENT').length;
 
-  // Average progress across tasks
-  const avgProgress = tasks.length > 0
-    ? Math.round(tasks.reduce((sum, t) => sum + Number(t.progress ?? t.completionPercentage ?? 0), 0) / tasks.length)
-    : (projects.length > 0 ? Math.round(projects.reduce((sum, p) => sum + Number(p.progress ?? 0), 0) / projects.length) : 0);
+  const latestLog = Array.isArray(dailyLogs) && dailyLogs.length > 0 ? dailyLogs[0] : null;
+  const avgProgress = latestLog?.progressPercentage ?? latestLog?.progress ?? (
+    projects.length > 0
+      ? Math.round(projects.reduce((sum, p) => sum + Number(p.progress ?? p.progressPercentage ?? 0), 0) / projects.length)
+      : (tasks.length > 0 ? Math.round(tasks.reduce((sum, t) => sum + Number(t.progress ?? t.completionPercentage ?? 0), 0) / tasks.length) : 0)
+  );
 
   return (
     <div className="dashboard-page">

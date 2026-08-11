@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { HardHat, Search, Building2, UserCheck, Download } from 'lucide-react';
 
@@ -20,12 +20,36 @@ export default function SuperAdminWorkforce() {
   const [selectedCompany, setSelectedCompany] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
 
+  const companyAdminMap = useMemo(() => {
+    const map = new Map();
+    (usersList || []).forEach((u) => {
+      const role = String(u.role || '').toUpperCase();
+      if (role === 'COMPANY_ADMIN') {
+        const compId = u.companyId ? String(u.companyId) : null;
+        const compName = u.companyName ? String(u.companyName).trim().toLowerCase() : null;
+        const adminName = u.fullName || u.name || u.email;
+
+        if (compId) map.set(compId, adminName);
+        if (compName) map.set(compName, adminName);
+      }
+    });
+    return map;
+  }, [usersList]);
+
+  const getCompanyAdminName = (w) => {
+    if (w.companyAdminName && w.companyAdminName !== '—') return w.companyAdminName;
+    const compId = w.companyId ? String(w.companyId) : null;
+    const compName = w.companyName ? String(w.companyName).trim().toLowerCase() : null;
+    return (compId ? companyAdminMap.get(compId) : null) || (compName ? companyAdminMap.get(compName) : null) || '—';
+  };
+
   const filtered = workers.filter(w => {
+    const adminName = getCompanyAdminName(w);
     const matchSearch =
       (w.fullName || w.name || '').toLowerCase().includes(search.toLowerCase()) ||
       (w.role || '').toLowerCase().includes(search.toLowerCase()) ||
       (w.skillTrade || w.skill || '').toLowerCase().includes(search.toLowerCase()) ||
-      (w.contractorName || '').toLowerCase().includes(search.toLowerCase()) ||
+      (adminName || '').toLowerCase().includes(search.toLowerCase()) ||
       (w.projectName || '').toLowerCase().includes(search.toLowerCase());
     const matchCompany = selectedCompany === 'ALL' || w.companyName === selectedCompany;
     const normalStatus = String(w.status || 'Active').toUpperCase().replace(/\s+/g, '_');
@@ -35,16 +59,16 @@ export default function SuperAdminWorkforce() {
 
   const activeCount = workers.filter(w => {
     const s = String(w.status || 'Active').toUpperCase();
-    return s === 'ACTIVE' || s === 'ACTIVE';
+    return s === 'ACTIVE';
   }).length;
 
   const exportCsv = () => {
-    const header = 'Name,Role,Skill,Contractor,Project,Company,Status\n';
+    const header = 'Name,Role,Skill,Company Admin,Project,Company,Status\n';
     const rows = filtered.map(w => [
       w.fullName || w.name || '',
       w.role || '',
       w.skillTrade || w.skill || '',
-      w.contractorName || '',
+      getCompanyAdminName(w),
       w.projectName || '',
       w.companyName || '',
       w.status || 'Active',
@@ -125,7 +149,7 @@ export default function SuperAdminWorkforce() {
           <table style={{ width: '100%', minWidth: 780, borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
             <thead>
               <tr style={{ background: 'var(--panel-soft)', color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
-                {['Worker Name & Skill', 'Company Tenant', 'Subcontractor', 'Assigned Project Site', 'Status'].map(h => (
+                {['Worker Name & Skill', 'Company Tenant', 'Company Admin', 'Assigned Project Site', 'Status'].map(h => (
                   <th key={h} style={{ padding: '14px 16px', fontWeight: 600 }}>{h}</th>
                 ))}
               </tr>
@@ -142,6 +166,7 @@ export default function SuperAdminWorkforce() {
               ) : (
                 filtered.map(w => {
                   const meta = getStatusMeta(w.status);
+                  const adminName = getCompanyAdminName(w);
                   return (
                     <tr key={w.id} style={{ borderBottom: '1px solid var(--border)' }}>
                       <td style={{ padding: '14px 16px', fontWeight: 700, color: 'var(--text)' }}>
@@ -161,7 +186,7 @@ export default function SuperAdminWorkforce() {
                           <span style={{ fontWeight: 600, color: 'var(--blue)' }}>{w.companyName || '—'}</span>
                         </div>
                       </td>
-                      <td style={{ padding: '14px 16px', fontWeight: 600 }}>{w.contractorName || '—'}</td>
+                      <td style={{ padding: '14px 16px', fontWeight: 600 }}>{adminName}</td>
                       <td style={{ padding: '14px 16px', color: 'var(--muted)' }}>{w.projectName || '—'}</td>
                       <td style={{ padding: '14px 16px' }}>
                         <span style={{ padding: '4px 10px', borderRadius: '10px', background: meta.bg, color: meta.color, fontSize: '11px', fontWeight: 700 }}>

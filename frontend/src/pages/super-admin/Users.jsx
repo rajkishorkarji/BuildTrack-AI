@@ -320,7 +320,7 @@ export default function SuperAdminUsers() {
             <Users size={15} />
             Users
           </p>
-          <h1>Platform Users</h1>
+         
         </div>
         <button type="button" className="secondary-button" onClick={exportCsv}>
           <Filter size={14} /> Export CSV ({filteredUsers.length})

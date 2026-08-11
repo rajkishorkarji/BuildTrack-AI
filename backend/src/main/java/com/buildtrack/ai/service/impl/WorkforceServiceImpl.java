@@ -23,6 +23,7 @@ public class WorkforceServiceImpl implements WorkforceService {
     private final UserRepository userRepository;
     private final ProjectAssignmentRepository assignmentRepository;
     private final ProjectService projectService;
+    private final com.buildtrack.ai.repository.CompanyRepository companyRepository;
 
     @Override
     public List<WorkforceMemberResponse> getAccessibleWorkforce(User actor) {
@@ -107,12 +108,36 @@ public class WorkforceServiceImpl implements WorkforceService {
 
     private WorkforceMemberResponse toResponse(User u) {
         List<WorkforceMemberResponse.ProjectAssignmentItem> projects = new ArrayList<>();
-        for (ProjectAssignment a : assignmentRepository.findActiveByCompanyId(u.getCompanyId() == null ? -1L : u.getCompanyId())) {
-            if (a.getUser().getId().equals(u.getId())) {
-                projects.add(new WorkforceMemberResponse.ProjectAssignmentItem(a.getProject().getId(), a.getProject().getName(), a.getAssignmentRole()));
+        String mainProjectName = null;
+        if (u.getCompanyId() != null) {
+            for (ProjectAssignment a : assignmentRepository.findActiveByCompanyId(u.getCompanyId())) {
+                if (a.getUser().getId().equals(u.getId())) {
+                    projects.add(new WorkforceMemberResponse.ProjectAssignmentItem(a.getProject().getId(), a.getProject().getName(), a.getAssignmentRole()));
+                    if (mainProjectName == null) {
+                        mainProjectName = a.getProject().getName();
+                    }
+                }
             }
         }
-        return new WorkforceMemberResponse(u.getId(), fullName(u), u.getEmail(), u.getPhone(), primaryRole(u), u.isEnabled(), projects);
+
+        String companyName = "Platform";
+        if (u.getCompanyId() != null) {
+            companyName = companyRepository.findById(u.getCompanyId())
+                    .map(com.buildtrack.ai.entity.Company::getName).orElse("Platform");
+        }
+
+        return new WorkforceMemberResponse(
+                u.getId(),
+                fullName(u),
+                u.getEmail(),
+                u.getPhone(),
+                primaryRole(u),
+                u.isEnabled(),
+                u.getCompanyId(),
+                companyName,
+                mainProjectName,
+                projects
+        );
     }
 
     private boolean hasPersonnelRole(User u) {

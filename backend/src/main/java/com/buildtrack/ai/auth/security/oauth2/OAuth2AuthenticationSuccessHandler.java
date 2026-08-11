@@ -36,14 +36,16 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
     private String frontendUrl;
 
     @Override
+    @org.springframework.transaction.annotation.Transactional
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication)
             throws IOException, ServletException {
 
         OAuth2User oAuth2User = (OAuth2User) authentication.getPrincipal();
         String email = oAuth2User.getAttribute("email");
 
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new IllegalArgumentException("User not found after OAuth2 login"));
+        User user = userRepository.findByEmailIgnoreCase(email)
+                .orElseGet(() -> userRepository.findByEmail(email)
+                        .orElseThrow(() -> new IllegalArgumentException("User not found after OAuth2 login")));
 
         String mainRole = user.getRoles().stream().findFirst().map(Role::getRoleName).orElse("COMPANY_ADMIN");
         Map<String, Object> extraClaims = new HashMap<>();
@@ -68,6 +70,7 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
                 .queryParam("refreshToken", refreshToken.getToken())
                 .queryParam("email", user.getEmail())
                 .queryParam("role", mainRole)
+                .queryParam("provider", user.getProvider() != null ? user.getProvider().name() : "GOOGLE")
                 .build().toUriString();
 
         getRedirectStrategy().sendRedirect(request, response, targetUrl);

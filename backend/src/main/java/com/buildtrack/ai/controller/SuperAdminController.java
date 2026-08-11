@@ -55,6 +55,32 @@ public class SuperAdminController {
         return ResponseEntity.ok(ApiResponse.success(paymentRepository.findAllByOrderByPaymentDateDesc()));
     }
 
+    @GetMapping("/users")
+    public ResponseEntity<ApiResponse<java.util.List<Map<String, Object>>>> getAllUsers() {
+        tenantAccessService.requireSuperAdmin(tenantAccessService.currentUser());
+        java.util.List<User> users = userRepository.findAll();
+        Map<Long, String> companyNameMap = companyRepository.findAll().stream()
+                .collect(java.util.stream.Collectors.toMap(Company::getId, Company::getName, (a, b) -> a));
+
+        java.util.List<Map<String, Object>> result = users.stream().map(u -> {
+            Map<String, Object> map = new HashMap<>();
+            map.put("id", u.getId());
+            map.put("fullName", u.getFirstName() != null ? (u.getFirstName() + " " + (u.getLastName() != null ? u.getLastName() : "")).trim() : u.getEmail());
+            map.put("email", u.getEmail());
+            String roleName = u.getRoles().stream().findFirst().map(Role::getRoleName).orElse("WORKER");
+            map.put("role", roleName);
+            map.put("companyId", u.getCompanyId());
+            map.put("companyCode", u.getCompanyCode());
+            map.put("companyName", u.getCompanyId() != null ? companyNameMap.getOrDefault(u.getCompanyId(), "Platform") : "Platform");
+            map.put("enabled", u.isEnabled());
+            map.put("status", u.isEnabled() ? "ACTIVE" : "INACTIVE");
+            map.put("provider", u.getProvider() != null ? u.getProvider().name() : "LOCAL");
+            return map;
+        }).collect(java.util.stream.Collectors.toList());
+
+        return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
     @GetMapping("/companies")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getCompanies() {
         tenantAccessService.requireSuperAdmin(tenantAccessService.currentUser());

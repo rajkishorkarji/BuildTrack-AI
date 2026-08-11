@@ -18,6 +18,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
     private final UserRepository userRepository;
 
     @Override
+    @org.springframework.transaction.annotation.Transactional
     public OAuth2User loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {
         OAuth2User oAuth2User = super.loadUser(userRequest);
         return processOAuth2User(userRequest, oAuth2User);
@@ -30,7 +31,8 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             throw new OAuth2AuthenticationException("Email not provided from OAuth2 provider");
         }
 
-        Optional<User> userOptional = userRepository.findByEmail(googleUser.getEmail());
+        String email = googleUser.getEmail() != null ? googleUser.getEmail().trim() : "";
+        Optional<User> userOptional = userRepository.findByEmailIgnoreCase(email);
 
         if (userOptional.isPresent()) {
             User user = userOptional.get();

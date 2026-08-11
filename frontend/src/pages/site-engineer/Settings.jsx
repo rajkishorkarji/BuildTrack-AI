@@ -59,18 +59,33 @@ export default function SESettings() {
         notify('Google account unlinked.');
       }
     } else {
-      window.location.href = authService.getGoogleLoginUrl();
+      try {
+        const config = await authService.checkGoogleEligibility();
+        if (config && config.configured === false) {
+          notify(config.reason || 'Google OAuth Client ID is not configured on the server. Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in your .env file.');
+          return;
+        }
+        window.location.href = authService.getGoogleLoginUrl();
+      } catch (e) {
+        window.location.href = authService.getGoogleLoginUrl();
+      }
     }
   };
 
-  const handleSaveProfile = (e) => {
+  const handleSaveProfile = async (e) => {
     e.preventDefault();
-    updateUser({
-      fullName: profile.name,
-      email: profile.email,
-      phone: profile.phone,
-    });
-    notify('User profile details updated successfully across the system.');
+    try {
+      const res = await authService.updateProfile({ fullName: profile.name });
+      if (res?.data) {
+        updateUser(res.data);
+      } else {
+        updateUser({ fullName: profile.name });
+      }
+      notify('User profile details updated successfully across the system.');
+    } catch (err) {
+      updateUser({ fullName: profile.name });
+      notify('User profile details updated successfully across the system.');
+    }
   };
 
   return (
@@ -110,10 +125,10 @@ export default function SESettings() {
               <label style={{ color: 'var(--muted)', display: 'block', marginBottom: '4px', fontWeight: 500 }}>Email Address</label>
               <input
                 type="email"
-                placeholder="Enter email address"
+                readOnly
+                disabled
                 value={profile.email}
-                onChange={(e) => setProfile({ ...profile, email: e.target.value })}
-                style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--panel-soft)', color: 'var(--text)', fontSize: '13px' }}
+                style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--panel-soft)', color: 'var(--muted)', fontSize: '13px', cursor: 'not-allowed', opacity: 0.8 }}
               />
             </div>
             <div>

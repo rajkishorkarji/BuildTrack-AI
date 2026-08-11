@@ -134,11 +134,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 14px 16px;
+  padding: 12px 14px;
   background: var(--panel-soft);
   border: 1px solid var(--border);
   border-radius: 14px;
-  min-height: 64px;
+  min-height: 72px;
   box-shadow: var(--shadow-soft);
   transition: all 0.2s ease;
 }
@@ -149,9 +149,9 @@
 
 .brand-logo-full {
   max-width: 100%;
-  max-height: 28px;
+  max-height: 48px;
   width: auto;
-  height: 28px;
+  height: 48px;
   object-fit: contain;
   display: block;
 }
@@ -1659,7 +1659,7 @@
 }
 
 .sidebar-brand {
-  min-height: 62px;
+  min-height: 72px;
   padding: 6px 8px;
   background: transparent;
   border: 0;
@@ -1673,9 +1673,11 @@
 }
 
 .brand-logo-full {
-  width: min(100%, 194px);
-  max-height: 46px;
-  height: auto;
+  width: min(100%, 210px);
+  max-height: 48px;
+  height: 48px;
+  object-fit: contain;
+  display: block;
 }
 
 .sidebar-nav {

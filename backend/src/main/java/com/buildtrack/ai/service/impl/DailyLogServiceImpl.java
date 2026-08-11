@@ -66,6 +66,12 @@ public class DailyLogServiceImpl implements DailyLogService {
             .safetyNotes(request.safetyNotes()).weather(request.weather())
             .progressPercentage(request.progressPercentage()).status("SUBMITTED").build();
         DailyLog saved = dailyLogRepository.save(log);
+
+        if (request.progressPercentage() != null) {
+            project.setProgressPercentage(request.progressPercentage());
+            projectRepository.save(project);
+        }
+
         publish(saved, "DAILY_LOG_CREATED", "Daily log submitted for " + project.getName());
         return toResponse(saved);
     }
@@ -96,6 +102,7 @@ public class DailyLogServiceImpl implements DailyLogService {
     private void publish(DailyLog log, String event, String message) {
         Long companyId = log.getCompany().getId();
         realtimePublisher.publishForCompany(companyId, "reports", event.toLowerCase(Locale.ROOT), log.getId());
+        realtimePublisher.publishForCompany(companyId, "projects", "project_updated", log.getProject().getId());
         domainEventPublisher.publish(event, companyId, "system", "DAILY_LOG", log.getId(), message);
     }
     private DailyLogResponse toResponse(DailyLog l) {

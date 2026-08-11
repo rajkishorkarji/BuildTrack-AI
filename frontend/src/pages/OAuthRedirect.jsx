@@ -12,6 +12,7 @@ export default function OAuthRedirect() {
     const refreshToken = searchParams.get('refreshToken');
     const email = searchParams.get('email');
     const role = searchParams.get('role') || 'COMPANY_ADMIN';
+    const provider = searchParams.get('provider') || 'GOOGLE';
 
     if (accessToken && refreshToken) {
       localStorage.setItem('accessToken', accessToken);
@@ -22,6 +23,7 @@ export default function OAuthRedirect() {
         role: role.toUpperCase(),
         roleLabel: role.replace(/_/g, ' '),
         fullName: email ? email.split('@')[0] : 'Google User',
+        provider: provider,
       });
 
       navigate('/dashboard', { replace: true });

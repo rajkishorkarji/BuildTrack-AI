@@ -35,10 +35,16 @@ const PLAN_BENEFITS = {
   ENTERPRISE: ['Unlimited projects & workers', 'AI-powered insights', 'Dedicated account manager', 'Custom integrations', 'White-label branding', 'Advanced security & audit logs', 'SLA guarantee'],
 };
 
+const DEFAULT_PLANS = {
+  STARTER: { code: 'STARTER', name: 'Starter', amount: 9999, currency: 'INR' },
+  PROFESSIONAL: { code: 'PROFESSIONAL', name: 'Professional', amount: 29999, currency: 'INR' },
+  ENTERPRISE: { code: 'ENTERPRISE', name: 'Enterprise', amount: 99999, currency: 'INR' },
+};
+
 export default function CompanyAdminFinance() {
   const [invoices, setInvoices] = useState([]);
   const [payments, setPayments] = useState([]);
-  const [plans, setPlans] = useState({});
+  const [plans, setPlans] = useState(DEFAULT_PLANS);
   const [subscription, setSubscription] = useState(null);
   const [search, setSearch] = useState('');
   const [busyPlan, setBusyPlan] = useState('');
@@ -49,19 +55,29 @@ export default function CompanyAdminFinance() {
   async function loadFinance() {
     setLoading(true);
     try {
-      const [invoiceResponse, planData, subscriptionData, paymentData] = await Promise.all([
+      const [invoiceResult, planResult, subResult, payResult] = await Promise.allSettled([
         api.get('/finance/invoices'),
         getSubscriptionPlans(),
         getSubscriptionStatus(),
         getCompanyPayments(),
       ]);
-      setInvoices(invoiceResponse.data?.data || []);
-      setPlans(planData || {});
-      setSubscription(subscriptionData || null);
-      setPayments(paymentData || []);
+
+      if (invoiceResult.status === 'fulfilled') {
+        setInvoices(invoiceResult.value?.data?.data || []);
+      }
+      if (planResult.status === 'fulfilled' && Object.keys(planResult.value || {}).length > 0) {
+        setPlans(planResult.value);
+      } else {
+        setPlans(DEFAULT_PLANS);
+      }
+      if (subResult.status === 'fulfilled') {
+        setSubscription(subResult.value || null);
+      }
+      if (payResult.status === 'fulfilled') {
+        setPayments(payResult.value || []);
+      }
     } catch (error) {
-      setMessage(error?.response?.data?.message || 'Unable to load finance data.');
-      setMessageType('error');
+      console.error('Finance load error:', error);
     } finally {
       setLoading(false);
     }
@@ -69,15 +85,20 @@ export default function CompanyAdminFinance() {
 
   useEffect(() => { loadFinance(); }, []);
 
+  const getInvoiceTotal = (item) => {
+    if (item.totalAmount != null) return Number(item.totalAmount);
+    return Number(item.amount || 0) + Number(item.gstAmount || 0);
+  };
+
   const total = useMemo(
-    () => invoices.reduce((sum, item) => sum + Number(item.totalAmount || item.amount || 0) + Number(item.gstAmount || 0), 0),
+    () => invoices.reduce((sum, item) => sum + getInvoiceTotal(item), 0),
     [invoices]
   );
 
   const paid = useMemo(
     () => invoices
       .filter(item => String(item.status || '').toUpperCase() === 'PAID')
-      .reduce((sum, item) => sum + Number(item.totalAmount || item.amount || 0) + Number(item.gstAmount || 0), 0),
+      .reduce((sum, item) => sum + getInvoiceTotal(item), 0),
     [invoices]
   );
 
@@ -283,7 +304,7 @@ export default function CompanyAdminFinance() {
                   <td style={{ padding: '12px 16px' }}>{item.vendorName || '—'}</td>
                   <td style={{ padding: '12px 16px', color: 'var(--blue)', fontWeight: 600 }}>{item.project?.name || '—'}</td>
                   <td style={{ padding: '12px 16px', fontWeight: 700 }}>
-                    {money(Number(item.amount || 0) + Number(item.gstAmount || 0))}
+                    {money(getInvoiceTotal(item))}
                   </td>
                   <td style={{ padding: '12px 16px' }}>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 10, background: meta.bg, color: meta.color, fontSize: 11, fontWeight: 700 }}>

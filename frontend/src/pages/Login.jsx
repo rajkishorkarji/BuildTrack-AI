@@ -776,9 +776,7 @@ export default function Login() {
               color: 'var(--muted)',
             }}
           >
-            New users cannot create accounts directly.
-            Accounts are created through the
-            BuildTrack AI invitation process.
+            Your complete workspace for smarter construction management, collaboration and real-time project insights.
           </p>
         </div>
 

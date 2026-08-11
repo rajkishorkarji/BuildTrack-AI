@@ -60,6 +60,11 @@ export const authService = {
         return response.data;
     },
 
+    async updateProfile(data) {
+        const response = await api.put('/auth/profile', data);
+        return response.data;
+    },
+
     getGoogleLoginUrl() {
     const baseUrl =
         import.meta.env.VITE_API_BASE_URL || '/api';

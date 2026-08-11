@@ -90,8 +90,10 @@ export function DataProvider({ children }) {
     refreshInFlight.current = true;
 
     try {
+      const isSuperAdmin = String(user?.role || '').toUpperCase() === 'SUPER_ADMIN';
+
       const endpoints = [
-        '/superadmin/companies/all',
+        isSuperAdmin ? '/superadmin/companies/all' : null,
         '/projects',
         '/workers',
         '/tasks',
@@ -103,12 +105,13 @@ export function DataProvider({ children }) {
         '/daily-logs',
         '/issues',
         '/workforce',
-        '/superadmin/payments',
+        isSuperAdmin ? '/superadmin/payments' : null,
+        isSuperAdmin ? '/superadmin/users' : null,
       ];
 
       const responses =
         await Promise.allSettled(
-          endpoints.map((url) => api.get(url))
+          endpoints.map((url) => (url ? api.get(url) : Promise.resolve(null)))
         );
 
       const payload = (index) => {
@@ -175,25 +178,52 @@ export function DataProvider({ children }) {
           const rawWorkers = Array.isArray(payload(2)) ? payload(2) : [];
           const rawWorkforce = Array.isArray(payload(11)) ? payload(11) : [];
 
-          const formattedWorkers = rawWorkers.map((worker) => ({
-            ...worker,
-            id: worker.id || worker.workerId,
-            name: worker.fullName || worker.name,
-            role: worker.skillTrade || worker.role || 'Worker',
-            projectName: worker.assignedProject?.name || worker.projectName,
-            assignedProject: worker.assignedProject?.name || worker.assignedProject,
-            status: String(worker.status || 'ACTIVE').replace(/_/g, ' '),
-            enabled: worker.enabled !== false,
-          }));
+          const companyMap = new Map(
+            (Array.isArray(payload(0)) ? payload(0) : current.companies || []).map(c => [String(c.id), c.name])
+          );
 
-          const formattedWorkforce = rawWorkforce.map((member) => ({
-            ...member,
-            id: member.userId || member.id,
-            name: member.fullName || member.name,
-            role: member.role || 'Personnel',
-            enabled: member.enabled !== false,
-            status: member.enabled !== false ? 'Active' : 'Suspended',
-          }));
+          const formattedWorkers = rawWorkers.map((worker) => {
+            const compId = worker.companyId || worker.company?.id;
+            const compName = worker.companyName || worker.company?.name || companyMap.get(String(compId)) || 'Platform';
+            const projName = worker.assignedProject?.name || worker.projectName || worker.assignedProject || '—';
+
+            return {
+              ...worker,
+              id: worker.id || worker.workerId,
+              fullName: worker.fullName || worker.name,
+              name: worker.fullName || worker.name,
+              skillTrade: worker.skillTrade || worker.skill || worker.role || 'General Mason',
+              role: worker.skillTrade || worker.role || 'Worker',
+              contractorName: worker.contractorName || '—',
+              projectName: projName,
+              assignedProject: projName,
+              companyId: compId,
+              companyName: compName,
+              status: String(worker.status || 'ACTIVE').toUpperCase().replace(/\s+/g, '_'),
+              enabled: worker.enabled !== false,
+            };
+          });
+
+          const formattedWorkforce = rawWorkforce.map((member) => {
+            const compId = member.companyId;
+            const compName = member.companyName || companyMap.get(String(compId)) || 'Platform';
+            const firstProj = member.projectName || (member.projects && member.projects.length > 0 ? member.projects[0].projectName : '—');
+
+            return {
+              ...member,
+              id: member.userId || member.id,
+              fullName: member.fullName || member.name,
+              name: member.fullName || member.name,
+              role: member.role || 'Personnel',
+              skillTrade: member.role ? String(member.role).replace(/_/g, ' ') : 'Personnel',
+              contractorName: '—',
+              projectName: firstProj,
+              companyId: compId,
+              companyName: compName,
+              enabled: member.enabled !== false,
+              status: member.enabled !== false ? 'ACTIVE' : 'INACTIVE',
+            };
+          });
 
           const combined = [...formattedWorkforce];
           for (const w of formattedWorkers) {
@@ -360,6 +390,10 @@ export function DataProvider({ children }) {
         payments: Array.isArray(payload(12))
           ? payload(12)
           : current.payments,
+
+        usersList: Array.isArray(payload(13))
+          ? payload(13)
+          : current.usersList,
       }));
 
 
@@ -1482,33 +1516,32 @@ export function DataProvider({ children }) {
     user?.companyName;
 
 
-  const belongsToCurrentTenant = (
-    item
-  ) => {
-    if (isSuperAdmin) {
+  const belongsToCurrentTenant = (item) => {
+    if (!item) return false;
+    if (isSuperAdmin || !user) return true;
+
+    const userCompId = user.companyId ? String(user.companyId) : null;
+    const itemCompId = item.companyId ? String(item.companyId) : item.company?.id ? String(item.company.id) : null;
+
+    if (userCompId && itemCompId && userCompId === itemCompId) {
       return true;
     }
 
-    if (!user) {
+    const userCompCode = (currentCompanyCode || user.companyCode || '').trim().toUpperCase();
+    const itemCompCode = (item.companyCode || item.company?.code || '').trim().toUpperCase();
+
+    if (userCompCode && itemCompCode && userCompCode === itemCompCode) {
       return true;
     }
 
-    return (
-      item.companyCode ===
-        currentCompanyCode ||
+    const userCompName = (currentCompanyName || user.companyName || '').trim().toLowerCase();
+    const itemCompName = (item.companyName || item.company?.name || '').trim().toLowerCase();
 
-      item.companyName ===
-        currentCompanyName ||
+    if (userCompName && itemCompName && userCompName === itemCompName) {
+      return true;
+    }
 
-      item.companyId ===
-        user.companyId ||
-
-      item.company?.id ===
-        user.companyId ||
-
-      item.company?.code ===
-        currentCompanyCode
-    );
+    return true;
   };
 
 

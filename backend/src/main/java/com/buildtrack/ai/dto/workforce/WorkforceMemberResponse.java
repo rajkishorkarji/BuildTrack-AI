@@ -9,6 +9,9 @@ public record WorkforceMemberResponse(
         String phone,
         String role,
         boolean enabled,
+        Long companyId,
+        String companyName,
+        String projectName,
         List<ProjectAssignmentItem> projects
 ) {
     public record ProjectAssignmentItem(Long projectId, String projectName, String assignmentRole) {}
