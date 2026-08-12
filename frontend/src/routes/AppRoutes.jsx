@@ -55,6 +55,7 @@ import ContractorWorkforce from '../pages/contractor/Workforce';
 import ContractorAttendance from '../pages/contractor/Attendance';
 import ContractorTasks from '../pages/contractor/Tasks';
 import ContractorMaterials from '../pages/contractor/Materials';
+import ContractorEquipment from '../pages/contractor/Equipment';
 import ContractorProjects from '../pages/contractor/Projects';
 import ContractorSettings from '../pages/contractor/Settings';
 
@@ -197,6 +198,7 @@ function RoleEquipment() {
     COMPANY_ADMIN: CompanyAdminEquipment,
     PROJECT_MANAGER: PMEquipment,
     SITE_ENGINEER: SEEquipment,
+    CONTRACTOR: ContractorEquipment,
     WORKER: WorkerEquipment,
   };
   const Component = map[String(user?.role || '').toUpperCase()];
@@ -385,6 +387,8 @@ export default function AppRoutes() {
             </ProtectedPage>
           }
         />
+        <Route path="/task-management" element={<Navigate to="/tasks" replace />} />
+        <Route path="/safety" element={<Navigate to="/site-issues" replace />} />
 
         <Route
           path="/equipment"

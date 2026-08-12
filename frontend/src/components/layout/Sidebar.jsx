@@ -59,7 +59,7 @@ const roleMenus = {
     { to: '/projects', label: 'Assigned Projects', icon: FolderKanban, permission: PERMISSIONS.PROJECT_VIEW },
     { to: '/workforce', label: 'Team', icon: Users, permission: PERMISSIONS.WORKFORCE_VIEW },
     { to: '/attendance', label: 'Attendance', icon: Clock, permission: PERMISSIONS.ATTENDANCE_VIEW },
-    { to: '/task-management', label: 'Tasks', icon: CheckSquare, permission: PERMISSIONS.TASK_MANAGE },
+    { to: '/tasks', label: 'Tasks', icon: CheckSquare, permission: PERMISSIONS.TASK_MANAGE },
     { to: '/equipment', label: 'Equipment', icon: ShieldCheck, permission: PERMISSIONS.EQUIPMENT_VIEW },
     { to: '/materials', label: 'Materials', icon: Package, permission: PERMISSIONS.MATERIAL_VIEW },
     { to: '/site-issues', label: 'Issues', icon: AlertTriangle, permission: PERMISSIONS.SITE_ISSUE_VIEW },

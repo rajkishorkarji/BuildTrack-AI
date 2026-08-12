@@ -47,7 +47,7 @@ public class TaskController {
     }
 
     @PutMapping("/{id}/assignee/{userId}")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','COMPANY_ADMIN','PROJECT_MANAGER','SITE_ENGINEER')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','COMPANY_ADMIN','PROJECT_MANAGER','SITE_ENGINEER','CONTRACTOR')")
     public ResponseEntity<ApiResponse<TaskResponse>> assign(@PathVariable Long id, @PathVariable Long userId) {
         return ResponseEntity.ok(ApiResponse.success(taskService.assignTask(id, userId, tenantAccessService.currentUser())));
     }

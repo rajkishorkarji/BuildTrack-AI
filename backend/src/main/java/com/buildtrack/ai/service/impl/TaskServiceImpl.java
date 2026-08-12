@@ -99,7 +99,7 @@ public class TaskServiceImpl implements TaskService {
     public TaskResponse assignTask(Long taskId, Long assigneeUserId, User actor) {
         TaskEntity task = taskRepository.findById(taskId).orElseThrow(() -> new ResourceNotFoundException("Task not found"));
         String role = primaryRole(actor);
-        if (!("SUPER_ADMIN".equals(role) || "COMPANY_ADMIN".equals(role) || "PROJECT_MANAGER".equals(role) || "SITE_ENGINEER".equals(role)))
+        if (!("SUPER_ADMIN".equals(role) || "COMPANY_ADMIN".equals(role) || "PROJECT_MANAGER".equals(role) || "SITE_ENGINEER".equals(role) || "CONTRACTOR".equals(role)))
             throw new BadRequestException("Your role cannot assign tasks");
         assertProjectAccess(task.getProject(), actor);
         task.setAssignedUser(resolveAssignee(task.getProject(), assigneeUserId, actor));
