@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
-import { Plus, Search, Wrench, RefreshCw, AlertTriangle, CheckCircle2, Settings2 } from 'lucide-react';
+import { useEffect, useState, useMemo } from 'react';
+import { Plus, Search, Wrench, RefreshCw, AlertTriangle, CheckCircle2, Settings2, X } from 'lucide-react';
 import equipmentService from '../../services/equipmentService';
 import projectService from '../../services/projectService';
 import workforceService from '../../services/workforceService';
+import { realtimeBus } from '../../services/api';
 
 const CATEGORIES = ['Heavy Machinery', 'Vehicle', 'Power Tool', 'Safety Gear', 'Lifting Equipment', 'Earthwork Equipment'];
 
@@ -61,9 +62,9 @@ export default function CompanyAdminEquipment() {
         projectService.list(),
         workforceService.list(),
       ]);
-      setEquipment(eq);
-      setProjects(proj);
-      setWorkforce(wf);
+      setEquipment(eq || []);
+      setProjects(proj || []);
+      setWorkforce(wf || []);
     } catch (e) {
       setError(e?.response?.data?.message || 'Unable to load equipment data. Please check your connection.');
     } finally {
@@ -71,7 +72,38 @@ export default function CompanyAdminEquipment() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    const unsub = realtimeBus.subscribe('SERVER_UPDATE', () => load());
+    return () => unsub();
+  }, []);
+
+  const getProjectName = (eq) => {
+    if (eq.project?.name) return eq.project.name;
+    if (eq.projectName) return eq.projectName;
+    const projId = eq.projectId || eq.project?.id;
+    if (projId && projects.length > 0) {
+      const proj = projects.find(p => p.id === Number(projId));
+      if (proj?.name) return proj.name;
+    }
+    return '—';
+  };
+
+  const getAssignedUserName = (eq) => {
+    if (eq.assignedUser) {
+      const name = `${eq.assignedUser.firstName || ''} ${eq.assignedUser.lastName || ''}`.trim() || eq.assignedUser.fullName || eq.assignedUser.email;
+      if (name) return name;
+    }
+    if (eq.assignedUserName) return eq.assignedUserName;
+    const userId = eq.assignedUserId || eq.assignedUser?.id;
+    if (userId && workforce.length > 0) {
+      const member = workforce.find(w => w.id === Number(userId) || w.userId === Number(userId));
+      if (member) {
+        return `${member.firstName || member.fullName || member.name || ''} ${member.lastName || ''}`.trim();
+      }
+    }
+    return 'Unassigned';
+  };
 
   const create = async (e) => {
     e.preventDefault();
@@ -116,7 +148,7 @@ export default function CompanyAdminEquipment() {
       await equipmentService.assign(assignModal.id, Number(assignUserId));
       setAssignModal(null);
       setAssignUserId('');
-      setSuccess('Equipment assigned successfully!');
+      setSuccess('Equipment assigned successfully! Syncing real-time updates.');
       setTimeout(() => setSuccess(''), 3000);
       await load();
     } catch (e) {
@@ -124,15 +156,19 @@ export default function CompanyAdminEquipment() {
     }
   };
 
-  const filtered = equipment.filter(x => {
-    const matchSearch = [x.name, x.serialNumber, x.category, x.project?.name].join(' ').toLowerCase().includes(search.toLowerCase());
-    const matchStatus = filterStatus === 'ALL' || String(x.status || '').toUpperCase() === filterStatus;
-    return matchSearch && matchStatus;
-  });
+  const filtered = useMemo(() => {
+    return equipment.filter(x => {
+      const projName = getProjectName(x);
+      const assignee = getAssignedUserName(x);
+      const matchSearch = [x.name, x.serialNumber, x.category, projName, assignee].join(' ').toLowerCase().includes(search.toLowerCase());
+      const matchStatus = filterStatus === 'ALL' || String(x.status || '').toUpperCase() === filterStatus;
+      return matchSearch && matchStatus;
+    });
+  }, [equipment, search, filterStatus, projects, workforce]);
 
   const operationalCount = equipment.filter(x => String(x.status || '').toUpperCase() === 'OPERATIONAL').length;
   const maintenanceCount = equipment.filter(x => String(x.status || '').toUpperCase() === 'IN_MAINTENANCE').length;
-  const assignedCount = equipment.filter(x => x.assignedUser).length;
+  const assignedCount = equipment.filter(x => x.assignedUser || x.assignedUserId || x.assignedUserName).length;
 
   return (
     <div className="dashboard-page">
@@ -226,6 +262,8 @@ export default function CompanyAdminEquipment() {
               )}
               {!loading && filtered.map(x => {
                 const meta = getStatusMeta(x.status);
+                const projName = getProjectName(x);
+                const assignedName = getAssignedUserName(x);
                 return (
                   <tr key={x.id} style={{ borderTop: '1px solid var(--border)' }}>
                     <td style={{ padding: '14px 16px' }}>
@@ -233,10 +271,10 @@ export default function CompanyAdminEquipment() {
                       <div style={{ fontSize: 11, color: 'var(--blue)', marginTop: 2 }}>{x.serialNumber || `EQ-${String(x.id).padStart(4,'0')}`}</div>
                     </td>
                     <td style={{ padding: 14, color: 'var(--muted)' }}>{x.category || '—'}</td>
-                    <td style={{ padding: 14 }}>{x.project?.name || <span style={{ color: 'var(--muted)' }}>—</span>}</td>
+                    <td style={{ padding: 14, color: 'var(--blue)', fontWeight: 600 }}>{projName}</td>
                     <td style={{ padding: 14 }}>
-                      {x.assignedUser
-                        ? <span style={{ fontWeight: 600 }}>{x.assignedUser.firstName || ''} {x.assignedUser.lastName || ''}</span>
+                      {assignedName !== 'Unassigned'
+                        ? <span style={{ fontWeight: 600, color: 'var(--text)' }}>{assignedName}</span>
                         : <span style={{ color: 'var(--muted)' }}>Unassigned</span>}
                     </td>
                     <td style={{ padding: 14, fontWeight: 700 }}>
@@ -277,8 +315,15 @@ export default function CompanyAdminEquipment() {
       {open && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.65)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
           <form className="panel" onSubmit={create} style={{ width: '100%', maxWidth: 540, padding: 30, borderRadius: 16 }}>
-            <h2 style={{ fontSize: 22, fontWeight: 800, marginBottom: 6 }}>Register Equipment</h2>
-            <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 22 }}>Add a new asset to the company fleet.</p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <div>
+                <h2 style={{ fontSize: 22, fontWeight: 800, margin: 0 }}>Register Equipment</h2>
+                <p style={{ color: 'var(--muted)', fontSize: 13, margin: '4px 0 0' }}>Add a new asset to the company fleet.</p>
+              </div>
+              <button type="button" className="secondary-button" onClick={() => setOpen(false)} style={{ padding: 6 }}>
+                <X size={16} />
+              </button>
+            </div>
 
             {error && (
               <div style={{ marginBottom: 16, padding: '10px 14px', background: 'rgba(239,68,68,0.1)', borderRadius: 8, color: 'var(--red)', fontSize: 13 }}>
@@ -327,19 +372,30 @@ export default function CompanyAdminEquipment() {
       {/* Assign User Modal */}
       {assignModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.65)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
-          <div className="panel" style={{ width: '100%', maxWidth: 420, padding: 28, borderRadius: 16 }}>
-            <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 6 }}>Assign Equipment</h2>
-            <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 20 }}>Assign <strong>{assignModal.name}</strong> to a workforce member.</p>
+          <div className="panel" style={{ width: '100%', maxWidth: 440, padding: 28, borderRadius: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <div>
+                <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>Assign Equipment</h2>
+                <p style={{ color: 'var(--muted)', fontSize: 13, margin: '4px 0 0' }}>Assign <strong>{assignModal.name}</strong> to a team member.</p>
+              </div>
+              <button type="button" className="secondary-button" onClick={() => setAssignModal(null)} style={{ padding: 6 }}>
+                <X size={16} />
+              </button>
+            </div>
+
             <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--muted)' }}>Select Personnel</label>
             <select style={{ ...INPUT, cursor: 'pointer', marginBottom: 20 }} value={assignUserId} onChange={e => setAssignUserId(e.target.value)}>
               <option value="">Select a team member</option>
               {workforce.map(w => (
-                <option key={w.id} value={w.id}>{w.firstName || w.fullName || w.name} {w.lastName || ''} — {w.role || 'Worker'}</option>
+                <option key={w.id || w.userId} value={w.userId || w.id}>
+                  {w.firstName || w.fullName || w.name} {w.lastName || ''} — ({w.role ? String(w.role).replace(/_/g, ' ') : 'Personnel'})
+                </option>
               ))}
             </select>
+
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button type="button" className="secondary-button" onClick={() => setAssignModal(null)}>Cancel</button>
-              <button type="button" className="primary-button" disabled={!assignUserId} onClick={handleAssign}>Assign</button>
+              <button type="button" className="primary-button" disabled={!assignUserId} onClick={handleAssign}>Assign Asset</button>
             </div>
           </div>
         </div>

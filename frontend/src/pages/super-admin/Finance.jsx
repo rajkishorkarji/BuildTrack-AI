@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useData } from '../../context/DataContext';
-import { CreditCard, TrendingUp, Download, Building2, BarChart3, Receipt, Search, CheckCircle2, Clock, AlertTriangle, RefreshCw } from 'lucide-react';
+import { realtimeBus } from '../../services/api';
+import { Download, Building2, Receipt, Search } from 'lucide-react';
 import { formatINR } from '../../utils/currency';
 
 const STATUS_META = {
@@ -15,12 +16,33 @@ function getStatusMeta(status) {
 }
 
 export default function SuperAdminFinance() {
-  const { finances = [], subscriptions = [], companies = [], payments = [] } = useData();
+  const { finances = [], projects = [], companies = [], payments = [], refresh } = useData();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
 
+  useEffect(() => {
+    const unsub = realtimeBus.subscribe('SERVER_UPDATE', () => refresh && refresh());
+    return () => unsub();
+  }, [refresh]);
+
   const PLAN_PRICES = { STARTER: 9999, PROFESSIONAL: 29999, ENTERPRISE: 99999 };
-  const completedPayments = (payments || []).filter(p => String(p.status || '').toUpperCase() === 'COMPLETED');
+
+  const getCompanyName = (f) => {
+    if (f.companyName && f.companyName !== '—') return f.companyName;
+    if (f.company?.name) return f.company.name;
+    if (f.project?.company?.name) return f.project.company.name;
+    if (f.projectId && projects.length > 0) {
+      const proj = projects.find(p => p.id === f.projectId);
+      if (proj?.companyName) return proj.companyName;
+    }
+    if (companies.length === 1) return companies[0].name;
+    return '—';
+  };
+
+  const completedPayments = (payments || []).filter(p => {
+    const s = String(p.status || '').toUpperCase();
+    return s === 'COMPLETED' || s === 'CAPTURED' || s === 'PAID' || s === 'SUCCESS';
+  });
   const paidSubscriptionRevenue = completedPayments.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
 
   const activeCompanies = (companies || []).filter(c => String(c.status || '').toUpperCase() === 'ACTIVE');
@@ -33,12 +55,16 @@ export default function SuperAdminFinance() {
     .reduce((s, f) => s + (parseFloat(f.amount || f.totalAmount) || 0), 0);
 
   const activeSubscriptions = activeCompanies.length;
+  const paidInvoiceCount = finances.filter(f => String(f.status || '').toUpperCase() === 'PAID').length;
+  const paidCount = completedPayments.length > 0 ? completedPayments.length + paidInvoiceCount : activeCompanies.length + paidInvoiceCount;
 
   const filtered = finances.filter(f => {
+    const cName = getCompanyName(f);
     const matchSearch =
       (f.invoiceNo || f.invoiceNumber || '').toLowerCase().includes(search.toLowerCase()) ||
-      (f.companyName || f.company?.name || '').toLowerCase().includes(search.toLowerCase()) ||
-      (f.vendorName || '').toLowerCase().includes(search.toLowerCase());
+      cName.toLowerCase().includes(search.toLowerCase()) ||
+      (f.vendorName || '').toLowerCase().includes(search.toLowerCase()) ||
+      (f.projectName || '').toLowerCase().includes(search.toLowerCase());
     const matchStatus = statusFilter === 'ALL' || String(f.status || '').toUpperCase() === statusFilter;
     return matchSearch && matchStatus;
   });
@@ -48,7 +74,7 @@ export default function SuperAdminFinance() {
       finances.map(f => [
         f.invoiceNo || f.invoiceNumber || '',
         f.amount || f.totalAmount || 0,
-        f.companyName || f.company?.name || '',
+        getCompanyName(f),
         f.status || '',
         f.date || f.createdAt || 'Today',
       ].join(',')).join('\n');
@@ -65,7 +91,6 @@ export default function SuperAdminFinance() {
           <p className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--blue)', fontWeight: 700 }}>
             <Receipt size={14} /> Finance
           </p>
-          <h1>Platform Revenue & Billing</h1>
         </div>
         <button type="button" className="secondary-button" onClick={exportCsv}>
           <Download size={15} /> Export Revenue CSV
@@ -76,7 +101,7 @@ export default function SuperAdminFinance() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginTop: '20px' }}>
         {[
           { label: 'Total Platform Billed', value: formatINR(totalPlatformBilled), color: 'var(--blue)', sub: `${finances.length} invoices` },
-          { label: 'Collected (Paid)', value: formatINR(totalPaid), color: 'var(--green)', sub: `${finances.filter(f => String(f.status || '').toUpperCase() === 'PAID').length} paid` },
+          { label: 'Collected (Paid)', value: formatINR(totalPaid), color: 'var(--green)', sub: `${paidCount} paid transaction${paidCount !== 1 ? 's' : ''}` },
           { label: 'Outstanding (Pending)', value: formatINR(totalPending), color: 'var(--orange)', sub: `${finances.filter(f => String(f.status || '').toUpperCase() !== 'PAID').length} unpaid` },
           { label: 'Active Subscriptions', value: activeSubscriptions, color: 'var(--purple)', sub: `of ${companies.length} tenants` },
         ].map(({ label, value, color, sub }) => (
@@ -94,23 +119,37 @@ export default function SuperAdminFinance() {
           <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
             <Building2 size={16} style={{ color: 'var(--blue)' }} /> Revenue by Tenant Company
           </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {companies.slice(0, 8).map(c => {
-              const companyTotal = finances
-                .filter(f => (f.companyName || f.company?.name || '') === c.name)
+              const invoiceRevenue = finances
+                .filter(f => {
+                  const compName = getCompanyName(f);
+                  return compName === c.name || f.companyId === c.id;
+                })
                 .reduce((s, f) => s + (parseFloat(f.amount || f.totalAmount) || 0), 0);
-              const maxRevenue = Math.max(...companies.map(co =>
-                finances.filter(f => (f.companyName || f.company?.name || '') === co.name)
-                  .reduce((s, f) => s + (parseFloat(f.amount || f.totalAmount) || 0), 0)
-              ), 1);
-              const pct = Math.round((companyTotal / maxRevenue) * 100);
+              const subRevenue = PLAN_PRICES[String(c.plan || '').toUpperCase()] || 0;
+              const companyTotal = invoiceRevenue > 0 ? invoiceRevenue + subRevenue : subRevenue;
+
+              const maxRevenue = Math.max(...companies.map(co => {
+                const invRev = finances
+                  .filter(f => getCompanyName(f) === co.name || f.companyId === co.id)
+                  .reduce((s, f) => s + (parseFloat(f.amount || f.totalAmount) || 0), 0);
+                const sRev = PLAN_PRICES[String(co.plan || '').toUpperCase()] || 0;
+                return invRev > 0 ? invRev + sRev : sRev;
+              }), 1);
+
+              const pct = Math.min(100, Math.max(15, Math.round((companyTotal / maxRevenue) * 100)));
               return (
                 <div key={c.id || c.name} style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 13 }}>
-                  <div style={{ minWidth: 160, color: 'var(--text)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
-                  <div style={{ flex: 1, height: 7, background: 'var(--panel-soft)', borderRadius: 4, overflow: 'hidden' }}>
+                  <div style={{ minWidth: 160, color: 'var(--text)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {c.name}
+                  </div>
+                  <div style={{ flex: 1, height: 8, background: 'var(--panel-soft)', borderRadius: 4, overflow: 'hidden' }}>
                     <div style={{ width: `${pct}%`, height: '100%', background: 'var(--blue)', borderRadius: 4, transition: 'width 0.5s' }} />
                   </div>
-                  <div style={{ minWidth: 100, textAlign: 'right', fontWeight: 700, color: 'var(--blue)' }}>{formatINR(companyTotal)}</div>
+                  <div style={{ minWidth: 110, textAlign: 'right', fontWeight: 700, color: 'var(--blue)' }}>
+                    {formatINR(companyTotal)}
+                  </div>
                 </div>
               );
             })}
@@ -162,6 +201,7 @@ export default function SuperAdminFinance() {
                 const date = f.date || f.createdAt
                   ? new Date(f.date || f.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
                   : '—';
+                const compName = getCompanyName(f);
                 return (
                   <tr key={f.id || i} style={{ borderBottom: '1px solid var(--border)' }}>
                     <td style={{ padding: '12px 18px', fontWeight: 700 }}>
@@ -169,7 +209,7 @@ export default function SuperAdminFinance() {
                         {f.invoiceNo || f.invoiceNumber || '—'}
                       </code>
                     </td>
-                    <td style={{ padding: '12px', color: 'var(--blue)', fontWeight: 600 }}>{f.companyName || f.company?.name || '—'}</td>
+                    <td style={{ padding: '12px', color: 'var(--blue)', fontWeight: 600 }}>{compName}</td>
                     <td style={{ padding: '12px', fontWeight: 700, color: 'var(--green)' }}>{formatINR(f.amount || f.totalAmount)}</td>
                     <td style={{ padding: '12px' }}>
                       <span style={{ padding: '3px 10px', borderRadius: '10px', fontSize: '11px', fontWeight: 700, background: meta.bg, color: meta.color }}>

@@ -116,7 +116,7 @@ export default function CompanyAdminWorkforce() {
         </select>
       </div>
 
-      <div className="panel" style={{ marginTop: 16, padding: 0, overflow: 'auto' }}>
+      <div className="panel" style={{ marginTop: 20, padding: 0, overflow: 'auto' }}>
         {loading ? 'Loading…' : (
           <table className="data-table">
             <thead>

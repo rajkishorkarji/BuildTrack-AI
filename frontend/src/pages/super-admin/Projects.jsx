@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useData } from '../../context/DataContext';
+import { realtimeBus } from '../../services/api';
 import { FolderKanban, Search, Building2, UserCheck } from 'lucide-react';
 import { formatINR } from '../../utils/currency';
 
@@ -19,14 +20,43 @@ function getStatusMeta(status) {
 }
 
 export default function SuperAdminProjects() {
-  const { projects = [] } = useData();
+  const { projects = [], usersList = [], companies = [], refresh } = useData();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
 
+  useEffect(() => {
+    const unsub = realtimeBus.subscribe('SERVER_UPDATE', () => refresh && refresh());
+    return () => unsub();
+  }, [refresh]);
+
+  const pmMap = useMemo(() => {
+    const map = new Map();
+    (usersList || []).forEach(u => {
+      const role = String(u.role || '').toUpperCase();
+      if (role === 'PROJECT_MANAGER') {
+        const compId = u.companyId ? String(u.companyId) : null;
+        const compName = u.companyName ? String(u.companyName).trim().toLowerCase() : null;
+        const pmName = u.fullName || u.name || u.email;
+        if (compId) map.set(compId, pmName);
+        if (compName) map.set(compName, pmName);
+      }
+    });
+    return map;
+  }, [usersList]);
+
+  const getPMName = (p) => {
+    if (p.pmName && p.pmName !== '—') return p.pmName;
+    const compId = p.companyId || p.company?.id ? String(p.companyId || p.company?.id) : null;
+    const compName = p.companyName || p.company?.name ? String(p.companyName || p.company?.name).trim().toLowerCase() : null;
+    return (compId ? pmMap.get(compId) : null) || (compName ? pmMap.get(compName) : null) || '—';
+  };
+
   const filtered = projects.filter(p => {
+    const pmName = getPMName(p);
     const matchSearch =
       (p.name || '').toLowerCase().includes(search.toLowerCase()) ||
       (p.companyName || '').toLowerCase().includes(search.toLowerCase()) ||
+      (pmName || '').toLowerCase().includes(search.toLowerCase()) ||
       (p.code || '').toLowerCase().includes(search.toLowerCase());
     const normalStatus = String(p.status || '').toUpperCase().replace(/\s+/g, '_');
     const matchStatus = statusFilter === 'ALL' || normalStatus === statusFilter;
@@ -47,7 +77,7 @@ export default function SuperAdminProjects() {
           <p className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--blue)', fontWeight: 700 }}>
             <FolderKanban size={14} /> Projects
           </p>
-          <h1>Global Project Portfolio</h1>
+          
         </div>
       </section>
 
@@ -134,7 +164,7 @@ export default function SuperAdminProjects() {
                       <td style={{ padding: '14px 16px', color: 'var(--muted)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <UserCheck size={14} style={{ color: 'var(--blue)', flexShrink: 0 }} />
-                          {p.pmName || '—'}
+                          {getPMName(p)}
                         </div>
                       </td>
                       <td style={{ padding: '14px 16px', fontWeight: 700 }}>{formatINR(p.budget)}</td>

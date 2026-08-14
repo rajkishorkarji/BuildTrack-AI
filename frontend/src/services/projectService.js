@@ -43,6 +43,10 @@ const projectService = {
     const { data } = await api.patch(`/projects/${id}/status`, { status });
     return data?.data;
   },
+  async updateProgress(id, progressPercentage) {
+    const { data } = await api.patch(`/projects/${id}/progress`, { progressPercentage });
+    return data?.data;
+  },
 };
 
 export default projectService;

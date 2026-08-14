@@ -88,7 +88,7 @@ public class NotificationServiceImpl implements NotificationService {
     public void markAsReadForUser(Long notificationId, User user) {
         Notification notification = notificationRepository.findById(notificationId)
                 .orElseThrow(() -> new IllegalArgumentException("Notification not found"));
-        if (!user.getEmail().equalsIgnoreCase(notification.getRecipientEmail())) {
+        if (user.getCompanyId() != null && !user.getEmail().equalsIgnoreCase(notification.getRecipientEmail())) {
             throw new IllegalArgumentException("Notification does not belong to the current user");
         }
         notification.setRead(true);

@@ -45,8 +45,9 @@ public class MaterialServiceImpl implements MaterialService {
     public Material create(Material material) {
         User actor = tenantAccessService.currentUser();
         if (!tenantAccessService.hasRole(actor, "COMPANY_ADMIN")
-                && !tenantAccessService.hasRole(actor, "SITE_ENGINEER")) {
-            throw new IllegalArgumentException("Only Company Admin or Site Engineer can create materials");
+                && !tenantAccessService.hasRole(actor, "SITE_ENGINEER")
+                && !tenantAccessService.hasRole(actor, "CONTRACTOR")) {
+            throw new IllegalArgumentException("Only Company Admin, Site Engineer, or Contractor can create materials");
         }
 
         Project project = authorizedProject(material.getProject().getId(), actor);

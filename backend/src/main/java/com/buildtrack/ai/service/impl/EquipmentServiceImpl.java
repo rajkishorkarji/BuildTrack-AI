@@ -117,10 +117,15 @@ public class EquipmentServiceImpl implements EquipmentService {
             throw new IllegalArgumentException("Equipment can only be assigned to project personnel");
         }
 
-        if (equipment.getProject() == null ||
+        if (equipment.getProject() != null &&
                 !assignmentRepository.existsByProjectIdAndUserIdAndStatus(
                         equipment.getProject().getId(), assignee.getId(), "ACTIVE")) {
-            throw new IllegalArgumentException("User is not assigned to the equipment project");
+            ProjectAssignment newAssignment = new ProjectAssignment();
+            newAssignment.setProject(equipment.getProject());
+            newAssignment.setUser(assignee);
+            newAssignment.setAssignmentRole(assignee.getRoles().isEmpty() ? "WORKER" : assignee.getRoles().iterator().next().getRoleName());
+            newAssignment.setStatus("ACTIVE");
+            assignmentRepository.save(newAssignment);
         }
 
         equipment.setAssignedUser(assignee);

@@ -86,7 +86,7 @@ export default function SuperAdminWorkforce() {
           <p className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--blue)', fontWeight: 700 }}>
             <HardHat size={14} /> Workforce
           </p>
-          <h1>Global Workforce</h1>
+        
         </div>
         <button type="button" className="secondary-button" onClick={exportCsv}>
           <Download size={15} /> Export CSV

@@ -107,6 +107,7 @@ export function DataProvider({ children }) {
         '/workforce',
         isSuperAdmin ? '/superadmin/payments' : null,
         isSuperAdmin ? '/superadmin/users' : null,
+        '/materials',
       ];
 
       const responses =
@@ -327,18 +328,11 @@ export function DataProvider({ children }) {
         finances: Array.isArray(payload(6))
           ? payload(6).map((finance) => ({
               ...finance,
-
-              invoiceNo:
-                finance.invoiceNumber ||
-                finance.invoiceNo,
-
-              contractor:
-                finance.vendorName ||
-                finance.contractor,
-
-              projectName:
-                finance.project?.name ||
-                finance.projectName,
+              invoiceNo: finance.invoiceNumber || finance.invoiceNo,
+              contractor: finance.vendorName || finance.contractor,
+              projectName: finance.project?.name || finance.projectName,
+              companyName: finance.companyName || finance.project?.company?.name || '',
+              companyId: finance.companyId || finance.project?.company?.id,
             }))
           : current.finances,
 
@@ -394,6 +388,18 @@ export function DataProvider({ children }) {
         usersList: Array.isArray(payload(13))
           ? payload(13)
           : current.usersList,
+
+        materials: Array.isArray(payload(14))
+          ? payload(14).map((item) => ({
+              ...item,
+              name: item.name,
+              projectName: item.project?.name || item.projectName || '—',
+              quantity: item.quantity != null ? item.quantity : 0,
+              unit: item.unit || 'pcs',
+              minRequired: item.reorderLevel != null ? item.reorderLevel : 10,
+              status: item.status || (Number(item.quantity || 0) <= Number(item.reorderLevel || 10) ? 'LOW_STOCK' : 'AVAILABLE'),
+            }))
+          : current.materials,
       }));
 
 

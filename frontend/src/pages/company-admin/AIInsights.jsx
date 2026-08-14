@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Activity, AlertTriangle, Bot, BrainCircuit, RefreshCw, Target, TrendingUp, Users, Wrench, ShieldAlert, ShieldCheck, Info } from 'lucide-react';
 import projectService from '../../services/projectService';
 import aiInsightService from '../../services/aiInsightService';
+import { realtimeBus } from '../../services/api';
 
 const money = (value) => new Intl.NumberFormat('en-IN', {
   style: 'currency',
@@ -49,7 +50,11 @@ export default function AIInsights() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    const unsub = realtimeBus.subscribe('SERVER_UPDATE', () => load());
+    return () => unsub();
+  }, []);
 
   const run = async () => {
     if (!selectedProject) return;

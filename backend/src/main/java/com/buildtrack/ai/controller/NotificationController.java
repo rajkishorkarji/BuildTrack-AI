@@ -24,7 +24,11 @@ public class NotificationController {
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<Notification>>> getNotifications() {
-        return ResponseEntity.ok(ApiResponse.success(notificationService.getNotificationsForUser(tenantAccessService.currentUser())));
+        User user = tenantAccessService.currentUser();
+        List<Notification> list = tenantAccessService.isSuperAdmin(user)
+                ? notificationService.getNotifications()
+                : notificationService.getNotificationsForUser(user);
+        return ResponseEntity.ok(ApiResponse.success(list));
     }
 
     @PostMapping
@@ -32,7 +36,7 @@ public class NotificationController {
         User sender = tenantAccessService.currentUser();
         String target = request.targetRole() == null ? "" : request.targetRole().toUpperCase();
         if (tenantAccessService.isSuperAdmin(sender)) {
-            if (!"COMPANY_ADMIN".equals(target)) throw new IllegalArgumentException("Super Admin broadcasts may only target Company Admins");
+            if (target.isBlank()) target = "COMPANY_ADMIN";
         } else {
             tenantAccessService.requireCompanyAdmin(sender);
             tenantAccessService.requireActiveSubscription(tenantAccessService.currentCompany());
@@ -46,13 +50,18 @@ public class NotificationController {
     @PutMapping("/mark-read")
     public ResponseEntity<ApiResponse<String>> markRead() {
         User user = tenantAccessService.currentUser();
-        notificationService.getNotificationsForUser(user).forEach(item -> notificationService.markAsReadForUser(item.getId(), user));
+        if (tenantAccessService.isSuperAdmin(user)) {
+            notificationService.markAllAsRead();
+        } else {
+            notificationService.getNotificationsForUser(user).forEach(item -> notificationService.markAsReadForUser(item.getId(), user));
+        }
         return ResponseEntity.ok(ApiResponse.success("All notifications marked as read"));
     }
 
     @PutMapping("/{id}/read")
     public ResponseEntity<ApiResponse<String>> markOneRead(@PathVariable Long id) {
-        notificationService.markAsReadForUser(id, tenantAccessService.currentUser());
+        User user = tenantAccessService.currentUser();
+        notificationService.markAsReadForUser(id, user);
         return ResponseEntity.ok(ApiResponse.success("Notification marked as read"));
     }
 }

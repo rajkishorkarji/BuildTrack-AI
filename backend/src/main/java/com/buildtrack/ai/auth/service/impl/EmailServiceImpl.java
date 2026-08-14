@@ -10,6 +10,10 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
+
 @Service
 @RequiredArgsConstructor
 public class EmailServiceImpl implements EmailService {
@@ -24,11 +28,34 @@ public class EmailServiceImpl implements EmailService {
     @Value("${spring.mail.username:noreply@buildtrack.ai}")
     private String fromEmail;
 
+    private String getEffectiveFrontendUrl() {
+        if (frontendUrl != null && !frontendUrl.contains("localhost") && !frontendUrl.contains("127.0.0.1")) {
+            return frontendUrl;
+        }
+        try {
+            ServletRequestAttributes attrs = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            if (attrs != null) {
+                HttpServletRequest request = attrs.getRequest();
+                String origin = request.getHeader("Origin");
+                if (origin != null && !origin.isBlank()) {
+                    return origin;
+                }
+                String referer = request.getHeader("Referer");
+                if (referer != null && !referer.isBlank()) {
+                    java.net.URI uri = new java.net.URI(referer);
+                    return uri.getScheme() + "://" + uri.getAuthority();
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return frontendUrl;
+    }
+
 
     
     @Override
     public void sendVerificationEmail(String toEmail, String token) {
-        String verificationUrl = frontendUrl + "/verify-email?token=" + token;
+        String verificationUrl = getEffectiveFrontendUrl() + "/verify-email?token=" + token;
         String subject = "BuildTrack AI - Verify Your Account Email";
         String content = """
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
@@ -48,7 +75,7 @@ public class EmailServiceImpl implements EmailService {
 
     @Override
     public void sendPasswordResetEmail(String toEmail, String token) {
-        String resetUrl = frontendUrl + "/reset-password?token=" + token;
+        String resetUrl = getEffectiveFrontendUrl() + "/reset-password?token=" + token;
         String subject = "BuildTrack AI - Password Reset Request";
         String content = """
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
@@ -73,7 +100,7 @@ public class EmailServiceImpl implements EmailService {
             String companyName,
             String invitationToken
     ) {
-        String invitationUrl = frontendUrl + "/accept-invitation?token=" + invitationToken;
+        String invitationUrl = getEffectiveFrontendUrl() + "/accept-invitation?token=" + invitationToken;
 
         log.info("\n============================================================\n[COMPANY ADMIN INVITATION]\nTo: {}\nCompany: {}\nInvitation Link: {}\n============================================================", toEmail, companyName, invitationUrl);
 
@@ -138,7 +165,7 @@ public class EmailServiceImpl implements EmailService {
 
     @Override
     public void sendPersonnelInvitation(String toEmail, String fullName, String role, String companyName, String invitationToken) {
-        String invitationUrl = frontendUrl + "/accept-invitation?token=" + invitationToken;
+        String invitationUrl = getEffectiveFrontendUrl() + "/accept-invitation?token=" + invitationToken;
 
         log.info("\n============================================================\n[PERSONNEL INVITATION]\nTo: {}\nRole: {}\nCompany: {}\nInvitation Link: {}\n============================================================", toEmail, role, companyName, invitationUrl);
 

@@ -31,8 +31,8 @@ const notificationService = {
   subscribeToNotifications(callback) {
     subscribers.add(callback);
     getNotifications().catch(() => callback(current));
-    const unsubscribeRealtime = realtimeBus.subscribe('SERVER_UPDATE', event => {
-      if (event?.domain === 'notifications' || event?.domain === 'updates') getNotifications().catch(() => {});
+    const unsubscribeRealtime = realtimeBus.subscribe('SERVER_UPDATE', () => {
+      getNotifications().catch(() => {});
     });
     return () => { subscribers.delete(callback); unsubscribeRealtime(); };
   },

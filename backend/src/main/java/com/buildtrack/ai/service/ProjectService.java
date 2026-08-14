@@ -79,6 +79,15 @@ public class ProjectService {
     }
 
     @Transactional
+    public Project updateProgress(Long projectId, Integer progressPercentage, User user) {
+        Project p = getProjectForUser(projectId, user);
+        if (progressPercentage != null) {
+            p.setProgressPercentage(Math.min(100, Math.max(0, progressPercentage)));
+        }
+        return projectRepository.save(p);
+    }
+
+    @Transactional
     public void delete(Long projectId, User user) {
         Project p = getProjectForUser(projectId, user);
         if (!"COMPANY_ADMIN".equalsIgnoreCase(primaryRole(user)) && !"SUPER_ADMIN".equalsIgnoreCase(primaryRole(user)))

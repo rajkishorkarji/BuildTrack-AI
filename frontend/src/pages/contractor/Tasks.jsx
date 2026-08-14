@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { CheckSquare, Plus, Search, RefreshCw, AlertTriangle, Users, X } from 'lucide-react';
 import taskService from '../../services/taskService';
 import projectService from '../../services/projectService';
-import { realtimeBus } from '../../services/api';
+import api, { realtimeBus } from '../../services/api';
 
 const PRIORITY_META = {
   LOW: { label: 'Low', color: 'var(--green)', bg: 'rgba(34,197,94,0.12)' },
@@ -132,18 +132,62 @@ export default function ContractorTasks() {
   const inProgressCount = tasks.filter(t => String(t.status || '').toUpperCase() === 'IN_PROGRESS').length;
   const todoCount = tasks.filter(t => String(t.status || '').toUpperCase() === 'TODO' || !t.status).length;
 
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [invoiceForm, setInvoiceForm] = useState({
+    projectId: '',
+    invoiceNumber: '',
+    vendorName: '',
+    category: 'Material & Labor',
+    amount: '',
+    gstAmount: '',
+    dueDate: '',
+  });
+  const [invoiceSuccess, setInvoiceSuccess] = useState('');
+
+  const handleInvoiceSubmit = async (e) => {
+    e.preventDefault();
+    if (!invoiceForm.projectId || !invoiceForm.amount) return;
+    setBusy(true);
+    setError('');
+    try {
+      const amt = parseFloat(invoiceForm.amount) || 0;
+      const gst = invoiceForm.gstAmount ? parseFloat(invoiceForm.gstAmount) : amt * 0.18;
+      await api.post('/finance/invoices', {
+        projectId: Number(invoiceForm.projectId),
+        invoiceNumber: invoiceForm.invoiceNumber || `INV-${Date.now() % 1000000}`,
+        vendorName: invoiceForm.vendorName || 'Contractor',
+        category: invoiceForm.category || 'Material & Labor',
+        amount: amt,
+        gstAmount: gst,
+        status: 'PENDING',
+        dueDate: invoiceForm.dueDate || null,
+      });
+      setShowInvoiceModal(false);
+      setInvoiceSuccess('Invoice / Bill submitted successfully! Sent to Company Admin for real-time payment approval.');
+      setTimeout(() => setInvoiceSuccess(''), 4000);
+      await loadData();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Unable to submit invoice.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="dashboard-page">
       <section className="hero-row">
         <div>
           <p className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--blue)', fontWeight: 700 }}>
-            <CheckSquare size={14} /> Subcontractor Tasks
+            <CheckSquare size={14} /> Contractor Tasks
           </p>
-          <h1>Contractor Task Management</h1>
+          <h1>Contractor Task & Expense Management</h1>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button type="button" className="secondary-button" onClick={loadData} disabled={loading}>
             <RefreshCw size={14} style={loading ? { animation: 'spin 1s linear infinite' } : {}} /> Refresh
+          </button>
+          <button type="button" className="secondary-button" onClick={() => setShowInvoiceModal(true)} style={{ color: 'var(--green)', borderColor: 'rgba(34,197,94,0.3)', background: 'rgba(34,197,94,0.08)' }}>
+            <Plus size={16} /> Submit Invoice / Bill
           </button>
           <button type="button" className="primary-button" onClick={() => setShowModal(true)}>
             <Plus size={16} /> Create Task
@@ -368,6 +412,104 @@ export default function ContractorTasks() {
                 <button type="button" className="secondary-button" onClick={() => setShowModal(false)}>Cancel</button>
                 <button type="submit" className="primary-button" disabled={busy}>
                   {busy ? 'Creating & Assigning...' : 'Create & Assign Task'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* Submit Invoice Modal */}
+      {showInvoiceModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
+          <div className="panel" style={{ width: '100%', maxWidth: 500, padding: 24, borderRadius: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Submit Contractor Invoice / Expense Bill</h2>
+              <button type="button" className="secondary-button" onClick={() => setShowInvoiceModal(false)} style={{ padding: 6 }}>
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleInvoiceSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--muted)' }}>Project Site *</label>
+                <select
+                  value={invoiceForm.projectId}
+                  onChange={e => setInvoiceForm({ ...invoiceForm, projectId: e.target.value })}
+                  required
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--panel-soft)', color: 'var(--text)', fontSize: 13 }}
+                >
+                  <option value="">Select Project Site</option>
+                  {projects.map(p => (
+                    <option key={p.id} value={p.id}>{p.name} ({p.code || 'SITE'})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--muted)' }}>Vendor / Contractor Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Sahil Karji"
+                    value={invoiceForm.vendorName}
+                    onChange={e => setInvoiceForm({ ...invoiceForm, vendorName: e.target.value })}
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--panel-soft)', color: 'var(--text)', fontSize: 13 }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--muted)' }}>Category</label>
+                  <select
+                    value={invoiceForm.category}
+                    onChange={e => setInvoiceForm({ ...invoiceForm, category: e.target.value })}
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--panel-soft)', color: 'var(--text)', fontSize: 13 }}
+                  >
+                    <option value="Material & Labor">Material & Labor</option>
+                    <option value="Labor Supply">Labor Supply</option>
+                    <option value="Equipment Rental">Equipment Rental</option>
+                    <option value="Subcontract Work">Contract Work</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--muted)' }}>Invoice Amount (₹) *</label>
+                  <input
+                    type="number"
+                    placeholder="e.g. 50000"
+                    value={invoiceForm.amount}
+                    onChange={e => setInvoiceForm({ ...invoiceForm, amount: e.target.value })}
+                    required
+                    min="1"
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--panel-soft)', color: 'var(--text)', fontSize: 13 }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--muted)' }}>GST Amount (₹ 18%)</label>
+                  <input
+                    type="number"
+                    placeholder="Auto (18%)"
+                    value={invoiceForm.gstAmount}
+                    onChange={e => setInvoiceForm({ ...invoiceForm, gstAmount: e.target.value })}
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--panel-soft)', color: 'var(--text)', fontSize: 13 }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--muted)' }}>Due Date</label>
+                <input
+                  type="date"
+                  value={invoiceForm.dueDate}
+                  onChange={e => setInvoiceForm({ ...invoiceForm, dueDate: e.target.value })}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--panel-soft)', color: 'var(--text)', fontSize: 13 }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 10 }}>
+                <button type="button" className="secondary-button" onClick={() => setShowInvoiceModal(false)}>Cancel</button>
+                <button type="submit" className="primary-button" disabled={busy}>
+                  {busy ? 'Submitting Invoice...' : 'Submit Invoice / Bill'}
                 </button>
               </div>
             </form>

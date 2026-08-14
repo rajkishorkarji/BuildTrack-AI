@@ -124,6 +124,20 @@ public class ProjectController {
         return ResponseEntity.ok(ApiResponse.success(summary(updated)));
     }
 
+    @PatchMapping("/{id}/progress")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','COMPANY_ADMIN','PROJECT_MANAGER','SITE_ENGINEER','CONTRACTOR')")
+    public ResponseEntity<ApiResponse<ProjectSummaryResponse>> updateOverallProgress(
+            @PathVariable Long id, @RequestBody Map<String, Object> body) {
+        User user = tenantAccessService.currentUser();
+        Object val = body.get("progressPercentage");
+        if (val == null) val = body.get("progress");
+        Integer prog = val == null ? 0 : Integer.parseInt(val.toString());
+        Project updated = projectService.updateProgress(id, prog, user);
+        realtimePublisher.publishForCompany(updated.getCompany().getId(), "projects", "updated", updated.getId());
+        domainEventPublisher.publish("PROJECT_PROGRESS_UPDATED", updated.getCompany().getId(), userEmail(), "PROJECT", updated.getId(), "Project overall progress updated to " + prog + "%");
+        return ResponseEntity.ok(ApiResponse.success(summary(updated)));
+    }
+
     @GetMapping("/eligible-users")
     public ResponseEntity<ApiResponse<List<EligibleUserResponse>>> eligibleUsers(@RequestParam String role) {
         User actor = tenantAccessService.currentUser();
@@ -136,7 +150,19 @@ public class ProjectController {
 
     private ProjectSummaryResponse summary(Project p) {
         List<ProjectAssignmentResponse> assignments = projectService.assignments(p.getId(), tenantAccessService.currentUser()).stream().map(this::assignment).toList();
-        return new ProjectSummaryResponse(p.getId(), p.getName(), p.getCode(), p.getLocation(), p.getDescription(), p.getBudget(), p.getSpent(), p.getProgressPercentage(), p.getStatus(), p.getStartDate(), p.getEstEndDate(), assignments);
+        String pmName = assignments.stream()
+                .filter(a -> "PROJECT_MANAGER".equalsIgnoreCase(a.role()))
+                .map(ProjectAssignmentResponse::fullName)
+                .findFirst()
+                .orElse(null);
+        Long companyId = p.getCompany() != null ? p.getCompany().getId() : null;
+        String companyName = p.getCompany() != null ? p.getCompany().getName() : null;
+
+        return new ProjectSummaryResponse(
+                p.getId(), p.getName(), p.getCode(), p.getLocation(), p.getDescription(),
+                p.getBudget(), p.getSpent(), p.getProgressPercentage(), p.getStatus(),
+                p.getStartDate(), p.getEstEndDate(), companyId, companyName, pmName, assignments
+        );
     }
     private ProjectAssignmentResponse assignment(ProjectAssignment a) {
         User u = a.getUser();

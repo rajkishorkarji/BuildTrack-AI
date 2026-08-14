@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CreditCard, Search, Download, RefreshCw, CheckCircle2, Clock, AlertTriangle, TrendingUp } from 'lucide-react';
+import { CreditCard, Search, Download, RefreshCw, CheckCircle2, Clock, AlertTriangle, TrendingUp, Plus, X } from 'lucide-react';
 import {
   getCompanyPayments,
   getSubscriptionPlans,
   getSubscriptionStatus,
   startSubscriptionPayment,
 } from '../../services/razorpayService';
-import api from '../../services/api';
+import api, { realtimeBus } from '../../services/api';
 
 const INR = new Intl.NumberFormat('en-IN', {
   style: 'currency',
@@ -51,19 +51,34 @@ export default function CompanyAdminFinance() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState('info');
+  const [projects, setProjects] = useState([]);
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [invoiceForm, setInvoiceForm] = useState({
+    projectId: '',
+    invoiceNumber: '',
+    vendorName: '',
+    category: 'Material & Labor',
+    amount: '',
+    gstAmount: '',
+    dueDate: '',
+  });
 
   async function loadFinance() {
     setLoading(true);
     try {
-      const [invoiceResult, planResult, subResult, payResult] = await Promise.allSettled([
+      const [invoiceResult, planResult, subResult, payResult, projectResult] = await Promise.allSettled([
         api.get('/finance/invoices'),
         getSubscriptionPlans(),
         getSubscriptionStatus(),
         getCompanyPayments(),
+        api.get('/projects'),
       ]);
 
       if (invoiceResult.status === 'fulfilled') {
         setInvoices(invoiceResult.value?.data?.data || []);
+      }
+      if (projectResult.status === 'fulfilled') {
+        setProjects(projectResult.value?.data?.data || []);
       }
       if (planResult.status === 'fulfilled' && Object.keys(planResult.value || {}).length > 0) {
         setPlans(planResult.value);
@@ -83,7 +98,59 @@ export default function CompanyAdminFinance() {
     }
   }
 
-  useEffect(() => { loadFinance(); }, []);
+  async function markInvoicePaid(invoiceId) {
+    try {
+      await api.patch(`/finance/invoices/${invoiceId}/status`, { status: 'PAID' });
+      setMessage('Invoice marked as PAID! Project spent updated and real-time cost metrics synced.');
+      setMessageType('success');
+      await loadFinance();
+    } catch (err) {
+      setMessage(err.response?.data?.message || 'Failed to update invoice status.');
+      setMessageType('error');
+    }
+  }
+
+  async function handleCreateInvoice(e) {
+    e.preventDefault();
+    if (!invoiceForm.projectId || !invoiceForm.amount) return;
+    try {
+      const amt = parseFloat(invoiceForm.amount) || 0;
+      const gst = invoiceForm.gstAmount ? parseFloat(invoiceForm.gstAmount) : amt * 0.18;
+      await api.post('/finance/invoices', {
+        projectId: Number(invoiceForm.projectId),
+        invoiceNumber: invoiceForm.invoiceNumber || `INV-${Date.now() % 1000000}`,
+        vendorName: invoiceForm.vendorName || 'Vendor',
+        category: invoiceForm.category || 'Material & Labor',
+        amount: amt,
+        gstAmount: gst,
+        status: 'PENDING',
+        dueDate: invoiceForm.dueDate || null,
+      });
+      setShowInvoiceModal(false);
+      setMessage('Invoice created successfully! Real-time financial ledger updated.');
+      setMessageType('success');
+      await loadFinance();
+    } catch (err) {
+      setMessage(err.response?.data?.message || 'Failed to create invoice.');
+      setMessageType('error');
+    }
+  }
+
+  useEffect(() => {
+    loadFinance();
+    const unsub = realtimeBus.subscribe('SERVER_UPDATE', () => loadFinance());
+    return () => unsub();
+  }, []);
+
+  const getProjectName = (item) => {
+    if (item.projectName) return item.projectName;
+    if (item.project?.name) return item.project.name;
+    if (item.projectId) {
+      const match = projects.find(p => String(p.id) === String(item.projectId));
+      if (match) return match.name;
+    }
+    return '—';
+  };
 
   const getInvoiceTotal = (item) => {
     if (item.totalAmount != null) return Number(item.totalAmount);
@@ -105,7 +172,7 @@ export default function CompanyAdminFinance() {
   const pending = Math.max(total - paid, 0);
 
   const filtered = invoices.filter(item => {
-    const value = `${item.invoiceNumber || ''} ${item.vendorName || ''} ${item.project?.name || ''}`.toLowerCase();
+    const value = `${item.invoiceNumber || ''} ${item.vendorName || ''} ${getProjectName(item)}`.toLowerCase();
     return value.includes(search.toLowerCase());
   });
 
@@ -130,7 +197,7 @@ export default function CompanyAdminFinance() {
     const rows = invoices.map(item => [
       item.invoiceNumber || '',
       item.vendorName || '',
-      item.project?.name || '',
+      getProjectName(item),
       item.amount || 0,
       item.gstAmount || 0,
       item.status || '',
@@ -161,6 +228,9 @@ export default function CompanyAdminFinance() {
           </button>
           <button type="button" className="secondary-button" onClick={exportCsv}>
             <Download size={15} /> Export CSV
+          </button>
+          <button type="button" className="primary-button" onClick={() => setShowInvoiceModal(true)}>
+            <Plus size={15} /> Create Invoice
           </button>
         </div>
       </section>
@@ -279,21 +349,22 @@ export default function CompanyAdminFinance() {
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
             <tr style={{ background: 'var(--panel-soft)', borderBottom: '1px solid var(--border)' }}>
-              {['Invoice #', 'Vendor', 'Project', 'Amount (incl. GST)', 'Status'].map(h => (
+              {['Invoice #', 'Vendor', 'Project', 'Amount (incl. GST)', 'Status', 'Action'].map(h => (
                 <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontWeight: 600, color: 'var(--muted)' }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {loading && (
-              <tr><td colSpan={5} style={{ padding: 30, textAlign: 'center', color: 'var(--muted)' }}>Loading invoices...</td></tr>
+              <tr><td colSpan={6} style={{ padding: 30, textAlign: 'center', color: 'var(--muted)' }}>Loading invoices...</td></tr>
             )}
             {!loading && filtered.length === 0 && (
-              <tr><td colSpan={5} style={{ padding: 30, textAlign: 'center', color: 'var(--muted)' }}>No invoices found.</td></tr>
+              <tr><td colSpan={6} style={{ padding: 30, textAlign: 'center', color: 'var(--muted)' }}>No invoices found.</td></tr>
             )}
             {!loading && filtered.map(item => {
               const meta = getStatusMeta(item.status);
               const StatusIcon = meta.icon;
+              const isPaid = String(item.status || '').toUpperCase() === 'PAID';
               return (
                 <tr key={item.id} style={{ borderTop: '1px solid var(--border)' }}>
                   <td style={{ padding: '12px 16px', fontWeight: 700 }}>
@@ -302,7 +373,7 @@ export default function CompanyAdminFinance() {
                     </code>
                   </td>
                   <td style={{ padding: '12px 16px' }}>{item.vendorName || '—'}</td>
-                  <td style={{ padding: '12px 16px', color: 'var(--blue)', fontWeight: 600 }}>{item.project?.name || '—'}</td>
+                  <td style={{ padding: '12px 16px', color: 'var(--blue)', fontWeight: 600 }}>{getProjectName(item)}</td>
                   <td style={{ padding: '12px 16px', fontWeight: 700 }}>
                     {money(getInvoiceTotal(item))}
                   </td>
@@ -310,6 +381,20 @@ export default function CompanyAdminFinance() {
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 10, background: meta.bg, color: meta.color, fontSize: 11, fontWeight: 700 }}>
                       <StatusIcon size={11} /> {meta.label}
                     </span>
+                  </td>
+                  <td style={{ padding: '12px 16px' }}>
+                    {isPaid ? (
+                      <span style={{ fontSize: 11, color: 'var(--green)', fontWeight: 700 }}>✓ Settled</span>
+                    ) : (
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        onClick={() => markInvoicePaid(item.id)}
+                        style={{ fontSize: 11, padding: '4px 10px', color: 'var(--green)', borderColor: 'rgba(34,197,94,0.3)', background: 'rgba(34,197,94,0.08)' }}
+                      >
+                        Mark Paid
+                      </button>
+                    )}
                   </td>
                 </tr>
               );
@@ -346,6 +431,103 @@ export default function CompanyAdminFinance() {
           ))
         )}
       </div>
+
+      {/* Create Invoice Modal */}
+      {showInvoiceModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
+          <div className="panel" style={{ width: '100%', maxWidth: 500, padding: 24, borderRadius: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Create / Issue Project Invoice</h2>
+              <button type="button" className="secondary-button" onClick={() => setShowInvoiceModal(false)} style={{ padding: 6 }}>
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateInvoice} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--muted)' }}>Project Site *</label>
+                <select
+                  value={invoiceForm.projectId}
+                  onChange={e => setInvoiceForm({ ...invoiceForm, projectId: e.target.value })}
+                  required
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--panel-soft)', color: 'var(--text)', fontSize: 13 }}
+                >
+                  <option value="">Select Project Site</option>
+                  {projects.map(p => (
+                    <option key={p.id} value={p.id}>{p.name} ({p.code || 'SITE'})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--muted)' }}>Vendor / Contractor Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Karji Builders / Contractor"
+                    value={invoiceForm.vendorName}
+                    onChange={e => setInvoiceForm({ ...invoiceForm, vendorName: e.target.value })}
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--panel-soft)', color: 'var(--text)', fontSize: 13 }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--muted)' }}>Category</label>
+                  <select
+                    value={invoiceForm.category}
+                    onChange={e => setInvoiceForm({ ...invoiceForm, category: e.target.value })}
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--panel-soft)', color: 'var(--text)', fontSize: 13 }}
+                  >
+                    <option value="Material & Labor">Material & Labor</option>
+                    <option value="Labor Supply">Labor Supply</option>
+                    <option value="Equipment Rental">Equipment Rental</option>
+                    <option value="Contract Work">Contract Work</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--muted)' }}>Invoice Amount (₹) *</label>
+                  <input
+                    type="number"
+                    placeholder="e.g. 100000"
+                    value={invoiceForm.amount}
+                    onChange={e => setInvoiceForm({ ...invoiceForm, amount: e.target.value })}
+                    required
+                    min="1"
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--panel-soft)', color: 'var(--text)', fontSize: 13 }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--muted)' }}>GST Amount (₹ 18%)</label>
+                  <input
+                    type="number"
+                    placeholder="Auto (18%)"
+                    value={invoiceForm.gstAmount}
+                    onChange={e => setInvoiceForm({ ...invoiceForm, gstAmount: e.target.value })}
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--panel-soft)', color: 'var(--text)', fontSize: 13 }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--muted)' }}>Due Date</label>
+                <input
+                  type="date"
+                  value={invoiceForm.dueDate}
+                  onChange={e => setInvoiceForm({ ...invoiceForm, dueDate: e.target.value })}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--panel-soft)', color: 'var(--text)', fontSize: 13 }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 10 }}>
+                <button type="button" className="secondary-button" onClick={() => setShowInvoiceModal(false)}>Cancel</button>
+                <button type="submit" className="primary-button">Issue Invoice</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

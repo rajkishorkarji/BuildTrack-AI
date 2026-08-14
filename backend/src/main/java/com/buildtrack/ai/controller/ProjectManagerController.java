@@ -32,7 +32,11 @@ public class ProjectManagerController {
                         project.getId(), project.getName(), project.getCode(), project.getLocation(),
                         project.getDescription(), project.getBudget(), project.getSpent(),
                         project.getProgressPercentage(), project.getStatus(), project.getStartDate(),
-                        project.getEstEndDate(), List.of()))
+                        project.getEstEndDate(),
+                        project.getCompany() != null ? project.getCompany().getId() : null,
+                        project.getCompany() != null ? project.getCompany().getName() : null,
+                        ((user.getFirstName() == null ? "" : user.getFirstName()) + " " + (user.getLastName() == null ? "" : user.getLastName())).trim(),
+                        List.of()))
                 .toList();
         return ResponseEntity.ok(ApiResponse.success(result));
     }

@@ -1,16 +1,22 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
+import { realtimeBus } from '../../services/api';
 import {
   Building2, CheckCircle2, FolderKanban, Users, IndianRupee, Activity, ShieldCheck, Search, Download, TrendingUp, Zap, BarChart3
 } from 'lucide-react';
 import { formatINR } from '../../utils/currency';
 
 export default function SuperAdminDashboard() {
-  const { companies = [], projects = [], workers = [], finances = [], usersList = [], teamMembers = [], payments = [] } = useData();
+  const { companies = [], projects = [], workers = [], finances = [], usersList = [], teamMembers = [], payments = [], refresh } = useData();
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [exportMessage, setExportMessage] = useState('');
+
+  useEffect(() => {
+    const unsub = realtimeBus.subscribe('SERVER_UPDATE', () => refresh && refresh());
+    return () => unsub();
+  }, [refresh]);
 
   // De-duplicate companies by ID or name
   const uniqueCompanies = [];
@@ -28,7 +34,7 @@ export default function SuperAdminDashboard() {
   // Platform Revenue represents total successful payments collected from all companies for BuildTrack AI subscriptions
   const PLAN_PRICES = { STARTER: 9999, PROFESSIONAL: 29999, ENTERPRISE: 99999 };
   const completedSubscriptionPayments = (payments || [])
-    .filter(p => String(p.status || '').toUpperCase() === 'COMPLETED')
+    .filter(p => String(p.status || '').toUpperCase() === 'COMPLETED' || String(p.status || '').toUpperCase() === 'CAPTURED' || String(p.status || '').toUpperCase() === 'PAID')
     .reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
 
   const estimatedActiveSubscriptionRevenue = activeCompanies.reduce((sum, c) => {
@@ -40,7 +46,13 @@ export default function SuperAdminDashboard() {
     ? completedSubscriptionPayments
     : estimatedActiveSubscriptionRevenue;
 
-  const totalUsers = (usersList || []).length + (workers || []).length + (teamMembers || []).length;
+  const allUsersCombined = [...(usersList || []), ...(workers || []), ...(teamMembers || [])];
+  const uniqueUserIds = new Set();
+  allUsersCombined.forEach(u => {
+    const id = u.id || u.userId || u.email;
+    if (id) uniqueUserIds.add(String(id));
+  });
+  const totalUsers = uniqueUserIds.size > 0 ? uniqueUserIds.size : (usersList || []).length;
 
   const healthScore = uniqueCompanies.length > 0
     ? `${((activeCompanies.length / uniqueCompanies.length) * 100).toFixed(1)}%`
@@ -114,7 +126,7 @@ export default function SuperAdminDashboard() {
           <p className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--blue)', fontWeight: 700 }}>
             <ShieldCheck size={14} /> Dashboard
           </p>
-          <h1>Super Admin Console</h1>
+          
           <p style={{ color: 'var(--muted)', fontSize: 13, margin: '4px 0 0' }}>
             {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
           </p>

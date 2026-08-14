@@ -25,7 +25,7 @@ public class MaterialController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','COMPANY_ADMIN','SITE_ENGINEER')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','COMPANY_ADMIN','SITE_ENGINEER','CONTRACTOR')")
     public ResponseEntity<ApiResponse<Material>> create(@RequestBody Material material) {
         return ResponseEntity.ok(ApiResponse.success(materialService.create(material)));
     }
