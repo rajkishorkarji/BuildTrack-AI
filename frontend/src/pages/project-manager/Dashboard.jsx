@@ -1,20 +1,41 @@
+import { useEffect } from 'react';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
-import { FolderKanban, CheckSquare, Users, Activity, AlertTriangle, Clock } from 'lucide-react';
+import { FolderKanban, CheckSquare, Users, Activity, TrendingUp, RefreshCw } from 'lucide-react';
 import ProjectTimeline from '../../components/dashboard/ProjectTimeline';
+import { realtimeBus } from '../../services/api';
 
 export default function PMDashboard() {
-  const { projects = [], tasks = [], workers = [], finances = [], issues = [] } = useData();
+  const { projects = [], tasks = [], workers = [], finances = [], issues = [], refresh } = useData();
   const { user } = useAuth();
 
-  const activeProjects = projects.length;
+  useEffect(() => {
+    if (refresh) refresh();
+    const unsub = realtimeBus.subscribe('SERVER_UPDATE', () => {
+      if (refresh) refresh();
+    });
+    return () => unsub();
+  }, [refresh]);
+
+  const totalProjects = projects.length;
+  const activeSitesCount = projects.filter(p => {
+    const s = String(p.status || '').toUpperCase();
+    return s === 'ACTIVE' || s === 'IN_PROGRESS' || s === 'IN PROGRESS';
+  }).length;
+
   const totalTasks = tasks.length;
   const completedTasks = tasks.filter(t => {
     const s = String(t.status || '').toUpperCase();
     return s === 'COMPLETED' || s === 'DONE';
   }).length;
 
-  const taskProgressPct = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+  const avgTaskCompletionPct = totalTasks > 0
+    ? Math.round(tasks.reduce((sum, t) => sum + Number(t.completionPercentage ?? t.progress ?? 0), 0) / totalTasks)
+    : 0;
+
+  const avgProjectProgress = projects.length > 0
+    ? Math.round(projects.reduce((sum, p) => sum + Number(p.progressPercentage ?? p.progress ?? 0), 0) / projects.length)
+    : 0;
 
   const totalBudget = projects.reduce((s, p) => s + (parseFloat(p.budget) || 0), 0);
   const totalSpent = finances
@@ -38,6 +59,41 @@ export default function PMDashboard() {
     })),
   ].slice(0, 5);
 
+  const kpiData = [
+    {
+      label: 'Assigned Sites',
+      value: totalProjects,
+      color: 'var(--blue)',
+      bg: 'rgba(37,99,235,0.1)',
+      icon: FolderKanban,
+      sub: `${activeSitesCount} active site${activeSitesCount !== 1 ? 's' : ''}`,
+    },
+    {
+      label: 'Task Progress',
+      value: `${avgTaskCompletionPct}%`,
+      color: 'var(--green)',
+      bg: 'rgba(34,197,94,0.1)',
+      icon: CheckSquare,
+      sub: `${completedTasks} of ${totalTasks} tasks completed`,
+    },
+    {
+      label: 'Site Personnel',
+      value: activeWorkers,
+      color: 'var(--purple)',
+      bg: 'rgba(168,85,247,0.1)',
+      icon: Users,
+      sub: `${workers.length} total registered members`,
+    },
+    {
+      label: 'Overall Site Completion',
+      value: `${avgProjectProgress}%`,
+      color: 'var(--orange)',
+      bg: 'rgba(245,158,11,0.1)',
+      icon: TrendingUp,
+      sub: `Budget utilization: ${budgetUtilPct}%`,
+    },
+  ];
+
   return (
     <div className="dashboard-page">
       <section className="hero-row">
@@ -45,25 +101,32 @@ export default function PMDashboard() {
           <p className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--blue)', fontWeight: 700 }}>
             <FolderKanban size={14} /> Dashboard
           </p>
-          <h1>Project Manager Dashboard</h1>
+        
         </div>
-        <button type="button" className="date-chip">
-          {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-        </button>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <button type="button" className="secondary-button" onClick={() => refresh && refresh()}>
+            <RefreshCw size={14} /> Refresh
+          </button>
+          <button type="button" className="date-chip">
+            {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+          </button>
+        </div>
       </section>
 
-      {/* 4 Overview KPIs */}
+      {/* 4 Real-time Overview KPIs */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginTop: '20px' }}>
-        {[
-          { label: 'Assigned Projects', value: activeProjects, color: 'var(--blue)', sub: 'Active Construction Sites' },
-          { label: 'Task Progress', value: `${taskProgressPct}%`, color: 'var(--green)', sub: `${completedTasks} of ${totalTasks} tasks completed` },
-          { label: 'Site Personnel', value: activeWorkers, color: 'var(--purple)', sub: `${workers.length} total registered members` },
-          { label: 'Budget Utilization', value: `${budgetUtilPct}%`, color: 'var(--orange)', sub: `Spent ₹${totalSpent.toLocaleString()} of ₹${totalBudget.toLocaleString()}` },
-        ].map(({ label, value, color, sub }) => (
-          <div key={label} className="panel" style={{ padding: '20px' }}>
-            <span style={{ color: 'var(--muted)', fontSize: '12px', fontWeight: 600 }}>{label}</span>
-            <h2 style={{ fontSize: '24px', color, margin: '4px 0 2px 0', fontWeight: 800 }}>{value}</h2>
-            <span style={{ fontSize: '11px', color: 'var(--muted)' }}>{sub}</span>
+        {kpiData.map(({ label, value, color, bg, icon: Icon, sub }) => (
+          <div key={label} className="panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ color: 'var(--muted)', fontSize: '12px', fontWeight: 600 }}>{label}</span>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: bg, color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Icon size={16} />
+              </div>
+            </div>
+            <div style={{ marginTop: 8 }}>
+              <h2 style={{ fontSize: '26px', color, margin: '4px 0 2px 0', fontWeight: 800, lineHeight: 1.1 }}>{value}</h2>
+              <span style={{ fontSize: '11px', color: 'var(--muted)', fontWeight: 500 }}>{sub}</span>
+            </div>
           </div>
         ))}
       </div>
@@ -87,7 +150,7 @@ export default function PMDashboard() {
                       <span style={{ color: 'var(--blue)', fontWeight: 700 }}>{prog}%</span>
                     </div>
                     <div style={{ height: '6px', background: 'var(--border)', borderRadius: '3px', overflow: 'hidden' }}>
-                      <div style={{ width: `${prog}%`, height: '100%', background: 'var(--blue)', borderRadius: '3px' }} />
+                      <div style={{ width: `${Math.min(prog, 100)}%`, height: '100%', background: 'var(--blue)', borderRadius: '3px', transition: 'width 0.3s ease' }} />
                     </div>
                   </div>
                 );

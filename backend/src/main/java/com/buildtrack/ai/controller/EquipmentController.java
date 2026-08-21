@@ -38,7 +38,7 @@ public class EquipmentController {
     }
 
     @PatchMapping("/{id}/status")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','COMPANY_ADMIN','PROJECT_MANAGER','SITE_ENGINEER')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','COMPANY_ADMIN','PROJECT_MANAGER','SITE_ENGINEER','CONTRACTOR')")
     public ResponseEntity<ApiResponse<EquipmentResponse>> updateStatus(
             @PathVariable Long id, @RequestBody Map<String, String> body) {
         return ResponseEntity.ok(ApiResponse.success(
@@ -46,11 +46,27 @@ public class EquipmentController {
     }
 
     @PatchMapping("/{id}/assignment")
-    @PreAuthorize("hasRole('COMPANY_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','COMPANY_ADMIN','PROJECT_MANAGER','SITE_ENGINEER','CONTRACTOR')")
     public ResponseEntity<ApiResponse<EquipmentResponse>> assign(
             @PathVariable Long id, @RequestBody Map<String, Long> body) {
         return ResponseEntity.ok(ApiResponse.success(
                 EquipmentResponse.from(equipmentService.assign(id, body.get("userId")))));
+    }
+
+    @PatchMapping("/{id}/project")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','COMPANY_ADMIN','PROJECT_MANAGER')")
+    public ResponseEntity<ApiResponse<EquipmentResponse>> assignProject(
+            @PathVariable Long id, @RequestBody Map<String, Long> body) {
+        return ResponseEntity.ok(ApiResponse.success(
+                EquipmentResponse.from(equipmentService.assignProject(id, body.get("projectId")))));
+    }
+
+    @PatchMapping("/{id}/task")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','COMPANY_ADMIN','PROJECT_MANAGER','SITE_ENGINEER','CONTRACTOR')")
+    public ResponseEntity<ApiResponse<EquipmentResponse>> assignTask(
+            @PathVariable Long id, @RequestBody Map<String, Long> body) {
+        return ResponseEntity.ok(ApiResponse.success(
+                EquipmentResponse.from(equipmentService.assignTask(id, body.get("taskId")))));
     }
 
     @PostMapping("/{id}/maintenance")

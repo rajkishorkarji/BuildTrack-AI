@@ -24,6 +24,7 @@ const EMPTY_DATA = {
   equipment: [],
   finances: [],
   materials: [],
+  materialRequests: [],
   issues: [],
   documents: [],
   progressReports: [],
@@ -101,13 +102,13 @@ export function DataProvider({ children }) {
         '/equipment',
         '/finance/invoices',
         '/documents',
-        '/reports',
         '/daily-logs',
         '/issues',
         '/workforce',
         isSuperAdmin ? '/superadmin/payments' : null,
         isSuperAdmin ? '/superadmin/users' : null,
         '/materials',
+        '/materials/requests',
       ];
 
       const responses =
@@ -118,7 +119,7 @@ export function DataProvider({ children }) {
       const payload = (index) => {
         const response = responses[index];
 
-        if (response.status !== 'fulfilled') {
+        if (!response || response.status !== 'fulfilled') {
           return undefined;
         }
 
@@ -177,7 +178,7 @@ export function DataProvider({ children }) {
 
         workers: (() => {
           const rawWorkers = Array.isArray(payload(2)) ? payload(2) : [];
-          const rawWorkforce = Array.isArray(payload(11)) ? payload(11) : [];
+          const rawWorkforce = Array.isArray(payload(10)) ? payload(10) : [];
 
           const companyMap = new Map(
             (Array.isArray(payload(0)) ? payload(0) : current.companies || []).map(c => [String(c.id), c.name])
@@ -265,37 +266,50 @@ export function DataProvider({ children }) {
         // ------------------------------------------------------
 
         attendanceLogs: Array.isArray(payload(4))
-          ? payload(4).map((entry) => ({
+          ? payload(4).filter(Boolean).map((entry) => ({
               ...entry,
 
               workerName:
-                entry.worker?.fullName ||
-                entry.workerName,
+                entry?.worker?.fullName ||
+                entry?.workerName ||
+                '—',
+
+              projectName:
+                entry?.project?.name ||
+                entry?.projectName ||
+                entry?.siteName ||
+                '—',
 
               siteName:
-                entry.project?.name ||
-                entry.siteName,
+                entry?.project?.name ||
+                entry?.siteName ||
+                entry?.projectName ||
+                '—',
 
               checkInTime:
-                entry.checkIn
+                entry?.checkIn
                   ? new Date(
                       entry.checkIn
                     ).toLocaleTimeString([], {
                       hour: '2-digit',
                       minute: '2-digit',
                     })
-                  : entry.checkInTime,
+                  : entry?.checkInTime,
 
               checkOutTime:
-                entry.checkOut
+                entry?.checkOut
                   ? new Date(
                       entry.checkOut
                     ).toLocaleTimeString([], {
                       hour: '2-digit',
                       minute: '2-digit',
                     })
-                  : entry.checkOutTime ||
+                  : entry?.checkOutTime ||
                     'Active On Site',
+
+              hoursWorked: entry?.hoursWorked != null ? entry.hoursWorked : null,
+              durationCategory: entry?.durationCategory || (!entry?.checkOut ? 'SESSION_OPEN' : (Number(entry?.hoursWorked || 0) > 8.0 ? 'OVERTIME' : (Number(entry?.hoursWorked || 0) >= 7.95 ? 'FULL_DAY' : 'EARLY_LEAVE'))),
+              overtimeHours: entry?.overtimeHours != null ? entry.overtimeHours : (Number(entry?.hoursWorked || 0) > 8.0 ? Math.round((Number(entry.hoursWorked) - 8.0) * 100) / 100 : 0),
             }))
           : current.attendanceLogs,
 
@@ -364,16 +378,16 @@ export function DataProvider({ children }) {
         // REPORTS
         // ------------------------------------------------------
 
-        progressReports: Array.isArray(payload(9))
-          ? payload(9).map((log) => ({ ...log, projectName: log.projectName, workCompleted: log.workSummary, newTotalProgress: log.progressPercentage, submittedBy: log.createdBy, date: log.logDate }))
+        progressReports: Array.isArray(payload(8))
+          ? payload(8).map((log) => ({ ...log, projectName: log.projectName, workCompleted: log.workSummary, newTotalProgress: log.progressPercentage, submittedBy: log.createdBy, date: log.logDate }))
           : current.progressReports,
 
         // ------------------------------------------------------
         // SITE ISSUES
         // ------------------------------------------------------
 
-        issues: Array.isArray(payload(10))
-          ? payload(10).map((issue) => ({
+        issues: Array.isArray(payload(9))
+          ? payload(9).map((issue) => ({
               ...issue,
               projectName: issue.projectName,
               status: String(issue.status || 'OPEN').replace(/_/g, ' '),
@@ -381,25 +395,91 @@ export function DataProvider({ children }) {
             }))
           : current.issues,
 
-        payments: Array.isArray(payload(12))
-          ? payload(12)
+        payments: Array.isArray(payload(11))
+          ? payload(11)
           : current.payments,
 
-        usersList: Array.isArray(payload(13))
-          ? payload(13)
+        usersList: Array.isArray(payload(12))
+          ? payload(12)
           : current.usersList,
 
-        materials: Array.isArray(payload(14))
-          ? payload(14).map((item) => ({
+        materials: (() => {
+          const projectsList = Array.isArray(payload(1)) ? payload(1) : current.projects || [];
+          const projectMap = new Map((projectsList || []).map(p => [String(p.id), p.name]));
+          const rawMaterials = Array.isArray(payload(13)) ? payload(13) : current.materials || [];
+
+          return rawMaterials.map((item) => {
+            const pId = item.projectId || item.project?.id || (typeof item.project === 'number' || (typeof item.project === 'string' && !isNaN(item.project)) ? item.project : null);
+            const resolvedProjName = (item.project && typeof item.project === 'object' && item.project.name && !/^[\s—\-_]+$/.test(item.project.name.trim()) ? item.project.name : null)
+              || (item.projectName && typeof item.projectName === 'string' && !/^[\s—\-_]+$/.test(item.projectName.trim()) ? item.projectName : null)
+              || (pId ? projectMap.get(String(pId)) : null)
+              || (typeof item.project === 'string' && isNaN(item.project) && !/^[\s—\-_]+$/.test(item.project.trim()) ? item.project : null)
+              || (projectsList.length === 1 && projectsList[0]?.name ? projectsList[0].name : null);
+            const pName = resolvedProjName || '—';
+            return {
               ...item,
               name: item.name,
-              projectName: item.project?.name || item.projectName || '—',
+              projectName: pName,
               quantity: item.quantity != null ? item.quantity : 0,
               unit: item.unit || 'pcs',
               minRequired: item.reorderLevel != null ? item.reorderLevel : 10,
               status: item.status || (Number(item.quantity || 0) <= Number(item.reorderLevel || 10) ? 'LOW_STOCK' : 'AVAILABLE'),
-            }))
-          : current.materials,
+            };
+          });
+        })(),
+
+        materialRequests: (() => {
+          const projectsList = Array.isArray(payload(1)) ? payload(1) : current.projects || [];
+          const projectMap = new Map((projectsList || []).map(p => [String(p.id), p.name]));
+          const rawMaterials = Array.isArray(payload(13)) ? payload(13) : current.materials || [];
+          const materialsMap = new Map((rawMaterials || []).map(m => [String(m.id), m]));
+          const rawRequests = Array.isArray(payload(14)) ? payload(14) : (current.materialRequests || []);
+
+          const isValid = (v) => Boolean(v && typeof v === 'string' && v.trim().length > 0 && !/^[\s—\-_]+$/.test(v.trim()) && !['n/a', 'null', 'undefined'].includes(v.trim().toLowerCase()));
+
+          return rawRequests.map((item) => {
+            const pId = item.projectId || item.project?.id || item.project_id || item.material?.projectId || item.material?.project?.id || item.material?.project_id;
+            const resolvedProjName = (item.project && typeof item.project === 'object' && isValid(item.project.name) ? item.project.name : null)
+              || (isValid(item.projectName) ? item.projectName : null)
+              || (isValid(item.project_name) ? item.project_name : null)
+              || (pId ? projectMap.get(String(pId)) : null)
+              || (typeof item.project === 'string' && isNaN(item.project) && isValid(item.project) ? item.project : null)
+              || (projectsList.length === 1 && isValid(projectsList[0]?.name) ? projectsList[0].name : null);
+            const pName = resolvedProjName || '—';
+
+            const matId = item.materialId || item.material?.id || item.material_id || item.matId || item.mat_id || (typeof item.material === 'number' || (typeof item.material === 'string' && !isNaN(item.material)) ? item.material : null);
+            const matchedMat = (matId ? materialsMap.get(String(matId)) : null) || (matId ? (current.materials || []).find(m => String(m.id) === String(matId)) : null);
+
+            const resolvedMatName = (item.material && typeof item.material === 'object' && isValid(item.material.name) ? item.material.name : null)
+              || (isValid(item.materialName) ? item.materialName : null)
+              || (isValid(item.material_name) ? item.material_name : null)
+              || (isValid(item.materialRequested) ? item.materialRequested : null)
+              || (isValid(item.material_requested) ? item.material_requested : null)
+              || (isValid(item.requestedMaterial) ? item.requestedMaterial : null)
+              || (isValid(item.matName) ? item.matName : null)
+              || (isValid(item.itemName) ? item.itemName : null)
+              || (matchedMat?.name && isValid(matchedMat.name) ? matchedMat.name : null)
+              || (matchedMat?.materialName && isValid(matchedMat.materialName) ? matchedMat.materialName : null)
+              || (isValid(item.name) ? item.name : null)
+              || (isValid(item.title) ? item.title : null)
+              || (typeof item.material === 'string' && isNaN(item.material) && isValid(item.material) ? item.material : null);
+            const mName = resolvedMatName || '—';
+
+            return {
+              ...item,
+              name: mName,
+              materialName: mName,
+              materialRequested: mName,
+              projectName: pName,
+              taskTitle: item.task?.title || item.task?.name || item.taskTitle || 'General Site Work',
+              requestedByName: item.requestedBy?.fullName || item.requestedBy?.name || item.requestedBy?.email || item.requestedByName || 'Site Engineer',
+              issuedByName: item.issuedBy?.fullName || item.issuedBy?.name || item.issuedBy?.email || item.issuedByName || '—',
+              quantity: item.quantity != null ? item.quantity : 0,
+              unit: item.material?.unit || matchedMat?.unit || item.unit || 'units',
+              status: item.status || 'PENDING',
+            };
+          });
+        })(),
       }));
 
 
@@ -1582,16 +1662,17 @@ export function DataProvider({ children }) {
       ),
 
     tasks:
-      data.tasks.filter(
+      (data.tasks || []).filter(
         (task) =>
           isSuperAdmin ||
+          !user ||
+          data.projects.length === 0 ||
           data.projects.some(
             (project) =>
               belongsToCurrentTenant(
                 project
               ) &&
-              project.name ===
-                task.project
+              (project.name === task.project || String(project.id) === String(task.projectId || task.project?.id || task.project))
           )
       ),
   };

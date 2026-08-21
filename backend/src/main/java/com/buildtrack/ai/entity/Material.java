@@ -1,5 +1,6 @@
 package com.buildtrack.ai.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -12,6 +13,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 @Table(name = "materials",
        uniqueConstraints = @UniqueConstraint(name = "uk_material_project_name", columnNames = {"project_id", "name"}))
 public class Material {
@@ -53,4 +55,10 @@ public class Material {
         if (unitCost == null) unitCost = BigDecimal.ZERO;
         if (status == null || status.isBlank()) status = "AVAILABLE";
     }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("projectName")
+    public String getProjectName() {
+        return project != null ? project.getName() : null;
+    }
 }
+

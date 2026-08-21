@@ -98,8 +98,8 @@ public class ProjectService {
     @Transactional
     public ProjectAssignment assign(Long projectId, Long userId, String role, User actor) {
         Project project = getProjectForUser(projectId, actor);
-        if (!userHasRole(actor, "COMPANY_ADMIN") && !userHasRole(actor, "SUPER_ADMIN") && !userHasRole(actor, "PROJECT_MANAGER"))
-            throw new BadRequestException("Only Company Admin or Project Manager can assign project personnel");
+        if (!userHasRole(actor, "COMPANY_ADMIN") && !userHasRole(actor, "SUPER_ADMIN"))
+            throw new BadRequestException("Only Company Admin or Super Admin can assign project personnel");
         String normalizedRole = role.toUpperCase(Locale.ROOT);
         if (!ASSIGNABLE_ROLES.contains(normalizedRole)) throw new BadRequestException("Invalid project assignment role");
         User assignee = userRepository.findById(userId).orElseThrow(() -> new ResourceNotFoundException("User not found"));
@@ -113,8 +113,8 @@ public class ProjectService {
     @Transactional
     public void unassign(Long projectId, Long userId, User actor) {
         Project project = getProjectForUser(projectId, actor);
-        if (!userHasRole(actor, "COMPANY_ADMIN") && !userHasRole(actor, "SUPER_ADMIN") && !userHasRole(actor, "PROJECT_MANAGER"))
-            throw new BadRequestException("Only Company Admin or Project Manager can remove project assignments");
+        if (!userHasRole(actor, "COMPANY_ADMIN") && !userHasRole(actor, "SUPER_ADMIN"))
+            throw new BadRequestException("Only Company Admin or Super Admin can remove project assignments");
         ProjectAssignment a = assignmentRepository.findByProjectIdAndUserId(projectId, userId).orElseThrow(() -> new ResourceNotFoundException("Assignment not found"));
         if (!project.getCompany().getId().equals(a.getUser().getCompanyId())) throw new BadRequestException("Invalid tenant assignment");
         assignmentRepository.delete(a);

@@ -180,7 +180,7 @@ export default function ContractorTasks() {
           <p className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--blue)', fontWeight: 700 }}>
             <CheckSquare size={14} /> Contractor Tasks
           </p>
-          <h1>Contractor Task & Expense Management</h1>
+          
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button type="button" className="secondary-button" onClick={loadData} disabled={loading}>

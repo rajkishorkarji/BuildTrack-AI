@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { HardHat, UserPlus, Search, Mail, Phone, FolderKanban, UserX, UserCheck, Trash2 } from 'lucide-react';
+import { HardHat, UserPlus, Search, Mail, Phone, FolderKanban, UserX, UserCheck, Trash2, Users } from 'lucide-react';
 import workforceService from '../../services/workforceService';
 import companyAdminService from '../../services/companyAdminService';
 import projectService from '../../services/projectService';
@@ -79,12 +79,14 @@ export default function CompanyAdminWorkforce() {
       (roleFilter === 'ALL' || m.role === roleFilter);
   });
 
+  const activeCount = members.filter(m => m.enabled).length;
+  const suspendedCount = members.filter(m => !m.enabled).length;
+
   return (
     <div className="dashboard-page">
       <section className="hero-row">
         <div>
           <p className="eyebrow"><HardHat size={14} /> Workforce</p>
-          
         </div>
         <button className="primary-button" onClick={() => setShow(true)}><UserPlus size={16} /> Invite Personnel</button>
       </section>
@@ -93,14 +95,50 @@ export default function CompanyAdminWorkforce() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 16, marginTop: 20 }}>
         {[
-          ['Total Personnel', members.length, 'var(--blue)'],
-          ['Active', members.filter(m => m.enabled).length, 'var(--green)'],
-          ['Suspended', members.filter(m => !m.enabled).length, 'var(--orange)'],
-          ['Projects', projects.length, 'var(--purple)'],
-        ].map(([l, v, c]) => (
-          <div className="panel" key={l} style={{ padding: 18 }}>
-            <span style={{ color: 'var(--muted)', fontSize: 12 }}>{l}</span>
-            <h3 style={{ color: c, margin: '4px 0 0' }}>{v}</h3>
+          {
+            label: 'Total Personnel',
+            value: members.length,
+            color: 'var(--blue)',
+            bg: 'rgba(37,99,235,0.1)',
+            icon: Users,
+            sub: `${projects.length} project site${projects.length !== 1 ? 's' : ''}`,
+          },
+          {
+            label: 'Active',
+            value: activeCount,
+            color: 'var(--green)',
+            bg: 'rgba(34,197,94,0.1)',
+            icon: UserCheck,
+            sub: members.length > 0 ? `${Math.round((activeCount / members.length) * 100)}% of total team` : '0% active',
+          },
+          {
+            label: 'Suspended',
+            value: suspendedCount,
+            color: 'var(--orange)',
+            bg: 'rgba(245,158,11,0.1)',
+            icon: UserX,
+            sub: members.length > 0 ? `${Math.round((suspendedCount / members.length) * 100)}% inactive` : '0% inactive',
+          },
+          {
+            label: 'Projects',
+            value: projects.length,
+            color: 'var(--purple)',
+            bg: 'rgba(168,85,247,0.1)',
+            icon: FolderKanban,
+            sub: `${activeCount} active personnel`,
+          },
+        ].map(({ label: l, value: v, color: c, bg, icon: Icon, sub }) => (
+          <div className="panel" key={l} style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ color: 'var(--muted)', fontSize: 12, fontWeight: 600 }}>{l}</span>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: bg, color: c, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Icon size={16} />
+              </div>
+            </div>
+            <div style={{ marginTop: 8 }}>
+              <h2 style={{ fontSize: 26, color: c, margin: 0, fontWeight: 800, lineHeight: 1.1 }}>{v}</h2>
+              <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 500, marginTop: 4, display: 'block' }}>{sub}</span>
+            </div>
           </div>
         ))}
       </div>

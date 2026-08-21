@@ -29,7 +29,7 @@ export default function ContractorDashboard() {
           <p className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--blue)', fontWeight: 700 }}>
             <Users size={14} /> Dashboard
           </p>
-          <h1>Contractor Dashboard</h1>
+        
         </div>
       </section>
 

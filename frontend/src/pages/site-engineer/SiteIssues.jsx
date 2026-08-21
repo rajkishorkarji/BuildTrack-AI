@@ -43,7 +43,7 @@ export default function SESiteIssues() {
       <section className="hero-row">
         <div>
           <p className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><AlertTriangle size={14} /> Issues</p>
-          <h1>Site Issues ({filtered.length})</h1>
+         
         </div>
         <button type="button" className="primary-button" onClick={() => setShowAdd(true)}><Plus size={16} /> Log Hazard / Issue</button>
       </section>

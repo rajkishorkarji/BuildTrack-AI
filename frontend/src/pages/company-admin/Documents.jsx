@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { FileText, Upload, Search, Trash2, Download, FolderOpen, AlertTriangle, CheckCircle2, RefreshCw, Plus } from 'lucide-react';
+import { FileText, Upload, Search, Trash2, Download, FolderOpen, AlertTriangle, CheckCircle2, RefreshCw, Plus, X, FileCheck } from 'lucide-react';
 import documentService from '../../services/documentService';
 import projectService from '../../services/projectService';
+import { realtimeBus } from '../../services/api';
 
 const FILE_ICONS = {
   pdf: '📄', doc: '📝', docx: '📝', xls: '📊', xlsx: '📊',
@@ -14,11 +15,11 @@ function getIcon(filename) {
 }
 
 function formatBytes(bytes) {
-  if (!bytes || bytes === 0) return '—';
+  if (bytes === null || bytes === undefined || isNaN(bytes) || Number(bytes) === 0) return '—';
   const k = 1024;
   const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+  const i = Math.floor(Math.log(Number(bytes)) / Math.log(k));
+  return `${parseFloat((Number(bytes) / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 }
 
 export default function CompanyAdminDocuments() {
@@ -31,6 +32,11 @@ export default function CompanyAdminDocuments() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [dragOver, setDragOver] = useState(false);
+
+  // Upload confirmation state
+  const [pendingFiles, setPendingFiles] = useState([]);
+  const [targetProjectId, setTargetProjectId] = useState('');
+
   const fileInputRef = useRef(null);
 
   const loadAll = async () => {
@@ -41,8 +47,8 @@ export default function CompanyAdminDocuments() {
         documentService.list(),
         projectService.list(),
       ]);
-      setDocuments(docs);
-      setProjects(proj);
+      setDocuments(docs || []);
+      setProjects(proj || []);
     } catch (e) {
       setError(e?.response?.data?.message || 'Unable to load documents.');
     } finally {
@@ -50,27 +56,44 @@ export default function CompanyAdminDocuments() {
     }
   };
 
-  useEffect(() => { loadAll(); }, []);
+  useEffect(() => {
+    loadAll();
+    const unsub = realtimeBus.subscribe('SERVER_UPDATE', () => loadAll());
+    return () => unsub();
+  }, []);
 
-  const handleUpload = async (files) => {
+  const handleSelectFiles = (files) => {
     if (!files || files.length === 0) return;
-    if (!selectedProject) {
-      setError('Please select a project before uploading.');
+    const fileList = Array.from(files);
+    setPendingFiles(fileList);
+    setTargetProjectId(selectedProject || (projects[0]?.id ? String(projects[0].id) : ''));
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const confirmUpload = async () => {
+    if (pendingFiles.length === 0) return;
+    if (!targetProjectId) {
+      setError('Please select a target project for upload.');
       return;
     }
+
     setUploading(true);
     setError('');
     let successCount = 0;
     const errors = [];
-    for (const file of Array.from(files)) {
+
+    for (const file of pendingFiles) {
       try {
-        await documentService.upload(Number(selectedProject), file);
+        await documentService.upload(Number(targetProjectId), file);
         successCount++;
       } catch (e) {
         errors.push(e?.response?.data?.message || `Failed to upload ${file.name}`);
       }
     }
+
     setUploading(false);
+    setPendingFiles([]);
+
     if (successCount > 0) {
       setSuccess(`${successCount} document${successCount > 1 ? 's' : ''} uploaded successfully!`);
       setTimeout(() => setSuccess(''), 4000);
@@ -79,11 +102,16 @@ export default function CompanyAdminDocuments() {
     if (errors.length > 0) {
       setError(errors.join(' | '));
     }
+  };
+
+  const cancelUpload = () => {
+    setPendingFiles([]);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleDelete = async (doc) => {
-    if (!window.confirm(`Delete "${doc.fileName || doc.name}"? This cannot be undone.`)) return;
+    const docTitle = doc.title || doc.fileName || doc.name || 'this document';
+    if (!window.confirm(`Delete "${docTitle}"? This cannot be undone.`)) return;
     try {
       await documentService.remove(doc.id);
       setSuccess('Document deleted.');
@@ -97,11 +125,12 @@ export default function CompanyAdminDocuments() {
   const handleDrop = (e) => {
     e.preventDefault();
     setDragOver(false);
-    handleUpload(e.dataTransfer.files);
+    handleSelectFiles(e.dataTransfer.files);
   };
 
   const filtered = documents.filter(d => {
-    const matchSearch = String(d.fileName || d.name || '').toLowerCase().includes(search.toLowerCase());
+    const docTitle = d.title || d.fileName || d.name || '';
+    const matchSearch = String(docTitle).toLowerCase().includes(search.toLowerCase());
     const matchProject = !selectedProject || String(d.projectId || d.project?.id || '') === String(selectedProject);
     return matchSearch && matchProject;
   });
@@ -113,7 +142,6 @@ export default function CompanyAdminDocuments() {
           <p className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--blue)', fontWeight: 700 }}>
             <FileText size={14} /> Documents
           </p>
-          
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button type="button" className="secondary-button" onClick={loadAll} disabled={loading}>
@@ -122,17 +150,17 @@ export default function CompanyAdminDocuments() {
           <button
             type="button"
             className="primary-button"
-            disabled={!selectedProject || uploading}
+            disabled={uploading}
             onClick={() => fileInputRef.current?.click()}
           >
-            <Upload size={15} /> {uploading ? 'Uploading...' : 'Upload Documents'}
+            <Upload size={15} /> Select Documents
           </button>
           <input
             ref={fileInputRef}
             type="file"
             multiple
             style={{ display: 'none' }}
-            onChange={e => handleUpload(e.target.files)}
+            onChange={e => handleSelectFiles(e.target.files)}
           />
         </div>
       </section>
@@ -172,7 +200,7 @@ export default function CompanyAdminDocuments() {
         onDragOver={e => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
-        onClick={() => selectedProject && fileInputRef.current?.click()}
+        onClick={() => fileInputRef.current?.click()}
         style={{
           marginTop: 16,
           padding: 28,
@@ -180,17 +208,80 @@ export default function CompanyAdminDocuments() {
           borderRadius: 14,
           textAlign: 'center',
           background: dragOver ? 'rgba(37,99,235,0.06)' : 'var(--panel-soft)',
-          cursor: selectedProject ? 'pointer' : 'not-allowed',
+          cursor: 'pointer',
           transition: 'all 0.2s ease',
-          opacity: selectedProject ? 1 : 0.6,
         }}
       >
         <Upload size={28} style={{ color: 'var(--blue)', marginBottom: 10 }} />
-        <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: 15 }}>Drop files here or click to upload</div>
+        <div style={{ fontWeight: 700, color: 'var(--text)', fontSize: 15 }}>Drop files here or click to select</div>
         <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 4 }}>
-          {selectedProject ? 'Supports PDF, Word, Excel, Images and more' : 'Select a project above to enable uploading'}
+          Supports PDF, Word, Excel, Images and more. You will be asked to confirm before uploading.
         </div>
       </div>
+
+      {/* Upload Confirmation Modal */}
+      {pendingFiles.length > 0 && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 999,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20
+        }}>
+          <div className="panel" style={{ width: '100%', maxWidth: 480, padding: 24, borderRadius: 16, border: '1px solid var(--border)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div style={{ fontWeight: 800, fontSize: 17, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <FileCheck size={20} style={{ color: 'var(--blue)' }} /> Confirm Document Upload
+              </div>
+              <button type="button" onClick={cancelUpload} style={{ border: 'none', background: 'transparent', color: 'var(--muted)', cursor: 'pointer' }}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 700, display: 'block', marginBottom: 6 }}>
+                Target Project <span style={{ color: 'var(--red)' }}>*</span>
+              </label>
+              <select
+                value={targetProjectId}
+                onChange={e => setTargetProjectId(e.target.value)}
+                style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--panel-soft)', color: 'var(--text)', fontSize: 13, fontWeight: 600 }}
+              >
+                <option value="">Select a project...</option>
+                {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 700, marginBottom: 8 }}>
+                Selected Files ({pendingFiles.length})
+              </div>
+              <div style={{ maxHeight: 180, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8, paddingRight: 4 }}>
+                {pendingFiles.map((f, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'var(--panel-soft)', borderRadius: 8, fontSize: 13 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, overflow: 'hidden' }}>
+                      <span style={{ fontSize: 18 }}>{getIcon(f.name)}</span>
+                      <span style={{ fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
+                    </div>
+                    <span style={{ fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap', marginLeft: 12 }}>{formatBytes(f.size)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button type="button" className="secondary-button" onClick={cancelUpload} disabled={uploading}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="primary-button"
+                onClick={confirmUpload}
+                disabled={uploading || !targetProjectId}
+              >
+                <Upload size={15} /> {uploading ? 'Uploading...' : `Upload ${pendingFiles.length} File${pendingFiles.length > 1 ? 's' : ''}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Documents Table */}
       <div className="panel" style={{ marginTop: 16, padding: 0, overflow: 'hidden' }}>
@@ -219,12 +310,13 @@ export default function CompanyAdminDocuments() {
                 </tr>
               )}
               {!loading && filtered.map(doc => {
-                const name = doc.fileName || doc.name || 'Unknown';
-                const project = doc.project?.name || projects.find(p => String(p.id) === String(doc.projectId))?.name || '—';
-                const uploadedBy = doc.uploadedBy?.fullName || doc.uploadedByName || '—';
-                const size = formatBytes(doc.fileSize || doc.size);
-                const date = doc.uploadedAt || doc.createdAt
-                  ? new Date(doc.uploadedAt || doc.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+                const name = doc.title || doc.fileName || doc.name || 'Unknown';
+                const project = doc.projectName || doc.project?.name || projects.find(p => String(p.id) === String(doc.projectId))?.name || '—';
+                const uploadedBy = typeof doc.uploadedBy === 'string' && doc.uploadedBy.trim() ? doc.uploadedBy : (doc.uploadedBy?.fullName || doc.uploadedByName || '—');
+                const rawBytes = doc.sizeBytes ?? doc.fileSizeBytes ?? doc.fileSize ?? doc.size;
+                const size = formatBytes(rawBytes);
+                const date = doc.createdAt || doc.uploadedAt
+                  ? new Date(doc.createdAt || doc.uploadedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
                   : '—';
                 return (
                   <tr key={doc.id} style={{ borderTop: '1px solid var(--border)' }}>
@@ -238,8 +330,8 @@ export default function CompanyAdminDocuments() {
                       </div>
                     </td>
                     <td style={{ padding: 14, color: 'var(--blue)', fontWeight: 600 }}>{project}</td>
-                    <td style={{ padding: 14, color: 'var(--muted)' }}>{uploadedBy}</td>
-                    <td style={{ padding: 14, color: 'var(--muted)' }}>{size}</td>
+                    <td style={{ padding: 14, color: 'var(--text)', fontWeight: 600 }}>{uploadedBy}</td>
+                    <td style={{ padding: 14, color: 'var(--muted)', fontWeight: 600 }}>{size}</td>
                     <td style={{ padding: 14, color: 'var(--muted)' }}>{date}</td>
                     <td style={{ padding: 14 }}>
                       <div style={{ display: 'flex', gap: 6 }}>

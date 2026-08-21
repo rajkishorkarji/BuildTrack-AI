@@ -74,6 +74,7 @@ public class TaskServiceImpl implements TaskService {
         task.setAssignedUser(resolveAssignee(project, request.assigneeUserId(), actor));
 
         TaskEntity saved = taskRepository.save(task);
+        recalculateProjectProgress(project);
         publish(saved, "TASK_CREATED", "Task created: " + saved.getTitle());
         return toResponse(saved);
     }
@@ -90,6 +91,7 @@ public class TaskServiceImpl implements TaskService {
         }
         if (request.status() != null && !request.status().isBlank()) task.setStatus(normalizeStatus(request.status()));
         TaskEntity saved = taskRepository.save(task);
+        recalculateProjectProgress(task.getProject());
         publish(saved, "TASK_UPDATED", "Task updated: " + saved.getTitle());
         return toResponse(saved);
     }
@@ -138,6 +140,19 @@ public class TaskServiceImpl implements TaskService {
         Long companyId = task.getProject().getCompany().getId();
         realtimePublisher.publishForCompany(companyId, "tasks", event.toLowerCase(Locale.ROOT), task.getId());
         domainEventPublisher.publish(event, companyId, "system", "TASK", task.getId(), message);
+    }
+
+    private void recalculateProjectProgress(Project project) {
+        List<TaskEntity> projectTasks = taskRepository.findByProjectId(project.getId());
+        int progress = projectTasks.isEmpty() ? 0 : (int) Math.round(projectTasks.stream()
+                .map(TaskEntity::getCompletionPercentage)
+                .filter(java.util.Objects::nonNull)
+                .mapToInt(Integer::intValue)
+                .average()
+                .orElse(0));
+        project.setProgressPercentage(progress);
+        projectRepository.save(project);
+        realtimePublisher.publishForCompany(project.getCompany().getId(), "projects", "project_updated", project.getId());
     }
 
     private TaskResponse toResponse(TaskEntity t) {

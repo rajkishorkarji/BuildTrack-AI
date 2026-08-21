@@ -19,7 +19,9 @@ public record EquipmentResponse(
         Long projectId,
         String projectName,
         Long assignedUserId,
-        String assignedUserName
+        String assignedUserName,
+        Long taskId,
+        String taskTitle
 ) {
     public static EquipmentResponse from(Equipment e) {
         return new EquipmentResponse(
@@ -37,7 +39,9 @@ public record EquipmentResponse(
                 e.getAssignedUser() != null ? e.getAssignedUser().getId() : null,
                 e.getAssignedUser() != null
                         ? (e.getAssignedUser().getFirstName() + " " + e.getAssignedUser().getLastName()).trim()
-                        : null
+                        : null,
+                e.getTask() != null ? e.getTask().getId() : null,
+                e.getTask() != null ? e.getTask().getTitle() : null
         );
     }
 }

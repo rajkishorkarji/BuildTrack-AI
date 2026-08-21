@@ -107,48 +107,36 @@ public class EmailServiceImpl implements EmailService {
         String subject = "BuildTrack AI - Company Administrator Invitation";
 
         String content = """
-            <div style="font-family:Arial,sans-serif;
-                        max-width:600px;
-                        margin:0 auto;
-                        padding:30px;
-                        border:1px solid #e2e8f0;
-                        border-radius:12px;">
+            <div style="font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;max-width:580px;margin:0 auto;padding:32px 24px;border:1px solid #e2e8f0;border-radius:16px;background:#ffffff;">
+                <div style="text-align:center;margin-bottom:24px;">
+                    <div style="font-size:22px;font-weight:800;color:#2563eb;letter-spacing:-0.5px;">BuildTrack AI</div>
+                    <div style="font-size:12px;color:#64748b;margin-top:2px;">Construction Workforce & Project Management Platform</div>
+                </div>
 
-                <h2 style="color:#2563eb;">
-                    Welcome to BuildTrack AI
-                </h2>
+                <div style="background:#f8fafc;border-radius:12px;padding:20px;border:1px solid #f1f5f9;margin-bottom:24px;">
+                    <h3 style="color:#0f172a;margin:0 0 10px 0;font-size:18px;">Welcome to BuildTrack AI</h3>
+                    <p style="font-size:14px;color:#334155;line-height:1.6;margin:0;">
+                        Hello <strong>%s</strong>,<br/><br/>
+                        You have been invited to become the <strong>Company Administrator</strong> for <strong>%s</strong>.
+                    </p>
+                </div>
 
-                <p style="font-size:15px;color:#334155;">
-                    Hello %s,
+                <p style="font-size:14px;color:#475569;line-height:1.6;margin-bottom:24px;">
+                    Click the button below to accept your invitation and create your account password:
                 </p>
 
-                <p style="font-size:15px;color:#334155;">
-                    You have been invited to become the
-                    <strong>Company Administrator</strong>
-                    for <strong>%s</strong>.
-                </p>
-
-                <p style="font-size:15px;color:#334155;">
-                    Click the button below to accept your invitation
-                    and create your password.
-                </p>
-
-                <div style="margin:30px 0;">
+                <div style="text-align:center;margin:28px 0;">
                     <a href="%s"
-                       style="background:#2563eb;
-                              color:white;
-                              padding:13px 24px;
-                              text-decoration:none;
-                              border-radius:8px;
-                              font-weight:bold;">
-                        Accept Invitation
+                       style="background:#2563eb;color:#ffffff;padding:14px 28px;text-decoration:none;border-radius:10px;font-weight:700;font-size:15px;display:inline-block;box-shadow:0 4px 12px rgba(37,99,235,0.25);">
+                        Accept Invitation & Set Password
                     </a>
                 </div>
 
-                <p style="font-size:13px;color:#64748b;">
-                    This invitation will expire in 24 hours.
-                </p>
-
+                <div style="border-top:1px solid #f1f5f9;padding-top:16px;margin-top:28px;text-align:center;">
+                    <p style="font-size:12px;color:#94a3b8;margin:0;">
+                        This invitation link is valid for 24 hours. If you did not expect this invitation, please ignore this email.
+                    </p>
+                </div>
             </div>
             """.formatted(
                 adminName,
@@ -171,13 +159,36 @@ public class EmailServiceImpl implements EmailService {
 
         String subject = "BuildTrack AI - " + role.replace('_', ' ') + " Invitation";
         String content = """
-            <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:30px;border:1px solid #e2e8f0;border-radius:12px">
-              <h2 style="color:#2563eb">BuildTrack AI</h2>
-              <p>Hello %s,</p>
-              <p>You have been invited by your <strong>Company Admin</strong> to join <strong>%s</strong> as <strong>%s</strong>.</p>
-              <p>Use the button below to create your password and activate your account.</p>
-              <p style="margin:28px 0"><a href="%s" style="background:#2563eb;color:#fff;padding:13px 22px;border-radius:8px;text-decoration:none;font-weight:bold">Accept Invitation</a></p>
-              <p style="font-size:13px;color:#64748b">This invitation expires in 24 hours.</p>
+            <div style="font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;max-width:580px;margin:0 auto;padding:32px 24px;border:1px solid #e2e8f0;border-radius:16px;background:#ffffff;">
+                <div style="text-align:center;margin-bottom:24px;">
+                    <div style="font-size:22px;font-weight:800;color:#2563eb;letter-spacing:-0.5px;">BuildTrack AI</div>
+                    <div style="font-size:12px;color:#64748b;margin-top:2px;">Construction Workforce & Project Management Platform</div>
+                </div>
+
+                <div style="background:#f8fafc;border-radius:12px;padding:20px;border:1px solid #f1f5f9;margin-bottom:24px;">
+                    <h3 style="color:#0f172a;margin:0 0 10px 0;font-size:18px;">You're Invited to Join BuildTrack AI</h3>
+                    <p style="font-size:14px;color:#334155;line-height:1.6;margin:0;">
+                        Hello <strong>%s</strong>,<br/><br/>
+                        You have been invited by <strong>%s</strong> to join their team as <strong>%s</strong>.
+                    </p>
+                </div>
+
+                <p style="font-size:14px;color:#475569;line-height:1.6;margin-bottom:24px;">
+                    Click the button below to accept your invitation and create your account password:
+                </p>
+
+                <div style="text-align:center;margin:28px 0;">
+                    <a href="%s"
+                       style="background:#2563eb;color:#ffffff;padding:14px 28px;text-decoration:none;border-radius:10px;font-weight:700;font-size:15px;display:inline-block;box-shadow:0 4px 12px rgba(37,99,235,0.25);">
+                        Accept Invitation & Set Password
+                    </a>
+                </div>
+
+                <div style="border-top:1px solid #f1f5f9;padding-top:16px;margin-top:28px;text-align:center;">
+                    <p style="font-size:12px;color:#94a3b8;margin:0;">
+                        This invitation link is valid for 24 hours. If you did not expect this invitation, please ignore this email.
+                    </p>
+                </div>
             </div>
             """.formatted(fullName, companyName, role.replace('_', ' '), invitationUrl);
         sendHtmlEmail(toEmail, subject, content);

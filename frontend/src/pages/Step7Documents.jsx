@@ -32,7 +32,7 @@ export default function Step7Documents() {
   };
 
   return <div className="dashboard-page">
-    <section className="hero-row"><div><p className="eyebrow"><FileText size={14} /> Documents</p><h1>Project Document Vault</h1></div>
+    <section className="hero-row"><div><p className="eyebrow"><FileText size={14} /> Documents</p></div>
       {canUpload && <><input ref={input} type="file" hidden onChange={upload} /><button className="primary-button" disabled={busy || !projectId} onClick={() => input.current?.click()}><Upload size={16}/> {busy ? 'Uploading…' : 'Upload Document'}</button></>}
     </section>
     <div className="panel" style={{marginTop:20,padding:16,display:'flex',gap:12,flexWrap:'wrap'}}>

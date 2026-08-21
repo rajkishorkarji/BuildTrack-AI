@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { FileText, Plus, CheckCircle2, XCircle } from 'lucide-react';
+import { FileText, Plus, CheckCircle2, XCircle, Activity, Sparkles, TrendingUp, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
 import { dailyLogService } from '../services/dailyLogService';
@@ -7,7 +7,7 @@ import taskService from '../services/taskService';
 import projectService from '../services/projectService';
 import { realtimeBus } from '../services/api';
 
-const INPUT = { width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--panel-soft)', color: 'var(--text)', fontSize: 13 };
+const INPUT = { width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--panel-soft)', color: 'var(--text)', fontSize: 13, boxSizing: 'border-box' };
 
 export default function Step7DailyLogs() {
   const { user } = useAuth();
@@ -26,6 +26,7 @@ export default function Step7DailyLogs() {
     overallProjectProgress: '',
   });
   const [notice, setNotice] = useState('');
+  const [errorNotice, setErrorNotice] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const load = async () => {
@@ -76,51 +77,86 @@ export default function Step7DailyLogs() {
     });
   }, [projectId, projectTasks, tasks, projects]);
 
+  // Dynamically calculate overall project completion % based on updated task progress
+  const computedProjectProgress = useMemo(() => {
+    if (!projectId || activeTasks.length === 0) return null;
+    const taskProg = form.taskProgressPercentage !== '' ? Number(form.taskProgressPercentage) : null;
+    if (taskProg == null || isNaN(taskProg)) return null;
+
+    let total = 0;
+    activeTasks.forEach(t => {
+      if (String(t.id) === String(taskId)) {
+        total += Math.min(Math.max(taskProg, 0), 100);
+      } else {
+        total += Number(t.completionPercentage ?? t.progress ?? 0);
+      }
+    });
+    return Math.round(total / activeTasks.length);
+  }, [projectId, taskId, form.taskProgressPercentage, activeTasks]);
+
   const submit = async e => {
     e.preventDefault();
+    setErrorNotice('');
+    setNotice('');
     if (!projectId) return;
+
+    // Validation: If user entered task progress percentage, a task must be selected!
+    if (form.taskProgressPercentage !== '' && !taskId) {
+      setErrorNotice('Select an assigned task before reporting task progress.');
+      return;
+    }
+
     setSubmitting(true);
     try {
       const selectedTask = activeTasks.find(t => String(t.id) === String(taskId));
       const summaryPrefix = selectedTask ? `[Task: ${selectedTask.title}] ` : '';
-      const taskProgNum = form.taskProgressPercentage === '' ? null : Number(form.taskProgressPercentage);
-      const overallProgNum = form.overallProjectProgress === '' ? null : Number(form.overallProjectProgress);
+      const taskProgNum = taskId && form.taskProgressPercentage !== '' ? Number(form.taskProgressPercentage) : null;
+      const finalProjectProg = computedProjectProgress ?? (form.overallProjectProgress === '' ? null : Number(form.overallProjectProgress));
 
       const payload = {
-        ...form,
+        logDate: form.logDate,
+        workSummary: summaryPrefix + form.workSummary.trim(),
+        blockers: form.blockers,
+        safetyNotes: form.safetyNotes,
+        weather: form.weather,
         projectId: Number(projectId),
-        workSummary: summaryPrefix + form.workSummary,
-        progressPercentage: taskProgNum ?? overallProgNum,
+        taskId: taskId ? Number(taskId) : null,
+        progressPercentage: taskProgNum,
       };
 
       const newLog = await dailyLogService.create(payload);
       setLogs(p => [newLog, ...p]);
 
-      // 1. If an assigned task is selected and progress % is entered, update task progress for Contractor & PM tables
+      // 1. Update task progress & status in real time for Project Manager Tasks page
       if (taskId && taskProgNum != null && !isNaN(taskProgNum)) {
         try {
-          await taskService.updateProgress(Number(taskId), { progress: taskProgNum, completionPercentage: taskProgNum });
+          const nextStatus = taskProgNum >= 100 ? 'COMPLETED' : taskProgNum > 0 ? 'IN_PROGRESS' : 'TODO';
+          await taskService.updateProgress(Number(taskId), { progress: taskProgNum, completionPercentage: taskProgNum, status: nextStatus });
         } catch (taskErr) {
           console.error('Failed to update task progress:', taskErr);
         }
       }
 
-      // 2. If overall project progress is entered, update project progress for Company Admin & PM dashboards
-      if (projectId && overallProgNum != null && !isNaN(overallProgNum)) {
+      // 2. Automatically calculate and update project progress across system
+      if (projectId && finalProjectProg != null && !isNaN(finalProjectProg)) {
         try {
-          await projectService.updateProgress(Number(projectId), overallProgNum);
+          await projectService.updateProgress(Number(projectId), finalProjectProg);
         } catch (projErr) {
           console.error('Failed to update project progress:', projErr);
         }
       }
 
+      // Broadcast real-time update to all subscribers (PM Tasks Table & Dashboards)
+      realtimeBus.publish('SERVER_UPDATE', { type: 'PROGRESS_UPDATE', projectId, taskId, taskProgNum, finalProjectProg });
+      if (realtimeBus.emit) realtimeBus.emit('SERVER_UPDATE');
+
       setForm({ ...form, workSummary: '', blockers: '', safetyNotes: '', taskProgressPercentage: '' });
       setTaskId('');
-      setNotice('Daily log submitted successfully! Real-time task progress & overall project progress synced.');
+      setNotice('Daily log submitted successfully! Real-time task progress & project completion synchronized.');
       setTimeout(() => setNotice(''), 4000);
       if (refresh) refresh();
     } catch (err) {
-      setNotice(err?.response?.data?.message || 'Unable to submit log.');
+      setErrorNotice(err?.response?.data?.message || 'Unable to submit log.');
     } finally {
       setSubmitting(false);
     }
@@ -130,6 +166,7 @@ export default function Step7DailyLogs() {
     try {
       const x = ok ? await dailyLogService.approve(id) : await dailyLogService.reject(id);
       setLogs(p => p.map(l => l.id === id ? x : l));
+      realtimeBus.publish('SERVER_UPDATE', { type: 'LOG_REVIEW', id, ok });
     } catch (err) {
       alert(err?.response?.data?.message || 'Review failed');
     }
@@ -144,17 +181,22 @@ export default function Step7DailyLogs() {
           <p className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--blue)', fontWeight: 700 }}>
             <FileText size={14} /> Daily Logs
           </p>
-          <h1>Site Daily Logs</h1>
+          
         </div>
       </section>
 
       {notice && (
-        <div className="panel" style={{ marginTop: 16, padding: '12px 16px', color: notice.includes('successfully') ? 'var(--green)' : 'var(--red)', fontSize: 13, fontWeight: 600 }}>
-          {notice}
+        <div className="panel" style={{ marginTop: 16, padding: '12px 16px', color: 'var(--green)', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <CheckCircle2 size={16} /> {notice}
+        </div>
+      )}
+      {errorNotice && (
+        <div className="panel" style={{ marginTop: 16, padding: '12px 16px', color: 'var(--red)', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)' }}>
+          <AlertTriangle size={16} /> {errorNotice}
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 420px) 1fr', gap: 18, marginTop: 18 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 440px) 1fr', gap: 18, marginTop: 18 }}>
         {/* Submit Form */}
         <div className="panel" style={{ padding: 22 }}>
           <h3 style={{ margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700 }}>
@@ -178,16 +220,18 @@ export default function Step7DailyLogs() {
             </div>
 
             <div>
-              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--muted)' }}>Assigned Task (Optional)</label>
-              <select style={INPUT} value={taskId} onChange={e => {
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--muted)' }}>Select Assigned Task (Required to report task progress)</label>
+              <select style={{ ...INPUT, borderColor: form.taskProgressPercentage !== '' && !taskId ? 'var(--red)' : 'var(--border)' }} value={taskId} onChange={e => {
                 const tId = e.target.value;
                 setTaskId(tId);
+                setErrorNotice('');
                 const selT = activeTasks.find(t => String(t.id) === String(tId));
-                if (selT && selT.completionPercentage != null) {
-                  setForm(f => ({ ...f, taskProgressPercentage: String(selT.completionPercentage) }));
+                if (selT && (selT.completionPercentage != null || selT.progress != null)) {
+                  const currentProg = selT.completionPercentage ?? selT.progress ?? 0;
+                  setForm(f => ({ ...f, taskProgressPercentage: String(currentProg) }));
                 }
               }}>
-                <option value="">No specific task / General site work</option>
+                <option value="">General Site Work (No Task Selected)</option>
                 {activeTasks.map(t => (
                   <option key={t.id} value={t.id}>
                     {t.title} ({t.status || 'Active'}) — {t.completionPercentage ?? t.progress ?? 0}% done
@@ -213,14 +257,44 @@ export default function Step7DailyLogs() {
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--muted)' }}>Task Progress % (Contractor Table)</label>
-                <input type="number" min="0" max="100" style={INPUT} placeholder="e.g. 75" value={form.taskProgressPercentage} onChange={e => setForm({ ...form, taskProgressPercentage: e.target.value })} />
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--muted)' }}>Task Progress % (PM Table)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  style={{ ...INPUT, borderColor: form.taskProgressPercentage !== '' && !taskId ? 'var(--red)' : 'var(--border)' }}
+                  placeholder={taskId ? "e.g. 75" : "Select task above"}
+                  value={form.taskProgressPercentage}
+                  onChange={e => {
+                    setForm({ ...form, taskProgressPercentage: e.target.value });
+                    setErrorNotice('');
+                    if (e.target.value !== '' && !taskId && activeTasks.length > 0) {
+                      setTaskId(String(activeTasks[0].id));
+                    }
+                  }}
+                />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--muted)' }}>Overall Project Progress % (Company Admin)</label>
-                <input type="number" min="0" max="100" style={INPUT} placeholder="e.g. 60" value={form.overallProjectProgress} onChange={e => setForm({ ...form, overallProjectProgress: e.target.value })} />
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--muted)' }}>Project Progress %</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  style={INPUT}
+                  placeholder="Calculated automatically"
+                  value={computedProjectProgress != null ? computedProjectProgress : form.overallProjectProgress}
+                  onChange={e => setForm({ ...form, overallProjectProgress: e.target.value })}
+                />
               </div>
             </div>
+
+            {/* Real-time Calculation Indicator */}
+            {computedProjectProgress != null && (
+              <div style={{ padding: '8px 12px', background: 'rgba(37,99,235,0.08)', borderRadius: 8, border: '1px solid rgba(37,99,235,0.18)', fontSize: 12, color: 'var(--blue)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <TrendingUp size={14} style={{ flexShrink: 0 }} />
+                <span>Updating task progress to <strong>{form.taskProgressPercentage}%</strong> will automatically adjust overall project completion to <strong>{computedProjectProgress}%</strong> across site tasks.</span>
+              </div>
+            )}
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <div>
@@ -239,7 +313,7 @@ export default function Step7DailyLogs() {
             </div>
 
             <button className="primary-button" disabled={!projectId || submitting} style={{ marginTop: 6 }}>
-              {submitting ? 'Submitting Log...' : 'Submit Daily Log'}
+              {submitting ? 'Submitting Log...' : 'Submit Daily Log & Sync Progress'}
             </button>
           </form>
         </div>
@@ -253,6 +327,7 @@ export default function Step7DailyLogs() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
                   <div>
                     <strong style={{ fontSize: 14 }}>{l.projectName}</strong>
+                    {l.taskTitle && <div style={{ fontSize: 12, color: 'var(--blue)', fontWeight: 600, marginTop: 2 }}>Task: {l.taskTitle}</div>}
                     <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{l.logDate} · Reported by {l.createdBy}</div>
                   </div>
                   <span style={{

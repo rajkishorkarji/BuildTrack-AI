@@ -21,7 +21,7 @@ export default function SEIssues() {
       <section className="hero-row">
         <div>
           <p className="eyebrow">Site Safety & Defect Tracking</p>
-          <h1>Report Site Issues ({issueList.length})</h1>
+          
         </div>
         <button type="button" className="primary-button" onClick={() => setShowModal(true)}>
           <Plus size={16} /> Report Hazard / Defect

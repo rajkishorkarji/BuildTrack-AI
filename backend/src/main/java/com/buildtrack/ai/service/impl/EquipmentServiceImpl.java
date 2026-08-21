@@ -7,6 +7,7 @@ import com.buildtrack.ai.event.DomainEventPublisher;
 import com.buildtrack.ai.repository.EquipmentMaintenanceRepository;
 import com.buildtrack.ai.repository.EquipmentRepository;
 import com.buildtrack.ai.repository.ProjectAssignmentRepository;
+import com.buildtrack.ai.repository.TaskRepository;
 import com.buildtrack.ai.service.EquipmentService;
 import com.buildtrack.ai.service.RealtimePublisher;
 import com.buildtrack.ai.service.TenantAccessService;
@@ -24,6 +25,7 @@ public class EquipmentServiceImpl implements EquipmentService {
     private final com.buildtrack.ai.repository.ProjectRepository projectRepository;
     private final EquipmentMaintenanceRepository maintenanceRepository;
     private final ProjectAssignmentRepository assignmentRepository;
+    private final TaskRepository taskRepository;
     private final UserRepository userRepository;
     private final TenantAccessService tenantAccessService;
     private final RealtimePublisher realtimePublisher;
@@ -36,14 +38,13 @@ public class EquipmentServiceImpl implements EquipmentService {
         if (tenantAccessService.isSuperAdmin(user)) return equipmentRepository.findAll();
 
         if (tenantAccessService.hasRole(user, "COMPANY_ADMIN")) {
-            return equipmentRepository.findByProjectCompanyId(user.getCompanyId());
+            return equipmentRepository.findByCompanyId(user.getCompanyId());
         }
 
         List<Long> projectIds = assignmentRepository.findProjectsForUser(user.getId(), "ACTIVE")
                 .stream().map(Project::getId).toList();
 
-        if (projectIds.isEmpty()) return List.of();
-        return equipmentRepository.findByProjectIds(projectIds);
+        return equipmentRepository.findByUserIdOrProjectIds(user.getId(), projectIds);
     }
 
     @Override
@@ -53,12 +54,12 @@ public class EquipmentServiceImpl implements EquipmentService {
         tenantAccessService.requireCompanyAdmin(actor);
         tenantAccessService.requireActiveSubscription(tenantAccessService.currentCompany());
 
-        if (equipment.getProject() == null || equipment.getProject().getId() == null) {
-            throw new IllegalArgumentException("Equipment must be assigned to a project");
+        if (equipment.getProject() != null && equipment.getProject().getId() != null) {
+            Project project = validateProject(equipment.getProject().getId());
+            equipment.setProject(project);
+        } else {
+            equipment.setProject(null);
         }
-
-        Project project = validateProject(equipment.getProject().getId());
-        equipment.setProject(project);
 
         Equipment saved = equipmentRepository.save(equipment);
         eventPublisher.publish("EQUIPMENT_CREATED", actor.getCompanyId(), actor.getEmail(),
@@ -99,40 +100,88 @@ public class EquipmentServiceImpl implements EquipmentService {
     @Transactional
     public Equipment assign(Long equipmentId, Long userId) {
         User actor = tenantAccessService.currentUser();
-        tenantAccessService.requireCompanyAdmin(actor);
+        if (!tenantAccessService.isSuperAdmin(actor)
+                && !tenantAccessService.hasRole(actor, "COMPANY_ADMIN")
+                && !tenantAccessService.hasRole(actor, "PROJECT_MANAGER")
+                && !tenantAccessService.hasRole(actor, "SITE_ENGINEER")
+                && !tenantAccessService.hasRole(actor, "CONTRACTOR")) {
+            throw new IllegalArgumentException("You cannot assign equipment");
+        }
 
         Equipment equipment = getAuthorizedEquipment(equipmentId, actor);
-        User assignee = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("Assignee not found"));
+        if (userId == null) {
+            equipment.setAssignedUser(null);
+        } else {
+            User assignee = userRepository.findById(userId)
+                    .orElseThrow(() -> new IllegalArgumentException("Assignee not found"));
 
-        if (!actor.getCompanyId().equals(assignee.getCompanyId())) {
-            throw new IllegalArgumentException("Assignee belongs to another company");
+            if (!actor.getCompanyId().equals(assignee.getCompanyId())) {
+                throw new IllegalArgumentException("Assignee belongs to another company");
+            }
+
+            equipment.setAssignedUser(assignee);
         }
 
-        boolean eligibleRole = tenantAccessService.hasRole(assignee, "PROJECT_MANAGER")
-                || tenantAccessService.hasRole(assignee, "SITE_ENGINEER")
-                || tenantAccessService.hasRole(assignee, "CONTRACTOR")
-                || tenantAccessService.hasRole(assignee, "WORKER");
-        if (!eligibleRole) {
-            throw new IllegalArgumentException("Equipment can only be assigned to project personnel");
-        }
-
-        if (equipment.getProject() != null &&
-                !assignmentRepository.existsByProjectIdAndUserIdAndStatus(
-                        equipment.getProject().getId(), assignee.getId(), "ACTIVE")) {
-            ProjectAssignment newAssignment = new ProjectAssignment();
-            newAssignment.setProject(equipment.getProject());
-            newAssignment.setUser(assignee);
-            newAssignment.setAssignmentRole(assignee.getRoles().isEmpty() ? "WORKER" : assignee.getRoles().iterator().next().getRoleName());
-            newAssignment.setStatus("ACTIVE");
-            assignmentRepository.save(newAssignment);
-        }
-
-        equipment.setAssignedUser(assignee);
         Equipment saved = equipmentRepository.save(equipment);
         eventPublisher.publish("EQUIPMENT_ASSIGNED", actor.getCompanyId(), actor.getEmail(),
                 "EQUIPMENT", saved.getId(), "Equipment " + saved.getName() + " was assigned");
         realtimePublisher.publishForCompany(actor.getCompanyId(), "equipment", "assigned", saved.getId());
+        return saved;
+    }
+
+    @Override
+    @Transactional
+    public Equipment assignProject(Long equipmentId, Long projectId) {
+        User actor = tenantAccessService.currentUser();
+        if (!tenantAccessService.isSuperAdmin(actor)
+                && !tenantAccessService.hasRole(actor, "COMPANY_ADMIN")
+                && !tenantAccessService.hasRole(actor, "PROJECT_MANAGER")) {
+            throw new IllegalArgumentException("Only Company Admin or Project Manager can assign equipment to projects");
+        }
+
+        Equipment equipment = getAuthorizedEquipment(equipmentId, actor);
+        if (projectId == null) {
+            equipment.setProject(null);
+        } else {
+            Project project = validateProject(projectId);
+            equipment.setProject(project);
+        }
+
+        Equipment saved = equipmentRepository.save(equipment);
+        eventPublisher.publish("EQUIPMENT_PROJECT_ASSIGNED", actor.getCompanyId(), actor.getEmail(),
+                "EQUIPMENT", saved.getId(), "Equipment " + saved.getName() + " project updated");
+        realtimePublisher.publishForCompany(actor.getCompanyId(), "equipment", "updated", saved.getId());
+        return saved;
+    }
+
+    @Override
+    @Transactional
+    public Equipment assignTask(Long equipmentId, Long taskId) {
+        User actor = tenantAccessService.currentUser();
+        if (!tenantAccessService.isSuperAdmin(actor)
+                && !tenantAccessService.hasRole(actor, "COMPANY_ADMIN")
+                && !tenantAccessService.hasRole(actor, "PROJECT_MANAGER")
+                && !tenantAccessService.hasRole(actor, "SITE_ENGINEER")
+                && !tenantAccessService.hasRole(actor, "CONTRACTOR")) {
+            throw new IllegalArgumentException("You cannot assign equipment to tasks");
+        }
+
+        Equipment equipment = getAuthorizedEquipment(equipmentId, actor);
+        if (taskId == null) {
+            equipment.setTask(null);
+        } else {
+            TaskEntity task = taskRepository.findById(taskId)
+                    .orElseThrow(() -> new IllegalArgumentException("Task not found"));
+            equipment.setTask(task);
+            if (task.getProject() != null && equipment.getProject() == null) {
+                equipment.setProject(task.getProject());
+            }
+        }
+
+        Equipment saved = equipmentRepository.save(equipment);
+        eventPublisher.publish("EQUIPMENT_TASK_ASSIGNED", actor.getCompanyId(), actor.getEmail(),
+                "EQUIPMENT", saved.getId(), "Equipment " + saved.getName() + " task assigned");
+        realtimePublisher.publishForCompany(actor.getCompanyId(), "equipment", "updated", saved.getId());
         return saved;
     }
 
@@ -175,15 +224,9 @@ public class EquipmentServiceImpl implements EquipmentService {
 
         if (tenantAccessService.isSuperAdmin(actor)) return equipment;
 
-        if (equipment.getProject() == null ||
+        if (equipment.getProject() != null &&
                 !actor.getCompanyId().equals(equipment.getProject().getCompany().getId())) {
-            throw new IllegalArgumentException("Equipment does not belong to your company");
-        }
-
-        if (!tenantAccessService.hasRole(actor, "COMPANY_ADMIN")
-                && !assignmentRepository.existsByProjectIdAndUserIdAndStatus(
-                    equipment.getProject().getId(), actor.getId(), "ACTIVE")) {
-            throw new IllegalArgumentException("You are not assigned to this equipment project");
+            throw new IllegalArgumentException("Equipment belongs to another company");
         }
         return equipment;
     }

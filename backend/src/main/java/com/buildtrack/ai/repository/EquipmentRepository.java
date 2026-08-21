@@ -12,6 +12,12 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
     List<Equipment> findByProjectCompanyId(Long companyId);
     List<Equipment> findByAssignedUserId(Long userId);
 
+    @Query("select distinct e from Equipment e left join e.project p left join e.assignedUser u where p.company.id = :companyId or u.companyId = :companyId")
+    List<Equipment> findByCompanyId(@Param("companyId") Long companyId);
+
+    @Query("select distinct e from Equipment e left join e.project p left join e.assignedUser u where u.id = :userId or p.id in :projectIds")
+    List<Equipment> findByUserIdOrProjectIds(@Param("userId") Long userId, @Param("projectIds") List<Long> projectIds);
+
     @Query("select e from Equipment e where e.project.id in :projectIds")
     List<Equipment> findByProjectIds(@Param("projectIds") List<Long> projectIds);
 

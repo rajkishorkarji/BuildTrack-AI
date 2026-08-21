@@ -17,6 +17,14 @@ const equipmentService = {
     const { data } = await api.patch(`/equipment/${id}/assignment`, { userId });
     return data?.data;
   },
+  async assignProject(id, projectId) {
+    const { data } = await api.patch(`/equipment/${id}/project`, { projectId });
+    return data?.data;
+  },
+  async assignTask(id, taskId) {
+    const { data } = await api.patch(`/equipment/${id}/task`, { taskId });
+    return data?.data;
+  },
   async maintenance(id) {
     const { data } = await api.get(`/equipment/${id}/maintenance`);
     return data?.data || [];

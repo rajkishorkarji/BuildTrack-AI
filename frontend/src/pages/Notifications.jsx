@@ -29,7 +29,7 @@ export default function Notifications() {
           <p className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--blue)', fontWeight: 700 }}>
             <Bell size={14} /> Notifications
           </p>
-          <h1 style={{ margin: '4px 0 0' }}>Real-time notification center</h1>
+          
         </div>
         <button type="button" className="secondary-button" onClick={() => notificationService.markAllAsRead()} disabled={!unread}>
           <CheckCheck size={15} /> Mark All as Read

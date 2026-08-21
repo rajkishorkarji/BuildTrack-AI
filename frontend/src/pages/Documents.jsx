@@ -52,7 +52,7 @@ export default function Documents() {
   return (
     <div className="dashboard-page">
       <section className="hero-row">
-        <div><p className="eyebrow">Document Vault</p><h1>Project Documents ({filtered.length})</h1></div>
+        <div><p className="eyebrow">Document Vault</p></div>
       </section>
 
       <div className="panel" style={{ marginTop: 20 }}>

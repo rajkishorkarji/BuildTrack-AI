@@ -10,6 +10,8 @@ public interface EquipmentService {
     Equipment createEquipment(Equipment equipment);
     Equipment updateStatus(Long id, String status);
     Equipment assign(Long equipmentId, Long userId);
+    Equipment assignProject(Long equipmentId, Long projectId);
+    Equipment assignTask(Long equipmentId, Long taskId);
     EquipmentMaintenance scheduleMaintenance(Long equipmentId, EquipmentMaintenance maintenance);
     List<EquipmentMaintenance> maintenanceHistory(Long equipmentId);
 }

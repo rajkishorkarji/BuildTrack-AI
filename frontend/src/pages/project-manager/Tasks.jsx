@@ -21,7 +21,7 @@ export default function PMTasks() {
       <section className="hero-row">
         <div>
           <p className="eyebrow">Project Task Governance</p>
-          <h1>Tasks Management</h1>
+          
         </div>
         <button type="button" className="primary-button" onClick={() => setShowAddModal(true)}>
           <Plus size={16} /> Create & Assign Task

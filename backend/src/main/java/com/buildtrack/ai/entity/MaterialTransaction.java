@@ -1,6 +1,7 @@
 package com.buildtrack.ai.entity;
 
 import com.buildtrack.ai.auth.entity.User;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -13,6 +14,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 @Table(name = "material_transactions")
 public class MaterialTransaction {
 

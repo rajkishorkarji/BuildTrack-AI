@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { Plus, Search, Wrench, RefreshCw, AlertTriangle, CheckCircle2, Settings2, X } from 'lucide-react';
+import { Plus, Search, Wrench, RefreshCw, AlertTriangle, CheckCircle2, Settings2, X, Truck, UserCheck, FolderKanban } from 'lucide-react';
 import equipmentService from '../../services/equipmentService';
 import projectService from '../../services/projectService';
 import workforceService from '../../services/workforceService';
@@ -45,8 +45,10 @@ export default function CompanyAdminEquipment() {
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('ALL');
   const [open, setOpen] = useState(false);
-  const [assignModal, setAssignModal] = useState(null);
+  const [assignUserModal, setAssignUserModal] = useState(null);
+  const [assignProjModal, setAssignProjModal] = useState(null);
   const [assignUserId, setAssignUserId] = useState('');
+  const [assignProjectId, setAssignProjectId] = useState('');
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -86,7 +88,7 @@ export default function CompanyAdminEquipment() {
       const proj = projects.find(p => p.id === Number(projId));
       if (proj?.name) return proj.name;
     }
-    return '—';
+    return 'Company Inventory';
   };
 
   const getAssignedUserName = (eq) => {
@@ -108,7 +110,6 @@ export default function CompanyAdminEquipment() {
   const create = async (e) => {
     e.preventDefault();
     if (!form.name.trim()) { setError('Equipment name is required.'); return; }
-    if (!form.projectId) { setError('Please select a project.'); return; }
     setSubmitting(true);
     setError('');
     try {
@@ -117,12 +118,12 @@ export default function CompanyAdminEquipment() {
         category: form.category,
         serialNumber: form.serialNumber.trim() || null,
         dailyCost: Number(form.dailyCost || 0),
-        project: { id: Number(form.projectId) },
+        project: form.projectId ? { id: Number(form.projectId) } : null,
         status: 'OPERATIONAL',
       });
       setOpen(false);
       setForm(emptyForm);
-      setSuccess('Equipment registered successfully!');
+      setSuccess('Equipment registered into inventory successfully!');
       setTimeout(() => setSuccess(''), 3000);
       await load();
     } catch (err) {
@@ -142,17 +143,31 @@ export default function CompanyAdminEquipment() {
     }
   };
 
-  const handleAssign = async () => {
-    if (!assignModal || !assignUserId) return;
+  const handleAssignUser = async () => {
+    if (!assignUserModal) return;
     try {
-      await equipmentService.assign(assignModal.id, Number(assignUserId));
-      setAssignModal(null);
+      await equipmentService.assign(assignUserModal.id, assignUserId ? Number(assignUserId) : null);
+      setAssignUserModal(null);
       setAssignUserId('');
-      setSuccess('Equipment assigned successfully! Syncing real-time updates.');
+      setSuccess('Equipment personnel assignment updated!');
       setTimeout(() => setSuccess(''), 3000);
       await load();
     } catch (e) {
       setError(e?.response?.data?.message || 'Unable to assign equipment.');
+    }
+  };
+
+  const handleAssignProject = async () => {
+    if (!assignProjModal) return;
+    try {
+      await equipmentService.assignProject(assignProjModal.id, assignProjectId ? Number(assignProjectId) : null);
+      setAssignProjModal(null);
+      setAssignProjectId('');
+      setSuccess('Equipment project site assignment updated!');
+      setTimeout(() => setSuccess(''), 3000);
+      await load();
+    } catch (e) {
+      setError(e?.response?.data?.message || 'Unable to assign project.');
     }
   };
 
@@ -202,14 +217,50 @@ export default function CompanyAdminEquipment() {
       {/* KPI Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px,1fr))', gap: 16, marginTop: 20 }}>
         {[
-          { label: 'Total Fleet', value: equipment.length, color: 'var(--blue)' },
-          { label: 'Operational', value: operationalCount, color: 'var(--green)' },
-          { label: 'In Maintenance', value: maintenanceCount, color: 'var(--orange)' },
-          { label: 'Assigned', value: assignedCount, color: 'var(--purple)' },
-        ].map(({ label, value, color }) => (
-          <div key={label} className="panel" style={{ padding: 20 }}>
-            <span style={{ color: 'var(--muted)', fontSize: 12, fontWeight: 600 }}>{label}</span>
-            <h2 style={{ fontSize: 26, color, margin: '4px 0 0', fontWeight: 800 }}>{value}</h2>
+          {
+            label: 'Total Fleet',
+            value: equipment.length,
+            color: 'var(--blue)',
+            bg: 'rgba(37,99,235,0.1)',
+            icon: Truck,
+            sub: `${projects.length} project site${projects.length !== 1 ? 's' : ''}`,
+          },
+          {
+            label: 'Operational',
+            value: operationalCount,
+            color: 'var(--green)',
+            bg: 'rgba(34,197,94,0.1)',
+            icon: CheckCircle2,
+            sub: equipment.length > 0 ? `${Math.round((operationalCount / equipment.length) * 100)}% operational rate` : '0% operational',
+          },
+          {
+            label: 'In Maintenance',
+            value: maintenanceCount,
+            color: 'var(--orange)',
+            bg: 'rgba(245,158,11,0.1)',
+            icon: Wrench,
+            sub: equipment.length > 0 ? `${Math.round((maintenanceCount / equipment.length) * 100)}% in service` : '0% in service',
+          },
+          {
+            label: 'Assigned',
+            value: assignedCount,
+            color: 'var(--purple)',
+            bg: 'rgba(168,85,247,0.1)',
+            icon: UserCheck,
+            sub: equipment.length > 0 ? `${Math.round((assignedCount / equipment.length) * 100)}% allocated` : '0% allocated',
+          },
+        ].map(({ label: l, value: v, color: c, bg, icon: Icon, sub }) => (
+          <div key={l} className="panel" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ color: 'var(--muted)', fontSize: 12, fontWeight: 600 }}>{l}</span>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: bg, color: c, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Icon size={16} />
+              </div>
+            </div>
+            <div style={{ marginTop: 8 }}>
+              <h2 style={{ fontSize: 26, color: c, margin: 0, fontWeight: 800, lineHeight: 1.1 }}>{v}</h2>
+              <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 500, marginTop: 4, display: 'block' }}>{sub}</span>
+            </div>
           </div>
         ))}
       </div>
@@ -242,21 +293,21 @@ export default function CompanyAdminEquipment() {
           <table style={{ width: '100%', minWidth: 700, borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: 'var(--panel-soft)', color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
-                {['Equipment', 'Category', 'Project', 'Assigned To', 'Daily Cost', 'Status', 'Actions'].map(h => (
+                {['Equipment Asset', 'Category', 'Project Site', 'Assigned Personnel', 'Daily Cost', 'Status', 'Actions'].map(h => (
                   <th key={h} style={{ padding: '14px 16px', textAlign: 'left', fontWeight: 600 }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {loading && (
-                <tr><td colSpan={7} style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>Loading equipment...</td></tr>
+                <tr><td colSpan={7} style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>Loading equipment inventory...</td></tr>
               )}
               {!loading && filtered.length === 0 && (
                 <tr>
                   <td colSpan={7} style={{ padding: 40, textAlign: 'center' }}>
                     <Wrench size={32} style={{ color: 'var(--muted)', marginBottom: 10, display: 'block', margin: '0 auto 10px' }} />
                     <div style={{ color: 'var(--text)', fontWeight: 700 }}>No equipment found</div>
-                    <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 4 }}>Register your first equipment asset to get started.</div>
+                    <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 4 }}>Register your first equipment asset into company fleet inventory.</div>
                   </td>
                 </tr>
               )}
@@ -290,16 +341,23 @@ export default function CompanyAdminEquipment() {
                         <button
                           className="secondary-button"
                           style={{ fontSize: 11, padding: '4px 10px' }}
-                          onClick={() => toggleStatus(x)}
+                          onClick={() => { setAssignProjModal(x); setAssignProjectId(x.projectId || x.project?.id || ''); }}
                         >
-                          <Settings2 size={12} /> {String(x.status || '').toUpperCase() === 'OPERATIONAL' ? 'To Maintenance' : 'Set Operational'}
+                          <FolderKanban size={12} /> Assign Project
                         </button>
                         <button
                           className="secondary-button"
                           style={{ fontSize: 11, padding: '4px 10px' }}
-                          onClick={() => { setAssignModal(x); setAssignUserId(''); }}
+                          onClick={() => { setAssignUserModal(x); setAssignUserId(x.assignedUserId || x.assignedUser?.id || ''); }}
                         >
-                          Assign
+                          <UserCheck size={12} /> Assign Personnel
+                        </button>
+                        <button
+                          className="secondary-button"
+                          style={{ fontSize: 11, padding: '4px 10px' }}
+                          onClick={() => toggleStatus(x)}
+                        >
+                          <Settings2 size={12} /> {String(x.status || '').toUpperCase() === 'OPERATIONAL' ? 'To Maintenance' : 'Set Operational'}
                         </button>
                       </div>
                     </td>
@@ -318,7 +376,7 @@ export default function CompanyAdminEquipment() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
               <div>
                 <h2 style={{ fontSize: 22, fontWeight: 800, margin: 0 }}>Register Equipment</h2>
-                <p style={{ color: 'var(--muted)', fontSize: 13, margin: '4px 0 0' }}>Add a new asset to the company fleet.</p>
+                <p style={{ color: 'var(--muted)', fontSize: 13, margin: '4px 0 0' }}>Add a new asset to company fleet inventory.</p>
               </div>
               <button type="button" className="secondary-button" onClick={() => setOpen(false)} style={{ padding: 6 }}>
                 <X size={16} />
@@ -351,9 +409,9 @@ export default function CompanyAdminEquipment() {
                 <input type="number" min="0" step="0.01" style={INPUT} placeholder="0.00" value={form.dailyCost} onChange={e => setForm({ ...form, dailyCost: e.target.value })} />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--muted)' }}>Assign to Project *</label>
-                <select required style={{ ...INPUT, cursor: 'pointer' }} value={form.projectId} onChange={e => setForm({ ...form, projectId: e.target.value })}>
-                  <option value="">Select a project</option>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--muted)' }}>Assign to Project Site (Optional)</label>
+                <select style={{ ...INPUT, cursor: 'pointer' }} value={form.projectId} onChange={e => setForm({ ...form, projectId: e.target.value })}>
+                  <option value="">Company Fleet Inventory (Unassigned)</option>
                   {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
               </div>
@@ -370,22 +428,22 @@ export default function CompanyAdminEquipment() {
       )}
 
       {/* Assign User Modal */}
-      {assignModal && (
+      {assignUserModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.65)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
           <div className="panel" style={{ width: '100%', maxWidth: 440, padding: 28, borderRadius: 16 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
               <div>
-                <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>Assign Equipment</h2>
-                <p style={{ color: 'var(--muted)', fontSize: 13, margin: '4px 0 0' }}>Assign <strong>{assignModal.name}</strong> to a team member.</p>
+                <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>Assign Personnel</h2>
+                <p style={{ color: 'var(--muted)', fontSize: 13, margin: '4px 0 0' }}>Assign <strong>{assignUserModal.name}</strong> to a team member or worker.</p>
               </div>
-              <button type="button" className="secondary-button" onClick={() => setAssignModal(null)} style={{ padding: 6 }}>
+              <button type="button" className="secondary-button" onClick={() => setAssignUserModal(null)} style={{ padding: 6 }}>
                 <X size={16} />
               </button>
             </div>
 
-            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--muted)' }}>Select Personnel</label>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--muted)' }}>Select Personnel / Worker</label>
             <select style={{ ...INPUT, cursor: 'pointer', marginBottom: 20 }} value={assignUserId} onChange={e => setAssignUserId(e.target.value)}>
-              <option value="">Select a team member</option>
+              <option value="">Unassign (Return to Pool)</option>
               {workforce.map(w => (
                 <option key={w.id || w.userId} value={w.userId || w.id}>
                   {w.firstName || w.fullName || w.name} {w.lastName || ''} — ({w.role ? String(w.role).replace(/_/g, ' ') : 'Personnel'})
@@ -394,8 +452,38 @@ export default function CompanyAdminEquipment() {
             </select>
 
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button type="button" className="secondary-button" onClick={() => setAssignModal(null)}>Cancel</button>
-              <button type="button" className="primary-button" disabled={!assignUserId} onClick={handleAssign}>Assign Asset</button>
+              <button type="button" className="secondary-button" onClick={() => setAssignUserModal(null)}>Cancel</button>
+              <button type="button" className="primary-button" onClick={handleAssignUser}>Save Assignment</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assign Project Modal */}
+      {assignProjModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.65)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
+          <div className="panel" style={{ width: '100%', maxWidth: 440, padding: 28, borderRadius: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <div>
+                <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>Assign Project Site</h2>
+                <p style={{ color: 'var(--muted)', fontSize: 13, margin: '4px 0 0' }}>Allocate <strong>{assignProjModal.name}</strong> to a project site.</p>
+              </div>
+              <button type="button" className="secondary-button" onClick={() => setAssignProjModal(null)} style={{ padding: 6 }}>
+                <X size={16} />
+              </button>
+            </div>
+
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--muted)' }}>Select Project Site</label>
+            <select style={{ ...INPUT, cursor: 'pointer', marginBottom: 20 }} value={assignProjectId} onChange={e => setAssignProjectId(e.target.value)}>
+              <option value="">Company Fleet Inventory (Unassigned)</option>
+              {projects.map(p => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button type="button" className="secondary-button" onClick={() => setAssignProjModal(null)}>Cancel</button>
+              <button type="button" className="primary-button" onClick={handleAssignProject}>Save Project Assignment</button>
             </div>
           </div>
         </div>

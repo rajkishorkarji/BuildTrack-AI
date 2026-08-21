@@ -20,7 +20,9 @@ public class MaterialServiceImpl implements MaterialService {
 
     private final MaterialRepository materialRepository;
     private final MaterialTransactionRepository transactionRepository;
+    private final MaterialRequestRepository requestRepository;
     private final ProjectRepository projectRepository;
+    private final TaskRepository taskRepository;
     private final ProjectAssignmentRepository assignmentRepository;
     private final TenantAccessService tenantAccessService;
     private final DomainEventPublisher eventPublisher;
@@ -37,7 +39,10 @@ public class MaterialServiceImpl implements MaterialService {
         }
 
         if (tenantAccessService.isSuperAdmin(user)) return materialRepository.findAll();
-        return materialRepository.findByProjectCompanyIdOrderByNameAsc(user.getCompanyId());
+        if (user.getCompanyId() != null) {
+            return materialRepository.findByProjectCompanyIdOrderByNameAsc(user.getCompanyId());
+        }
+        return materialRepository.findAll();
     }
 
     @Override
@@ -50,8 +55,41 @@ public class MaterialServiceImpl implements MaterialService {
             throw new IllegalArgumentException("Only Company Admin, Site Engineer, or Contractor can create materials");
         }
 
+        if (material.getProject() == null || material.getProject().getId() == null) {
+            throw new IllegalArgumentException("Project is required to create a material");
+        }
+
+        if (material.getName() == null || material.getName().isBlank()) {
+            throw new IllegalArgumentException("Material name is required");
+        }
+
         Project project = authorizedProject(material.getProject().getId(), actor);
         material.setProject(project);
+
+        List<Material> existingList = materialRepository.findByProjectIdOrderByNameAsc(project.getId());
+        Material existing = existingList.stream()
+                .filter(m -> m.getName() != null && m.getName().trim().equalsIgnoreCase(material.getName().trim()))
+                .findFirst().orElse(null);
+
+        if (existing != null) {
+            BigDecimal addQty = material.getQuantity() != null ? material.getQuantity() : BigDecimal.ZERO;
+            existing.setQuantity(existing.getQuantity().add(addQty));
+            if (material.getUnit() != null && !material.getUnit().isBlank()) existing.setUnit(material.getUnit());
+            if (material.getUnitCost() != null && material.getUnitCost().compareTo(BigDecimal.ZERO) > 0) existing.setUnitCost(material.getUnitCost());
+            if (material.getReorderLevel() != null) existing.setReorderLevel(material.getReorderLevel());
+            existing.setStatus(existing.getQuantity().compareTo(existing.getReorderLevel()) <= 0 ? "LOW_STOCK" : "AVAILABLE");
+            Material saved = materialRepository.save(existing);
+            publishMaterialEvent(actor, saved, "MATERIAL_UPDATED", "Updated stock for " + saved.getName());
+            return saved;
+        }
+
+        if (material.getQuantity() == null) material.setQuantity(BigDecimal.ZERO);
+        if (material.getReorderLevel() == null) material.setReorderLevel(BigDecimal.ZERO);
+        if (material.getUnitCost() == null) material.setUnitCost(BigDecimal.ZERO);
+        if (material.getUnit() == null || material.getUnit().isBlank()) material.setUnit("units");
+        material.setName(material.getName().trim());
+        material.setStatus(material.getQuantity().compareTo(material.getReorderLevel()) <= 0 ? "LOW_STOCK" : "AVAILABLE");
+
         Material saved = materialRepository.save(material);
 
         eventPublisher.publish("MATERIAL_CREATED", actor.getCompanyId(), actor.getEmail(),
@@ -129,6 +167,136 @@ public class MaterialServiceImpl implements MaterialService {
         return transactionRepository.findByMaterialIdOrderByCreatedAtDesc(materialId);
     }
 
+    // Material Requests Implementation
+    @Override
+    @Transactional
+    public MaterialRequest createRequest(MaterialRequest request) {
+        User actor = tenantAccessService.currentUser();
+        if (request.getMaterial() == null || request.getMaterial().getId() == null) {
+            throw new IllegalArgumentException("Material selection is required");
+        }
+        Material material = authorizedMaterial(request.getMaterial().getId(), actor);
+        requirePositive(request.getQuantity());
+
+        request.setMaterial(material);
+        request.setProject(material.getProject());
+        request.setRequestedBy(actor);
+        request.setStatus("PENDING");
+
+        if (request.getTask() != null && request.getTask().getId() != null) {
+            TaskEntity task = taskRepository.findById(request.getTask().getId()).orElse(null);
+            request.setTask(task);
+        }
+
+        MaterialRequest saved = requestRepository.save(request);
+        publishMaterialEvent(actor, material, "MATERIAL_REQUEST_CREATED",
+                "Material request created for " + saved.getQuantity() + " " + material.getUnit() + " of " + material.getName());
+        return saved;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<MaterialRequest> getRequests(Long projectId) {
+        User user = tenantAccessService.currentUser();
+        if (projectId != null) {
+            authorizedProject(projectId, user);
+            return requestRepository.findByProjectIdOrderByCreatedAtDesc(projectId);
+        }
+        if (tenantAccessService.isSuperAdmin(user)) return requestRepository.findAll();
+        if (user.getCompanyId() != null) {
+            return requestRepository.findByProjectCompanyIdOrderByCreatedAtDesc(user.getCompanyId());
+        }
+        return requestRepository.findAll();
+    }
+
+    @Override
+    @Transactional
+    public MaterialRequest issueRequest(Long requestId) {
+        User actor = tenantAccessService.currentUser();
+        MaterialRequest req = requestRepository.findById(requestId)
+                .orElseThrow(() -> new IllegalArgumentException("Material request not found"));
+        authorizedProject(req.getProject().getId(), actor);
+
+        Material material = req.getMaterial();
+        if (material.getQuantity().compareTo(req.getQuantity()) < 0) {
+            throw new IllegalArgumentException("Insufficient material stock to fulfill request");
+        }
+
+        material.setQuantity(material.getQuantity().subtract(req.getQuantity()));
+        material.setStatus(material.getQuantity().compareTo(material.getReorderLevel()) <= 0 ? "LOW_STOCK" : "AVAILABLE");
+        materialRepository.save(material);
+
+        MaterialTransaction tx = MaterialTransaction.builder()
+                .material(material)
+                .type(MaterialTransaction.TransactionType.ISSUE)
+                .quantity(req.getQuantity())
+                .unitCost(material.getUnitCost() != null ? material.getUnitCost() : BigDecimal.ZERO)
+                .performedBy(actor)
+                .notes("Issued for Request #" + req.getId() + (req.getReason() != null ? ": " + req.getReason() : ""))
+                .build();
+        transactionRepository.save(tx);
+
+        req.setStatus("ISSUED");
+        req.setIssuedBy(actor);
+        MaterialRequest saved = requestRepository.save(req);
+
+        publishMaterialEvent(actor, material, "MATERIAL_REQUEST_ISSUED",
+                "Issued " + req.getQuantity() + " " + material.getUnit() + " of " + material.getName() + " for request #" + req.getId());
+        return saved;
+    }
+
+    @Override
+    @Transactional
+    public MaterialRequest workerReceiveRequest(Long requestId) {
+        User actor = tenantAccessService.currentUser();
+        MaterialRequest req = requestRepository.findById(requestId)
+                .orElseThrow(() -> new IllegalArgumentException("Material request not found"));
+        authorizedProject(req.getProject().getId(), actor);
+
+        req.setStatus("WORKER_RECEIVED");
+        MaterialRequest saved = requestRepository.save(req);
+
+        publishMaterialEvent(actor, req.getMaterial(), "MATERIAL_REQUEST_WORKER_RECEIVED",
+                "Worker received material for request #" + req.getId());
+        return saved;
+    }
+
+    @Override
+    @Transactional
+    public MaterialRequest confirmRequest(Long requestId) {
+        User actor = tenantAccessService.currentUser();
+        MaterialRequest req = requestRepository.findById(requestId)
+                .orElseThrow(() -> new IllegalArgumentException("Material request not found"));
+        authorizedProject(req.getProject().getId(), actor);
+
+        req.setStatus("CONFIRMED");
+        MaterialRequest saved = requestRepository.save(req);
+
+        publishMaterialEvent(actor, req.getMaterial(), "MATERIAL_REQUEST_CONFIRMED",
+                "Engineer confirmed material receipt for request #" + req.getId());
+        return saved;
+    }
+
+    @Override
+    @Transactional
+    public void delete(Long id) {
+        User actor = tenantAccessService.currentUser();
+        if (!tenantAccessService.hasRole(actor, "COMPANY_ADMIN")
+                && !tenantAccessService.hasRole(actor, "SITE_ENGINEER")
+                && !tenantAccessService.hasRole(actor, "CONTRACTOR")) {
+            throw new IllegalArgumentException("You do not have permission to delete materials");
+        }
+
+        Material material = authorizedMaterial(id, actor);
+        materialRepository.delete(material);
+
+        if (actor.getCompanyId() != null) {
+            eventPublisher.publish("MATERIAL_DELETED", actor.getCompanyId(), actor.getEmail(),
+                    "MATERIAL", id, "Material " + material.getName() + " was deleted");
+            realtimePublisher.publishForCompany(actor.getCompanyId(), "materials", "deleted", id);
+        }
+    }
+
     private Material authorizedMaterial(Long id, User user) {
         Material material = materialRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Material not found"));
@@ -141,7 +309,7 @@ public class MaterialServiceImpl implements MaterialService {
                 .orElseThrow(() -> new IllegalArgumentException("Project not found"));
 
         if (tenantAccessService.isSuperAdmin(user)) return project;
-        if (!user.getCompanyId().equals(project.getCompany().getId())) {
+        if (user.getCompanyId() != null && project.getCompany() != null && !user.getCompanyId().equals(project.getCompany().getId())) {
             throw new IllegalArgumentException("Project belongs to another company");
         }
 
@@ -161,8 +329,10 @@ public class MaterialServiceImpl implements MaterialService {
     }
 
     private void publishMaterialEvent(User actor, Material material, String type, String message) {
-        eventPublisher.publish(type, actor.getCompanyId(), actor.getEmail(),
-                "MATERIAL", material.getId(), message);
-        realtimePublisher.publishForCompany(actor.getCompanyId(), "materials", "updated", material.getId());
+        if (actor != null && actor.getCompanyId() != null) {
+            eventPublisher.publish(type, actor.getCompanyId(), actor.getEmail(),
+                    "MATERIAL", material.getId(), message);
+            realtimePublisher.publishForCompany(actor.getCompanyId(), "materials", "updated", material.getId());
+        }
     }
 }

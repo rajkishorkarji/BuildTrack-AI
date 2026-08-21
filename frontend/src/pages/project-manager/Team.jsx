@@ -16,7 +16,7 @@ export default function PMTeam() {
   return (
     <div className="dashboard-page">
       <section className="hero-row">
-        <div><p className="eyebrow">Project Team</p><h1>Assigned Workforce ({members.length})</h1></div>
+        <div><p className="eyebrow">Project Team</p></div>
       </section>
       {error && <div className="panel" style={{ marginTop: 16, color: 'var(--red)' }}>{error}</div>}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: 16, marginTop: 20 }}>

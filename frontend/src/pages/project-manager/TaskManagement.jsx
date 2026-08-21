@@ -140,7 +140,7 @@ export default function PMTaskManagement() {
           <p className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--blue)', fontWeight: 700 }}>
             <CheckSquare size={14} /> Task Governance
           </p>
-          <h1>Project Tasks Management</h1>
+         
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button type="button" className="secondary-button" onClick={loadData} disabled={loading}>
@@ -358,7 +358,7 @@ export default function PMTaskManagement() {
                 </select>
                 {projectMembers.length === 0 && form.projectId && (
                   <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
-                    No assigned personnel for this project yet. You can assign personnel from the Projects page.
+                    No assigned personnel for this project yet.
                   </p>
                 )}
               </div>

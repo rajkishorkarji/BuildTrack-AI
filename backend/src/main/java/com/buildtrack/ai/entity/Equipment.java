@@ -32,6 +32,10 @@ public class Equipment {
     @JoinColumn(name = "assigned_user_id")
     private User assignedUser;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "task_id")
+    private TaskEntity task;
+
     @Column(nullable = false)
     private String name;
 

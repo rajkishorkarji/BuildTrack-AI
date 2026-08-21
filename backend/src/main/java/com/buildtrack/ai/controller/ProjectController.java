@@ -84,7 +84,7 @@ public class ProjectController {
     }
 
     @PostMapping("/{id}/assignments")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','COMPANY_ADMIN','PROJECT_MANAGER')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','COMPANY_ADMIN')")
     public ResponseEntity<ApiResponse<ProjectAssignmentResponse>> assign(@PathVariable Long id, @Valid @RequestBody ProjectAssignmentRequest request) {
         User actor = tenantAccessService.currentUser();
         ProjectAssignment a = projectService.assign(id, request.getUserId(), request.getRole(), actor);
@@ -94,7 +94,7 @@ public class ProjectController {
     }
 
     @DeleteMapping("/{id}/assignments/{userId}")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','COMPANY_ADMIN','PROJECT_MANAGER')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','COMPANY_ADMIN')")
     public ResponseEntity<ApiResponse<Void>> unassign(@PathVariable Long id, @PathVariable Long userId) {
         User actor = tenantAccessService.currentUser();
         projectService.unassign(id, userId, actor);

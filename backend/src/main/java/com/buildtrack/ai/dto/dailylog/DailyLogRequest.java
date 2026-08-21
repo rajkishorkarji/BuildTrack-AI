@@ -5,6 +5,7 @@ import java.time.LocalDate;
 
 public record DailyLogRequest(
     @NotNull Long projectId,
+    Long taskId,
     @NotNull LocalDate logDate,
     @NotBlank @Size(max = 1000) String workSummary,
     @Size(max = 5000) String blockers,

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { FolderKanban, MapPin, Calendar, Users, Eye, X, Plus } from 'lucide-react';
+import { FolderKanban, MapPin, Calendar, Users, X, CheckCircle2, Activity, UserCheck } from 'lucide-react';
 import projectService from '../../services/projectService';
 import { formatINR } from '../../utils/currency';
+import { realtimeBus } from '../../services/api';
 
 const ROLES = [
   ['SITE_ENGINEER', 'Site Engineer'],
@@ -32,7 +33,11 @@ export default function ProjectManagerProjects() {
     }
   };
 
-  useEffect(() => { loadProjects(); }, []);
+  useEffect(() => {
+    loadProjects();
+    const unsub = realtimeBus.subscribe('SERVER_UPDATE', () => loadProjects());
+    return () => unsub();
+  }, []);
 
   const openAssignments = async (project) => {
     setSelected(project);
@@ -85,6 +90,17 @@ export default function ProjectManagerProjects() {
     }
   };
 
+  const activeProjectsCount = projects.filter(p => {
+    const s = String(p.status || '').toUpperCase();
+    return s === 'ACTIVE' || s === 'IN_PROGRESS' || s === 'IN PROGRESS';
+  }).length;
+
+  const totalAssignedPersonnel = projects.reduce((sum, p) => sum + (p.assignments?.length || 0), 0);
+
+  const avgProgress = projects.length > 0
+    ? Math.round(projects.reduce((sum, p) => sum + Number(p.progressPercentage || p.progress || 0), 0) / projects.length)
+    : 0;
+
   return (
     <div className="dashboard-page">
       <section className="hero-row">
@@ -92,10 +108,59 @@ export default function ProjectManagerProjects() {
           <p className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--blue)', fontWeight: 700 }}>
             <FolderKanban size={14} /> Projects
           </p>
-          <h1>Managed Projects</h1>
-          <p>Projects assigned to you by Company Admin. Assign Site Engineers, Contractors & Workers to manage project execution.</p>
         </div>
       </section>
+
+      {/* Real-time KPI Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16, marginTop: 20, marginBottom: 20 }}>
+        {[
+          {
+            label: 'Assigned Sites',
+            value: projects.length,
+            color: 'var(--blue)',
+            bg: 'rgba(37,99,235,0.1)',
+            icon: FolderKanban,
+            sub: `${activeProjectsCount} active site${activeProjectsCount !== 1 ? 's' : ''}`,
+          },
+          {
+            label: 'Active Projects',
+            value: activeProjectsCount,
+            color: 'var(--green)',
+            bg: 'rgba(34,197,94,0.1)',
+            icon: CheckCircle2,
+            sub: projects.length > 0 ? `${Math.round((activeProjectsCount / projects.length) * 100)}% active rate` : '0% active',
+          },
+          {
+            label: 'Assigned Personnel',
+            value: totalAssignedPersonnel,
+            color: 'var(--purple)',
+            bg: 'rgba(168,85,247,0.1)',
+            icon: UserCheck,
+            sub: 'Across all project sites',
+          },
+          {
+            label: 'Average Progress',
+            value: `${avgProgress}%`,
+            color: 'var(--orange)',
+            bg: 'rgba(245,158,11,0.1)',
+            icon: Activity,
+            sub: 'Real-time completion',
+          },
+        ].map(({ label: l, value: v, color: c, bg, icon: Icon, sub }) => (
+          <div key={l} className="panel" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ color: 'var(--muted)', fontSize: 12, fontWeight: 600 }}>{l}</span>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: bg, color: c, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Icon size={16} />
+              </div>
+            </div>
+            <div style={{ marginTop: 8 }}>
+              <h2 style={{ fontSize: 26, color: c, margin: 0, fontWeight: 800, lineHeight: 1.1 }}>{v}</h2>
+              <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 500, marginTop: 4, display: 'block' }}>{sub}</span>
+            </div>
+          </div>
+        ))}
+      </div>
 
       {error && <div className="panel" style={{ color: 'var(--orange)', marginBottom: 16 }}>{error}</div>}
 
@@ -133,15 +198,10 @@ export default function ProjectManagerProjects() {
                 </span>
               </div>
               <div style={{ marginTop: 12, height: 6, background: 'var(--panel-soft)', borderRadius: 3, overflow: 'hidden' }}>
-                <div style={{ width: `${p.progressPercentage || 0}%`, height: '100%', background: 'var(--blue)', borderRadius: 3 }} />
+                <div style={{ width: `${p.progressPercentage || p.progress || 0}%`, height: '100%', background: 'var(--blue)', borderRadius: 3 }} />
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: 8, marginTop: 18 }}>
-              <button className="primary-button" style={{ flex: 1, fontSize: 12 }} onClick={() => openAssignments(p)}>
-                <Users size={14} /> Assign Personnel
-              </button>
-            </div>
           </article>
         ))}
       </div>

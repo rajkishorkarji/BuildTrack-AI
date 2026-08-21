@@ -32,7 +32,7 @@ export default function SEDashboard() {
           <p className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--blue)', fontWeight: 700 }}>
             <HardHat size={14} /> Dashboard
           </p>
-          <h1>Site Engineer Dashboard</h1>
+          
         </div>
         <button type="button" className="date-chip">
           {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}

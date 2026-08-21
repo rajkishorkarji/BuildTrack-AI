@@ -66,6 +66,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
     public ResponseEntity<ApiResponse<Void>> handleDataIntegrityViolation(org.springframework.dao.DataIntegrityViolationException ex) {
+        String msg = ex.getMessage();
+        if (msg != null && (msg.contains("uk_material_project_name") || msg.contains("materials"))) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(ApiResponse.error("A material with this name already exists in the selected project."));
+        }
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(ApiResponse.error("Cannot delete or modify this item because it is linked to active records (such as payments, projects, or workforce data)."));
     }
