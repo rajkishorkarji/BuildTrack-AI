@@ -1,4 +1,4 @@
-﻿# Environment files
+# Environment files
 .env
 *.env
 !*.env.example
@@ -6,6 +6,7 @@
 # Java / Spring Boot
 target/
 *.class
+*.log
 
 # Node / React
 node_modules/
