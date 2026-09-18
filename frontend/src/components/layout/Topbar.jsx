@@ -15,6 +15,7 @@ import {
   ChevronDown,
   Building2,
   Radio,
+  Menu,
 } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
@@ -105,6 +106,16 @@ export default function Topbar() {
         flexWrap: 'nowrap',
       }}
     >
+      <button
+        type="button"
+        className="mobile-menu-btn"
+        onClick={() => window.dispatchEvent(new CustomEvent('buildtrack:toggle-sidebar'))}
+        aria-label="Toggle navigation menu"
+        title="Menu"
+      >
+        <Menu size={19} />
+      </button>
+
       <div className="topbar-search" ref={searchRef}>
         <Search size={17} aria-hidden="true" />
         <input

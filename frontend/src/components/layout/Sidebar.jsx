@@ -1,8 +1,9 @@
+import { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   Building2, Users, HardHat, FolderKanban, CheckSquare, Receipt,
   Gauge, ShieldCheck, FileText, Bell, LayoutDashboard, Settings,
-  ChevronRight, Bot, Clock, Package, AlertTriangle,
+  ChevronRight, Bot, Clock, Package, AlertTriangle, X,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { PERMISSIONS } from '../../config/rbac';
@@ -83,33 +84,68 @@ export default function Sidebar() {
   const currentRole = user?.role || 'SUPER_ADMIN';
   const menuItems = roleMenus[currentRole] || roleMenus.SUPER_ADMIN;
 
-  return (
-    <aside className="sidebar">
-      <div className="sidebar-brand" aria-label="BuildTrack AI">
-        <img
-          src="/logo-brand.svg"
-          alt="BuildTrack AI"
-          className="brand-logo-full"
-        />
-      </div>
+  const [mobileOpen, setMobileOpen] = useState(false);
 
-      <nav className="sidebar-nav">
-        <div className="nav-section-title">Workspace</div>
-        {menuItems.map((item) => {
-          const Icon = item.icon;
-          return (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-            >
-              <Icon size={18} className="nav-icon" />
-              <span className="nav-label">{item.label}</span>
-              <ChevronRight size={14} className="nav-arrow" />
-            </NavLink>
-          );
-        })}
-      </nav>
-    </aside>
+  useEffect(() => {
+    const handleToggle = () => setMobileOpen(prev => !prev);
+    const handleClose = () => setMobileOpen(false);
+
+    window.addEventListener('buildtrack:toggle-sidebar', handleToggle);
+    window.addEventListener('buildtrack:close-sidebar', handleClose);
+
+    return () => {
+      window.removeEventListener('buildtrack:toggle-sidebar', handleToggle);
+      window.removeEventListener('buildtrack:close-sidebar', handleClose);
+    };
+  }, []);
+
+  return (
+    <>
+      {mobileOpen && (
+        <div
+          className="sidebar-backdrop"
+          onClick={() => setMobileOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+      <aside className={`sidebar ${mobileOpen ? 'mobile-open' : ''}`}>
+        <div className="sidebar-brand-row">
+          <div className="sidebar-brand" aria-label="BuildTrack AI">
+            <img
+              src="/logo-brand.svg"
+              alt="BuildTrack AI"
+              className="brand-logo-full"
+            />
+          </div>
+          <button
+            type="button"
+            className="sidebar-close-btn"
+            onClick={() => setMobileOpen(false)}
+            aria-label="Close navigation"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <nav className="sidebar-nav">
+          <div className="nav-section-title">Workspace</div>
+          {menuItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                onClick={() => setMobileOpen(false)}
+                className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+              >
+                <Icon size={18} className="nav-icon" />
+                <span className="nav-label">{item.label}</span>
+                <ChevronRight size={14} className="nav-arrow" />
+              </NavLink>
+            );
+          })}
+        </nav>
+      </aside>
+    </>
   );
 }
