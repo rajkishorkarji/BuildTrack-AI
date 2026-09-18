@@ -57,6 +57,9 @@ public class ProjectService {
         p.setBudget(request.getBudget());
         p.setStartDate(request.getStartDate());
         p.setEstEndDate(request.getEstEndDate());
+        p.setLatitude(request.getLatitude());
+        p.setLongitude(request.getLongitude());
+        if (request.getGeofenceRadiusMeters() != null) p.setGeofenceRadiusMeters(request.getGeofenceRadiusMeters());
         p.setSpent(java.math.BigDecimal.ZERO);
         p.setProgressPercentage(0);
         p.setStatus(request.getStatus() != null && !request.getStatus().isBlank() ? request.getStatus().trim().toUpperCase(Locale.ROOT) : "PLANNED");
@@ -75,6 +78,9 @@ public class ProjectService {
         if (request.getBudget() != null) p.setBudget(request.getBudget());
         if (request.getStatus() != null && !request.getStatus().isBlank()) p.setStatus(request.getStatus().trim().toUpperCase(Locale.ROOT));
         p.setStartDate(request.getStartDate()); p.setEstEndDate(request.getEstEndDate());
+        if (request.getLatitude() != null) p.setLatitude(request.getLatitude());
+        if (request.getLongitude() != null) p.setLongitude(request.getLongitude());
+        if (request.getGeofenceRadiusMeters() != null) p.setGeofenceRadiusMeters(request.getGeofenceRadiusMeters());
         return projectRepository.save(p);
     }
 
@@ -82,7 +88,15 @@ public class ProjectService {
     public Project updateProgress(Long projectId, Integer progressPercentage, User user) {
         Project p = getProjectForUser(projectId, user);
         if (progressPercentage != null) {
-            p.setProgressPercentage(Math.min(100, Math.max(0, progressPercentage)));
+            int prog = Math.min(100, Math.max(0, progressPercentage));
+            p.setProgressPercentage(prog);
+            if (prog == 0) {
+                p.setStatus("PLANNED");
+            } else if (prog >= 100) {
+                p.setStatus("COMPLETED");
+            } else {
+                p.setStatus("IN_PROGRESS");
+            }
         }
         return projectRepository.save(p);
     }

@@ -108,6 +108,10 @@ class RealTimeEventBus {
         };
     }
 
+    publish(event, payload) {
+        this.emit(event, payload);
+    }
+
     emit(event, payload) {
         const callbacks = this.listeners.get(event);
 

@@ -8,4 +8,5 @@ public record ProjectSummaryResponse(
         Long id, String name, String code, String location, String description,
         BigDecimal budget, BigDecimal spent, Integer progressPercentage, String status,
         LocalDate startDate, LocalDate estEndDate, Long companyId, String companyName, String pmName,
+        Double latitude, Double longitude, Double geofenceRadiusMeters,
         List<ProjectAssignmentResponse> assignments) {}

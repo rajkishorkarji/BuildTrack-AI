@@ -21,6 +21,10 @@ public class AttendanceResponse {
     private Attendance.AttendanceStatus status;
     private String verificationStatus;
     private String verifiedBy;
+    private Double checkInLatitude;
+    private Double checkInLongitude;
+    private Double checkInDistanceMeters;
+    private Boolean locationVerified;
     private LocalDateTime createdAt;
 
     public static AttendanceResponse from(Attendance a) {
@@ -36,6 +40,10 @@ public class AttendanceResponse {
                 .status(a.getStatus())
                 .verificationStatus(a.getVerificationStatus())
                 .verifiedBy(a.getVerifiedBy())
+                .checkInLatitude(a.getCheckInLatitude())
+                .checkInLongitude(a.getCheckInLongitude())
+                .checkInDistanceMeters(a.getCheckInDistanceMeters())
+                .locationVerified(a.getLocationVerified())
                 .createdAt(a.getCreatedAt())
                 .build();
     }

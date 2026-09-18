@@ -14,5 +14,10 @@ public record TaskResponse(
         LocalDate dueDate,
         Long assigneeUserId,
         String assigneeName,
-        String assigneeRole
+        String assigneeRole,
+        Double lastUpdatedLatitude,
+        Double lastUpdatedLongitude,
+        Boolean locationVerified,
+        Long milestoneId,
+        String milestoneTitle
 ) {}

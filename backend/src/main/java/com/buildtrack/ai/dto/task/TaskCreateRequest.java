@@ -1,7 +1,5 @@
 package com.buildtrack.ai.dto.task;
 
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
@@ -13,5 +11,6 @@ public record TaskCreateRequest(
         String description,
         String priority,
         LocalDate dueDate,
-        Long assigneeUserId
+        Long assigneeUserId,
+        Long milestoneId
 ) {}

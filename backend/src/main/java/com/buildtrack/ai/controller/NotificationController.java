@@ -53,7 +53,7 @@ public class NotificationController {
         if (tenantAccessService.isSuperAdmin(user)) {
             notificationService.markAllAsRead();
         } else {
-            notificationService.getNotificationsForUser(user).forEach(item -> notificationService.markAsReadForUser(item.getId(), user));
+            notificationService.markAllAsReadForUser(user);
         }
         return ResponseEntity.ok(ApiResponse.success("All notifications marked as read"));
     }
@@ -63,5 +63,35 @@ public class NotificationController {
         User user = tenantAccessService.currentUser();
         notificationService.markAsReadForUser(id, user);
         return ResponseEntity.ok(ApiResponse.success("Notification marked as read"));
+    }
+
+    public record BatchDeleteRequest(List<Long> ids) {}
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<ApiResponse<String>> deleteNotification(@PathVariable Long id) {
+        User user = tenantAccessService.currentUser();
+        notificationService.deleteNotification(id, user);
+        return ResponseEntity.ok(ApiResponse.success("Notification deleted successfully"));
+    }
+
+    @PostMapping("/batch-delete")
+    public ResponseEntity<ApiResponse<String>> deleteBatchPost(@RequestBody BatchDeleteRequest request) {
+        User user = tenantAccessService.currentUser();
+        notificationService.deleteNotifications(request != null ? request.ids() : List.of(), user);
+        return ResponseEntity.ok(ApiResponse.success("Notifications deleted successfully"));
+    }
+
+    @DeleteMapping("/batch")
+    public ResponseEntity<ApiResponse<String>> deleteBatchDelete(@RequestBody BatchDeleteRequest request) {
+        User user = tenantAccessService.currentUser();
+        notificationService.deleteNotifications(request != null ? request.ids() : List.of(), user);
+        return ResponseEntity.ok(ApiResponse.success("Notifications deleted successfully"));
+    }
+
+    @DeleteMapping("/all")
+    public ResponseEntity<ApiResponse<String>> deleteAll() {
+        User user = tenantAccessService.currentUser();
+        notificationService.deleteAllNotificationsForUser(user);
+        return ResponseEntity.ok(ApiResponse.success("All notifications deleted successfully"));
     }
 }

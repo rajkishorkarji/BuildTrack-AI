@@ -1268,7 +1268,7 @@ export function DataProvider({ children }) {
 
       qrCodeToken:
         worker.qrCodeToken ||
-        `QR-${Date.now()}`,
+        `QRWRK${worker.companyId || 1}${String(worker.id || 1).padStart(5, '0')}`,
 
       status:
         String(

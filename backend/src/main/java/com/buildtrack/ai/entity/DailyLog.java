@@ -47,6 +47,19 @@ public class DailyLog {
     @Column(nullable = false, length = 32)
     private String status = "SUBMITTED";
 
+    @Column(name = "latitude")
+    private Double latitude;
+
+    @Column(name = "longitude")
+    private Double longitude;
+
+    @Column(name = "distance_meters")
+    private Double distanceMeters;
+
+    @Builder.Default
+    @Column(name = "location_verified")
+    private Boolean locationVerified = false;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

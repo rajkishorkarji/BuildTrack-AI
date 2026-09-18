@@ -119,6 +119,10 @@ public class EquipmentServiceImpl implements EquipmentService {
                 throw new IllegalArgumentException("Assignee belongs to another company");
             }
 
+            if (tenantAccessService.hasRole(actor, "CONTRACTOR") && !tenantAccessService.hasRole(assignee, "WORKER")) {
+                throw new IllegalArgumentException("Contractors can only assign equipment to workers");
+            }
+
             equipment.setAssignedUser(assignee);
         }
 

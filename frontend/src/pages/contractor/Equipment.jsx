@@ -91,6 +91,10 @@ export default function ContractorEquipment() {
     });
   }, [equipment, search]);
 
+  const workers = useMemo(() => {
+    return workforce.filter(w => String(w.role || '').toUpperCase() === 'WORKER');
+  }, [workforce]);
+
   return (
     <div className="dashboard-page">
       <section className="hero-row">
@@ -194,9 +198,9 @@ export default function ContractorEquipment() {
             <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--muted)' }}>Select Worker</label>
             <select style={{ ...INPUT, marginBottom: 18 }} value={selectedUserId} onChange={e => setSelectedUserId(e.target.value)}>
               <option value="">Unassign</option>
-              {workforce.map(w => (
+              {workers.map(w => (
                 <option key={w.id || w.userId} value={w.userId || w.id}>
-                  {w.fullName || w.name} ({w.role ? String(w.role).replace(/_/g, ' ') : 'Worker'})
+                  {w.fullName || w.name}
                 </option>
               ))}
             </select>

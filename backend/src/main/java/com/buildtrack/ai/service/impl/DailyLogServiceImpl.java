@@ -18,6 +18,7 @@ import com.buildtrack.ai.repository.TaskRepository;
 import com.buildtrack.ai.service.DailyLogService;
 import com.buildtrack.ai.service.RealtimePublisher;
 import com.buildtrack.ai.service.TaskService;
+import com.buildtrack.ai.util.GeoLocationUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -68,15 +69,40 @@ public class DailyLogServiceImpl implements DailyLogService {
         assertProjectAccess(project, user);
         TaskEntity task = resolveTask(request, project, user, role);
         Company company = project.getCompany();
+
+        Double userLat = request.latitude();
+        Double userLon = request.longitude();
+        Double distance = null;
+        boolean locationVerified = false;
+
+        // Strict Geofence Validation if project has GPS coordinates configured
+        if (project.getLatitude() != null && project.getLongitude() != null) {
+            double allowedRadius = project.getGeofenceRadiusMeters() != null ? project.getGeofenceRadiusMeters() : GeoLocationUtil.DEFAULT_GEOFENCE_RADIUS_METERS;
+            if (userLat == null || userLon == null) {
+                throw new BadRequestException("Physical GPS Location Required: Project \"" + project.getName() + "\" requires verified on-site presence within " + String.format("%.0f", allowedRadius) + "m. Please enable device GPS.");
+            }
+            distance = GeoLocationUtil.calculateDistanceMeters(project.getLatitude(), project.getLongitude(), userLat, userLon);
+            if (distance > allowedRadius) {
+                throw new BadRequestException("Physical Geofence Violation: You are " + GeoLocationUtil.formatDistance(distance) +
+                        " away from site \"" + project.getName() + "\" (Allowed radius: " + String.format("%.0f", allowedRadius) + "m). You must be physically on-site to submit daily progress reports.");
+            }
+            locationVerified = true;
+        } else if (userLat != null && userLon != null) {
+            locationVerified = true;
+        }
+
         DailyLog log = DailyLog.builder().company(company).project(project).createdBy(user)
             .task(task)
             .logDate(request.logDate()).workSummary(request.workSummary().trim()).blockers(request.blockers())
             .safetyNotes(request.safetyNotes()).weather(request.weather())
-            .progressPercentage(request.progressPercentage()).status("SUBMITTED").build();
+            .progressPercentage(request.progressPercentage())
+            .latitude(userLat).longitude(userLon).distanceMeters(distance).locationVerified(locationVerified)
+            .status("SUBMITTED").build();
         DailyLog saved = dailyLogRepository.save(log);
 
         if (task != null && request.progressPercentage() != null) {
-            taskService.updateTaskProgress(task.getId(), new TaskProgressRequest(request.progressPercentage(), null), user);
+            task.setStatus("REVIEW");
+            taskRepository.save(task);
         }
 
         publish(saved, "DAILY_LOG_CREATED", "Daily log submitted for " + project.getName());
@@ -95,6 +121,19 @@ public class DailyLogServiceImpl implements DailyLogService {
         assertProjectAccess(log.getProject(), user);
         log.setStatus(status);
         DailyLog saved = dailyLogRepository.save(log);
+
+        if ("APPROVED".equals(status)) {
+            if (log.getTask() != null && log.getProgressPercentage() != null) {
+                String nextStatus = log.getProgressPercentage() >= 100 ? "COMPLETED" : "IN_PROGRESS";
+                taskService.updateTaskProgress(log.getTask().getId(), new TaskProgressRequest(log.getProgressPercentage(), nextStatus, log.getLatitude(), log.getLongitude()), user);
+            }
+        } else if ("REJECTED".equals(status)) {
+            if (log.getTask() != null && "REVIEW".equals(log.getTask().getStatus())) {
+                TaskEntity task = log.getTask();
+                task.setStatus(task.getCompletionPercentage() != null && task.getCompletionPercentage() > 0 ? "IN_PROGRESS" : "TODO");
+                taskRepository.save(task);
+            }
+        }
         publish(saved, "DAILY_LOG_" + status, "Daily log " + status.toLowerCase(Locale.ROOT));
         return toResponse(saved);
     }
@@ -134,7 +173,8 @@ public class DailyLogServiceImpl implements DailyLogService {
         TaskEntity task = l.getTask();
         return new DailyLogResponse(l.getId(), l.getProject().getId(), l.getProject().getName(), u.getId(), name,
                 task == null ? null : task.getId(), task == null ? null : task.getTitle(),
-                l.getLogDate(), l.getWorkSummary(), l.getBlockers(), l.getSafetyNotes(), l.getWeather(), l.getProgressPercentage(), l.getStatus(), l.getCreatedAt());
+                l.getLogDate(), l.getWorkSummary(), l.getBlockers(), l.getSafetyNotes(), l.getWeather(), l.getProgressPercentage(), l.getStatus(), l.getCreatedAt(),
+                l.getLatitude(), l.getLongitude(), l.getDistanceMeters(), l.getLocationVerified());
     }
 
     private String role(User u) { return u.getRoles().stream().findFirst().map(r -> r.getRoleName().toUpperCase(Locale.ROOT)).orElse(""); }

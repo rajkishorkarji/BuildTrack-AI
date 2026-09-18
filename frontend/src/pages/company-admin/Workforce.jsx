@@ -179,7 +179,7 @@ export default function CompanyAdminWorkforce() {
                   <td>
                     {m.projects?.length ? m.projects.map(p => (
                       <div key={p.projectId}>
-                        <FolderKanban size={12} /> {p.projectName} <small>({label(p.assignmentRole)})</small>
+                        <FolderKanban size={12} /> {p.projectName}
                       </div>
                     )) : 'Not assigned'}
                   </td>

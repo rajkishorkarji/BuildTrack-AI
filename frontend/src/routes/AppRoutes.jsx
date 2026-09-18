@@ -247,7 +247,6 @@ function RoleDailyReport() {
   const { user } = useAuth();
   const map = {
     COMPANY_ADMIN: Step7DailyLogs,
-    PROJECT_MANAGER: PMDailyProgressReport,
     SITE_ENGINEER: SEDailyProgressReport,
   };
   const Component = map[String(user?.role || '').toUpperCase()];

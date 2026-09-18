@@ -5,8 +5,10 @@ import com.buildtrack.ai.auth.entity.User;
 import com.buildtrack.ai.dto.attendance.AttendanceQrCheckInRequest;
 import com.buildtrack.ai.dto.attendance.AttendanceRequest;
 import com.buildtrack.ai.dto.attendance.AttendanceResponse;
+import com.buildtrack.ai.dto.attendance.DynamicQrResponse;
 import com.buildtrack.ai.entity.Attendance;
 import com.buildtrack.ai.service.AttendanceService;
+import com.buildtrack.ai.service.DynamicQrService;
 import com.buildtrack.ai.service.TenantAccessService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +25,7 @@ import java.util.Map;
 public class AttendanceController {
     private final AttendanceService attendanceService;
     private final TenantAccessService tenantAccessService;
+    private final DynamicQrService dynamicQrService;
 
     @GetMapping
     @PreAuthorize("isAuthenticated()")
@@ -30,6 +33,13 @@ public class AttendanceController {
         User user = tenantAccessService.currentUser();
         List<AttendanceResponse> rows = attendanceService.getAttendanceForUser(user).stream().map(AttendanceResponse::from).toList();
         return ResponseEntity.ok(ApiResponse.success(rows));
+    }
+
+    @GetMapping("/dynamic-qr/{projectId}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<DynamicQrResponse>> getDynamicQrToken(@PathVariable Long projectId) {
+        DynamicQrResponse response = dynamicQrService.generateProjectDynamicToken(projectId);
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @PostMapping("/check-in")

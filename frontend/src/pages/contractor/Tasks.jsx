@@ -1,8 +1,9 @@
 import { useEffect, useState, useMemo } from 'react';
-import { CheckSquare, Plus, Search, RefreshCw, AlertTriangle, Users, X } from 'lucide-react';
+import { CheckSquare, Plus, Search, RefreshCw, AlertTriangle, Users, X, ShieldCheck, MapPin } from 'lucide-react';
 import taskService from '../../services/taskService';
 import projectService from '../../services/projectService';
 import api, { realtimeBus } from '../../services/api';
+import { getCurrentGpsCoordinates } from '../../utils/geo';
 
 const PRIORITY_META = {
   LOW: { label: 'Low', color: 'var(--green)', bg: 'rgba(34,197,94,0.12)' },
@@ -25,12 +26,14 @@ const emptyForm = {
   priority: 'MEDIUM',
   dueDate: '',
   assigneeUserId: '',
+  milestoneId: '',
 };
 
 export default function ContractorTasks() {
   const [tasks, setTasks] = useState([]);
   const [projects, setProjects] = useState([]);
   const [projectMembers, setProjectMembers] = useState([]);
+  const [projectMilestones, setProjectMilestones] = useState([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [showModal, setShowModal] = useState(false);
@@ -68,11 +71,15 @@ export default function ContractorTasks() {
   useEffect(() => {
     if (!form.projectId) {
       setProjectMembers([]);
+      setProjectMilestones([]);
       return;
     }
     projectService.assignments(form.projectId)
       .then(members => setProjectMembers(members || []))
       .catch(() => setProjectMembers([]));
+    api.get(`/milestones?projectId=${form.projectId}`)
+      .then(res => setProjectMilestones(res.data?.data || []))
+      .catch(() => setProjectMilestones([]));
   }, [form.projectId]);
 
   const filteredTasks = useMemo(() => {
@@ -97,8 +104,9 @@ export default function ContractorTasks() {
         priority: form.priority,
         dueDate: form.dueDate || null,
         assigneeUserId: form.assigneeUserId ? Number(form.assigneeUserId) : null,
+        milestoneId: form.milestoneId ? Number(form.milestoneId) : null,
       };
-      await taskService.create(payload);
+      await api.post('/contractor/tasks', payload);
       setShowModal(false);
       setForm(f => ({ ...emptyForm, projectId: f.projectId }));
       await loadData();
@@ -111,7 +119,12 @@ export default function ContractorTasks() {
 
   const handleStatusChange = async (taskId, nextStatus) => {
     try {
-      await taskService.updateProgress(taskId, { status: nextStatus });
+      const coords = await getCurrentGpsCoordinates();
+      await taskService.updateProgress(taskId, {
+        status: nextStatus,
+        latitude: coords?.latitude,
+        longitude: coords?.longitude
+      });
       await loadData();
     } catch (err) {
       setError(err.response?.data?.message || 'Unable to update status.');
@@ -244,18 +257,18 @@ export default function ContractorTasks() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: 'var(--panel-soft)', borderBottom: '1px solid var(--border)', color: 'var(--muted)' }}>
-                {['Task Title', 'Project Site', 'Assigned Worker / Personnel', 'Priority', 'Progress', 'Status', 'Due Date'].map(h => (
+                {['Task Title', 'Project Site', 'Assigned Worker / Personnel', 'Priority', 'Progress', 'Status', 'GPS Verification', 'Due Date'].map(h => (
                   <th key={h} style={{ padding: '14px 16px', textAlign: 'left', fontWeight: 600 }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {loading && (
-                <tr><td colSpan={7} style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>Loading tasks in real time...</td></tr>
+                <tr><td colSpan={8} style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>Loading tasks in real time...</td></tr>
               )}
               {!loading && filteredTasks.length === 0 && (
                 <tr>
-                  <td colSpan={7} style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>
+                  <td colSpan={8} style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>
                     <CheckSquare size={36} style={{ display: 'block', margin: '0 auto 10px', opacity: 0.4 }} />
                     No contractor tasks found. Click "Create Task" above to assign work to a worker.
                   </td>
@@ -299,16 +312,60 @@ export default function ContractorTasks() {
                       </div>
                     </td>
                     <td style={{ padding: 14 }}>
-                      <select
-                        value={statusKey}
-                        onChange={e => handleStatusChange(t.id, e.target.value)}
-                        style={{ fontSize: 12, padding: '4px 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--panel-soft)', color: 'var(--text)', cursor: 'pointer' }}
-                      >
-                        <option value="TODO">To Do</option>
-                        <option value="IN_PROGRESS">In Progress</option>
-                        <option value="REVIEW">In Review</option>
-                        <option value="COMPLETED">Completed</option>
-                      </select>
+                      {(() => {
+                        const pct = Number(t.completionPercentage ?? t.progress ?? 0);
+                        const status = String(t.status || 'TODO').toUpperCase();
+
+                        let label = 'PLANNED';
+                        let color = '#64748b';
+                        let bg = 'rgba(100,116,139,0.12)';
+
+                        if (status === 'REVIEW') {
+                          label = 'IN REVIEW';
+                          color = 'var(--orange)';
+                          bg = 'rgba(245,158,11,0.14)';
+                        } else if (pct >= 100 || status === 'COMPLETED') {
+                          label = 'COMPLETED';
+                          color = 'var(--green)';
+                          bg = 'rgba(34,197,94,0.14)';
+                        } else if (pct > 0 || status === 'IN_PROGRESS') {
+                          label = 'IN PROGRESS';
+                          color = 'var(--blue)';
+                          bg = 'rgba(37,99,235,0.14)';
+                        }
+
+                        return (
+                          <span
+                            title={t.milestoneTitle ? `Milestone: ${t.milestoneTitle}` : `Task Status: ${label}`}
+                            style={{
+                              padding: '4px 10px',
+                              borderRadius: 8,
+                              fontSize: 11,
+                              fontWeight: 700,
+                              background: bg,
+                              color,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {label}
+                          </span>
+                        );
+                      })()}
+                    </td>
+                    <td style={{ padding: 14 }}>
+                      {t.locationVerified === true ? (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--green)', fontSize: 11, fontWeight: 700, background: 'rgba(34,197,94,0.1)', padding: '2px 8px', borderRadius: 6 }}>
+                          <ShieldCheck size={13} /> On-Site
+                        </span>
+                      ) : t.locationVerified === false ? (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--red)', fontSize: 11, fontWeight: 700, background: 'rgba(239,68,68,0.1)', padding: '2px 8px', borderRadius: 6 }}>
+                          <MapPin size={13} /> Remote / Flagged
+                        </span>
+                      ) : (
+                        <span style={{ color: 'var(--muted)', fontSize: 11 }}>Standard</span>
+                      )}
                     </td>
                     <td style={{ padding: 14, color: 'var(--muted)', fontSize: 12 }}>
                       {t.dueDate || '—'}
@@ -393,17 +450,32 @@ export default function ContractorTasks() {
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--muted)' }}>Assign To Particular Worker</label>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--muted)' }}>Assign To Worker</label>
                 <select
                   value={form.assigneeUserId}
                   onChange={e => setForm({ ...form, assigneeUserId: e.target.value })}
                   style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--panel-soft)', color: 'var(--text)', fontSize: 13 }}
                 >
                   <option value="">Unassigned</option>
-                  {projectMembers.map(m => (
+                  {projectMembers.filter(m => m.role === 'WORKER').map(m => (
                     <option key={m.userId} value={m.userId}>
-                      {m.fullName} ({m.role.replace(/_/g, ' ')})
+                      {m.fullName} (Worker)
                     </option>
+                  ))}
+                </select>
+                <span style={{ fontSize: 11, color: 'var(--muted)', display: 'block', marginTop: 4 }}>Contractors can only assign tasks to Workers.</span>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--muted)' }}>Link to Milestone (Optional)</label>
+                <select
+                  value={form.milestoneId}
+                  onChange={e => setForm({ ...form, milestoneId: e.target.value })}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--panel-soft)', color: 'var(--text)', fontSize: 13 }}
+                >
+                  <option value="">No Milestone</option>
+                  {projectMilestones.map(ms => (
+                    <option key={ms.id} value={ms.id}>{ms.title} ({ms.status})</option>
                   ))}
                 </select>
               </div>

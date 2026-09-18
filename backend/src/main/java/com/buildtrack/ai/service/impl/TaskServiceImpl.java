@@ -5,17 +5,21 @@ import com.buildtrack.ai.auth.repository.UserRepository;
 import com.buildtrack.ai.dto.task.TaskCreateRequest;
 import com.buildtrack.ai.dto.task.TaskProgressRequest;
 import com.buildtrack.ai.dto.task.TaskResponse;
+import com.buildtrack.ai.entity.Milestone;
 import com.buildtrack.ai.entity.Project;
 import com.buildtrack.ai.entity.ProjectAssignment;
 import com.buildtrack.ai.entity.TaskEntity;
 import com.buildtrack.ai.event.DomainEventPublisher;
 import com.buildtrack.ai.exception.BadRequestException;
 import com.buildtrack.ai.exception.ResourceNotFoundException;
+import com.buildtrack.ai.repository.MilestoneRepository;
 import com.buildtrack.ai.repository.ProjectAssignmentRepository;
 import com.buildtrack.ai.repository.ProjectRepository;
 import com.buildtrack.ai.repository.TaskRepository;
+import com.buildtrack.ai.service.MilestoneService;
 import com.buildtrack.ai.service.RealtimePublisher;
 import com.buildtrack.ai.service.TaskService;
+import com.buildtrack.ai.util.GeoLocationUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +37,8 @@ public class TaskServiceImpl implements TaskService {
     private final ProjectRepository projectRepository;
     private final ProjectAssignmentRepository assignmentRepository;
     private final UserRepository userRepository;
+    private final MilestoneRepository milestoneRepository;
+    private final MilestoneService milestoneService;
     private final RealtimePublisher realtimePublisher;
     private final DomainEventPublisher domainEventPublisher;
 
@@ -72,6 +78,13 @@ public class TaskServiceImpl implements TaskService {
         task.setStatus("TODO");
         task.setCompletionPercentage(0);
         task.setAssignedUser(resolveAssignee(project, request.assigneeUserId(), actor));
+        if (request.milestoneId() != null) {
+            Milestone milestone = milestoneRepository.findById(request.milestoneId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Milestone not found"));
+            if (!milestone.getProject().getId().equals(project.getId()))
+                throw new BadRequestException("Milestone does not belong to this project");
+            task.setMilestone(milestone);
+        }
 
         TaskEntity saved = taskRepository.save(task);
         recalculateProjectProgress(project);
@@ -81,9 +94,60 @@ public class TaskServiceImpl implements TaskService {
 
     @Override
     @Transactional
+    public TaskResponse createContractorTask(TaskCreateRequest request, User actor) {
+        String actorRole = primaryRole(actor);
+        if (!"CONTRACTOR".equals(actorRole) && !"COMPANY_ADMIN".equals(actorRole))
+            throw new BadRequestException("Only contractors can use this endpoint");
+        Project project = projectRepository.findById(request.projectId()).orElseThrow(() -> new ResourceNotFoundException("Project not found"));
+        assertProjectAccess(project, actor);
+
+        TaskEntity task = new TaskEntity();
+        task.setProject(project);
+        task.setTitle(request.title().trim());
+        task.setDescription(request.description());
+        task.setPriority(normalizePriority(request.priority()));
+        task.setDueDate(request.dueDate());
+        task.setStatus("TODO");
+        task.setCompletionPercentage(0);
+        task.setAssignedUser(resolveWorkerAssignee(project, request.assigneeUserId()));
+
+        TaskEntity saved = taskRepository.save(task);
+        recalculateProjectProgress(project);
+        publish(saved, "TASK_CREATED", "Task created by contractor: " + saved.getTitle());
+        return toResponse(saved);
+    }
+
+    @Override
+    @Transactional
     public TaskResponse updateTaskProgress(Long taskId, TaskProgressRequest request, User actor) {
         TaskEntity task = taskRepository.findById(taskId).orElseThrow(() -> new ResourceNotFoundException("Task not found"));
         assertTaskAccess(task, actor);
+
+        // Geofence check if GPS coordinates are provided or project is geofenced
+        Project project = task.getProject();
+        Double lat = request.latitude();
+        Double lon = request.longitude();
+
+        if (project.getLatitude() != null && project.getLongitude() != null) {
+            if (lat != null && lon != null) {
+                double distance = GeoLocationUtil.calculateDistanceMeters(project.getLatitude(), project.getLongitude(), lat, lon);
+                double allowedRadius = project.getGeofenceRadiusMeters() != null ? project.getGeofenceRadiusMeters() : GeoLocationUtil.DEFAULT_GEOFENCE_RADIUS_METERS;
+                if (distance > allowedRadius) {
+                    throw new BadRequestException("Task location verification failed: You are " + GeoLocationUtil.formatDistance(distance) +
+                            " away from site " + project.getName() + " (Allowed radius: " + String.format("%.0f", allowedRadius) + "m). You must be at the site to update work progress.");
+                }
+                task.setLastUpdatedLatitude(lat);
+                task.setLastUpdatedLongitude(lon);
+                task.setLocationVerified(true);
+            } else if ("WORKER".equalsIgnoreCase(primaryRole(actor))) {
+                task.setLocationVerified(false);
+            }
+        } else if (lat != null && lon != null) {
+            task.setLastUpdatedLatitude(lat);
+            task.setLastUpdatedLongitude(lon);
+            task.setLocationVerified(true);
+        }
+
         if (request.progress() != null) {
             task.setCompletionPercentage(request.progress());
             if (request.progress() >= 100) task.setStatus("COMPLETED");
@@ -92,7 +156,7 @@ public class TaskServiceImpl implements TaskService {
         if (request.status() != null && !request.status().isBlank()) task.setStatus(normalizeStatus(request.status()));
         TaskEntity saved = taskRepository.save(task);
         recalculateProjectProgress(task.getProject());
-        publish(saved, "TASK_UPDATED", "Task updated: " + saved.getTitle());
+        publish(saved, "TASK_UPDATED", "Task updated: " + saved.getTitle() + (Boolean.TRUE.equals(saved.getLocationVerified()) ? " (Location Verified)" : ""));
         return toResponse(saved);
     }
 
@@ -118,6 +182,16 @@ public class TaskServiceImpl implements TaskService {
         if (!ASSIGNABLE_ROLES.contains(assigneeRole)) throw new BadRequestException("Only project personnel can be assigned to a task");
         if (!assignmentRepository.existsByProjectIdAndUserIdAndStatus(project.getId(), assignee.getId(), "ACTIVE"))
             throw new BadRequestException("Assignee must first be assigned to this project");
+        return assignee;
+    }
+
+    private User resolveWorkerAssignee(Project project, Long assigneeUserId) {
+        if (assigneeUserId == null) return null;
+        User assignee = userRepository.findById(assigneeUserId).orElseThrow(() -> new ResourceNotFoundException("Worker not found"));
+        if (!project.getCompany().getId().equals(assignee.getCompanyId())) throw new BadRequestException("Worker belongs to another company");
+        if (!"WORKER".equals(primaryRole(assignee))) throw new BadRequestException("Contractors can only assign tasks to Workers");
+        if (!assignmentRepository.existsByProjectIdAndUserIdAndStatus(project.getId(), assignee.getId(), "ACTIVE"))
+            throw new BadRequestException("Worker must first be assigned to this project");
         return assignee;
     }
 
@@ -151,13 +225,47 @@ public class TaskServiceImpl implements TaskService {
                 .average()
                 .orElse(0));
         project.setProgressPercentage(progress);
+        if (progress == 0) {
+            project.setStatus("PLANNED");
+        } else if (progress >= 100) {
+            project.setStatus("COMPLETED");
+        } else {
+            project.setStatus("IN_PROGRESS");
+        }
         projectRepository.save(project);
         realtimePublisher.publishForCompany(project.getCompany().getId(), "projects", "project_updated", project.getId());
+
+        // Auto-complete any milestones whose all linked tasks are done
+        projectTasks.stream()
+                .map(TaskEntity::getMilestone)
+                .filter(java.util.Objects::nonNull)
+                .map(m -> m.getId())
+                .distinct()
+                .forEach(milestoneService::autoComplete);
     }
 
     private TaskResponse toResponse(TaskEntity t) {
         User a = t.getAssignedUser();
-        return new TaskResponse(t.getId(), t.getProject().getId(), t.getProject().getName(), t.getTitle(), t.getDescription(), t.getStatus(), t.getPriority(), t.getCompletionPercentage(), t.getDueDate(), a == null ? null : a.getId(), a == null ? null : fullName(a), a == null ? null : primaryRole(a));
+        Milestone m = t.getMilestone();
+        return new TaskResponse(
+                t.getId(),
+                t.getProject().getId(),
+                t.getProject().getName(),
+                t.getTitle(),
+                t.getDescription(),
+                t.getStatus(),
+                t.getPriority(),
+                t.getCompletionPercentage(),
+                t.getDueDate(),
+                a == null ? null : a.getId(),
+                a == null ? null : fullName(a),
+                a == null ? null : primaryRole(a),
+                t.getLastUpdatedLatitude(),
+                t.getLastUpdatedLongitude(),
+                t.getLocationVerified(),
+                m == null ? null : m.getId(),
+                m == null ? null : m.getTitle()
+        );
     }
 
     private String primaryRole(User u) { return u.getRoles().stream().findFirst().map(r -> r.getRoleName().toUpperCase(Locale.ROOT)).orElse(""); }

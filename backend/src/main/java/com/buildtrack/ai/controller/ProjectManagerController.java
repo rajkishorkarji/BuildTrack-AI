@@ -36,6 +36,7 @@ public class ProjectManagerController {
                         project.getCompany() != null ? project.getCompany().getId() : null,
                         project.getCompany() != null ? project.getCompany().getName() : null,
                         ((user.getFirstName() == null ? "" : user.getFirstName()) + " " + (user.getLastName() == null ? "" : user.getLastName())).trim(),
+                        project.getLatitude(), project.getLongitude(), project.getGeofenceRadiusMeters(),
                         List.of()))
                 .toList();
         return ResponseEntity.ok(ApiResponse.success(result));

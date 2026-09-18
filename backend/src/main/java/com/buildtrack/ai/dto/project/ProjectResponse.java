@@ -10,4 +10,7 @@ public class ProjectResponse {
     private String location;
     private Integer progressPercentage;
     private String status;
+    private Double latitude;
+    private Double longitude;
+    private Double geofenceRadiusMeters;
 }

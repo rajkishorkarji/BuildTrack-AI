@@ -30,6 +30,14 @@ public class TaskEntity {
     @JoinColumn(name = "assigned_user_id")
     private com.buildtrack.ai.auth.entity.User assignedUser;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "milestone_id")
+    private com.buildtrack.ai.entity.Milestone milestone;
+
+    private Double lastUpdatedLatitude;
+    private Double lastUpdatedLongitude;
+    private Boolean locationVerified = false;
+
     public TaskEntity() {}
 
     // Getters & Setters
@@ -51,4 +59,12 @@ public class TaskEntity {
     public void setProject(Project project) { this.project = project; }
     public com.buildtrack.ai.auth.entity.User getAssignedUser() { return assignedUser; }
     public void setAssignedUser(com.buildtrack.ai.auth.entity.User assignedUser) { this.assignedUser = assignedUser; }
+    public com.buildtrack.ai.entity.Milestone getMilestone() { return milestone; }
+    public void setMilestone(com.buildtrack.ai.entity.Milestone milestone) { this.milestone = milestone; }
+    public Double getLastUpdatedLatitude() { return lastUpdatedLatitude; }
+    public void setLastUpdatedLatitude(Double lastUpdatedLatitude) { this.lastUpdatedLatitude = lastUpdatedLatitude; }
+    public Double getLastUpdatedLongitude() { return lastUpdatedLongitude; }
+    public void setLastUpdatedLongitude(Double lastUpdatedLongitude) { this.lastUpdatedLongitude = lastUpdatedLongitude; }
+    public Boolean getLocationVerified() { return locationVerified != null ? locationVerified : false; }
+    public void setLocationVerified(Boolean locationVerified) { this.locationVerified = locationVerified; }
 }

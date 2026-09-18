@@ -1,8 +1,11 @@
 import { useEffect, useState, useMemo } from 'react';
-import { CheckSquare, Plus, Search, RefreshCw, AlertTriangle, Users, Clock, CheckCircle2 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { useData } from '../../context/DataContext';
+import { CheckSquare, Plus, Search, RefreshCw, AlertTriangle, Users, Clock, CheckCircle2, ShieldCheck, MapPin } from 'lucide-react';
 import taskService from '../../services/taskService';
 import projectService from '../../services/projectService';
 import { realtimeBus } from '../../services/api';
+import { getCurrentGpsCoordinates } from '../../utils/geo';
 
 const PRIORITY_META = {
   LOW: { label: 'Low', color: 'var(--green)', bg: 'rgba(34,197,94,0.12)' },
@@ -12,17 +15,21 @@ const PRIORITY_META = {
 };
 
 const INPUT = { width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--panel-soft)', color: 'var(--text)', fontSize: 13 };
+const empty = { projectId: '', title: '', description: '', priority: 'MEDIUM', dueDate: '', assigneeUserId: '' };
 
-export default function SETaskManagement() {
+export default function SiteEngineerTaskManagement() {
+  const { user } = useAuth();
+  const { usersList = [] } = useData();
   const [tasks, setTasks] = useState([]);
   const [projects, setProjects] = useState([]);
+  const [projectMembers, setProjectMembers] = useState([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [form, setForm] = useState({ projectId: '', title: '', description: '', priority: 'MEDIUM', dueDate: '', assigneeUserId: '' });
+  const [form, setForm] = useState(empty);
 
   const loadData = async () => {
     setLoading(true);
@@ -34,11 +41,11 @@ export default function SETaskManagement() {
       ]);
       setTasks(tList || []);
       setProjects(pList || []);
-      if (pList.length > 0 && !form.projectId) {
+      if (pList?.length > 0 && !form.projectId) {
         setForm(f => ({ ...f, projectId: String(pList[0].id) }));
       }
     } catch (e) {
-      setError(e.response?.data?.message || 'Unable to load site tasks');
+      setError(e.response?.data?.message || 'Unable to load tasks');
     } finally {
       setLoading(false);
     }
@@ -61,7 +68,12 @@ export default function SETaskManagement() {
 
   const handleStatusChange = async (taskId, nextStatus) => {
     try {
-      await taskService.updateProgress(taskId, { status: nextStatus });
+      const coords = await getCurrentGpsCoordinates();
+      await taskService.updateProgress(taskId, {
+        status: nextStatus,
+        latitude: coords?.latitude,
+        longitude: coords?.longitude
+      });
       await loadData();
     } catch (err) {
       setError(err.response?.data?.message || 'Unable to update status.');
@@ -79,11 +91,11 @@ export default function SETaskManagement() {
         projectId: Number(form.projectId),
         assigneeUserId: form.assigneeUserId ? Number(form.assigneeUserId) : null,
       });
+      setForm(empty);
       setShow(false);
-      setForm(f => ({ ...f, title: '', description: '', priority: 'MEDIUM', dueDate: '', assigneeUserId: '' }));
       await loadData();
-    } catch (err) {
-      setError(err.response?.data?.message || 'Unable to create task');
+    } catch (e) {
+      setError(e.response?.data?.message || 'Unable to create task');
     } finally {
       setBusy(false);
     }
@@ -96,26 +108,36 @@ export default function SETaskManagement() {
           <p className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--blue)', fontWeight: 700 }}>
             <CheckSquare size={14} /> Site Tasks
           </p>
-          <h1>Site Task Management</h1>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button type="button" className="secondary-button" onClick={loadData} disabled={loading}>
             <RefreshCw size={14} style={loading ? { animation: 'spin 1s linear infinite' } : {}} /> Refresh
           </button>
-          <button type="button" className="primary-button" onClick={() => setShow(true)}>
-            <Plus size={16} /> Create Site Task
+          <button className="primary-button" onClick={() => setShow(true)}>
+            <Plus size={16} /> New Site Task
           </button>
         </div>
       </section>
 
-      {error && (
-        <div style={{ marginTop: 16, padding: '12px 16px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, color: 'var(--red)', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <AlertTriangle size={15} /> {error}
-        </div>
-      )}
+      {error && <div className="panel" style={{ marginTop: 16, padding: '12px 16px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, color: 'var(--orange)', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}><AlertTriangle size={16} /> {error}</div>}
 
-      {/* Filter Row */}
-      <div className="panel" style={{ marginTop: 16, padding: '12px 16px', display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+      {/* KPI Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 14, marginTop: 18 }}>
+        {[
+          { label: 'Total Tasks', value: tasks.length, color: 'var(--blue)' },
+          { label: 'In Progress', value: tasks.filter(t => String(t.status || '').toUpperCase() === 'IN_PROGRESS').length, color: 'var(--blue)' },
+          { label: 'In Review', value: tasks.filter(t => String(t.status || '').toUpperCase() === 'REVIEW').length, color: 'var(--orange)' },
+          { label: 'Completed', value: tasks.filter(t => String(t.status || '').toUpperCase() === 'COMPLETED').length, color: 'var(--green)' },
+        ].map(({ label, value, color }) => (
+          <div key={label} className="panel" style={{ padding: '16px 18px' }}>
+            <span style={{ color: 'var(--muted)', fontSize: 12, fontWeight: 600 }}>{label}</span>
+            <h2 style={{ fontSize: 24, color, margin: '4px 0 0', fontWeight: 800 }}>{value}</h2>
+          </div>
+        ))}
+      </div>
+
+      {/* Search & Filter Toolbar */}
+      <div className="panel" style={{ marginTop: 16, padding: '12px 16px', display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
         <div className="search-box" style={{ flex: 1, minWidth: 220 }}>
           <Search size={15} />
           <input placeholder="Search tasks, project, assignee..." value={search} onChange={e => setSearch(e.target.value)} />
@@ -142,16 +164,16 @@ export default function SETaskManagement() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: 'var(--panel-soft)', borderBottom: '1px solid var(--border)', color: 'var(--muted)' }}>
-                {['Task Title', 'Project', 'Assignee', 'Priority', 'Progress', 'Status', 'Due Date'].map(h => (
+                {['Task Title', 'Project', 'Assignee', 'Priority', 'Progress', 'Status', 'Geofence Verification', 'Due Date'].map(h => (
                   <th key={h} style={{ padding: '14px 16px', textAlign: 'left', fontWeight: 600 }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {loading && <tr><td colSpan={7} style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>Loading site tasks…</td></tr>}
+              {loading && <tr><td colSpan={8} style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>Loading site tasks…</td></tr>}
               {!loading && filtered.length === 0 && (
                 <tr>
-                  <td colSpan={7} style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>
+                  <td colSpan={8} style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>
                     <CheckSquare size={36} style={{ display: 'block', margin: '0 auto 10px', opacity: 0.4 }} />
                     No site tasks assigned yet.
                   </td>
@@ -188,16 +210,60 @@ export default function SETaskManagement() {
                       </div>
                     </td>
                     <td style={{ padding: 14 }}>
-                      <select
-                        value={statusKey}
-                        onChange={e => handleStatusChange(t.id, e.target.value)}
-                        style={{ fontSize: 12, padding: '4px 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--panel-soft)', color: 'var(--text)', cursor: 'pointer' }}
-                      >
-                        <option value="TODO">To Do</option>
-                        <option value="IN_PROGRESS">In Progress</option>
-                        <option value="REVIEW">In Review</option>
-                        <option value="COMPLETED">Completed</option>
-                      </select>
+                      {(() => {
+                        const pct = Number(t.completionPercentage ?? t.progress ?? 0);
+                        const status = String(t.status || 'TODO').toUpperCase();
+
+                        let label = 'PLANNED';
+                        let color = '#64748b';
+                        let bg = 'rgba(100,116,139,0.12)';
+
+                        if (status === 'REVIEW') {
+                          label = 'IN REVIEW';
+                          color = 'var(--orange)';
+                          bg = 'rgba(245,158,11,0.14)';
+                        } else if (pct >= 100 || status === 'COMPLETED') {
+                          label = 'COMPLETED';
+                          color = 'var(--green)';
+                          bg = 'rgba(34,197,94,0.14)';
+                        } else if (pct > 0 || status === 'IN_PROGRESS') {
+                          label = 'IN PROGRESS';
+                          color = 'var(--blue)';
+                          bg = 'rgba(37,99,235,0.14)';
+                        }
+
+                        return (
+                          <span
+                            title={t.milestoneTitle ? `Milestone: ${t.milestoneTitle}` : `Task Status: ${label}`}
+                            style={{
+                              padding: '4px 10px',
+                              borderRadius: 8,
+                              fontSize: 11,
+                              fontWeight: 700,
+                              background: bg,
+                              color,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {label}
+                          </span>
+                        );
+                      })()}
+                    </td>
+                    <td style={{ padding: 14 }}>
+                      {t.locationVerified === true ? (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--green)', fontSize: 11, fontWeight: 700, background: 'rgba(34,197,94,0.1)', padding: '2px 8px', borderRadius: 6 }}>
+                          <ShieldCheck size={13} /> On-Site Verified
+                        </span>
+                      ) : t.locationVerified === false ? (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--red)', fontSize: 11, fontWeight: 700, background: 'rgba(239,68,68,0.1)', padding: '2px 8px', borderRadius: 6 }}>
+                          <MapPin size={13} /> Remote / Flagged
+                        </span>
+                      ) : (
+                        <span style={{ color: 'var(--muted)', fontSize: 11 }}>Standard</span>
+                      )}
                     </td>
                     <td style={{ padding: 14, color: 'var(--muted)', fontSize: 12 }}>
                       {t.dueDate || '—'}

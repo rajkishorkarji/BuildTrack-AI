@@ -8,4 +8,7 @@ public class ProjectRequest {
     private String code;
     private String location;
     private Integer progressPercentage;
+    private Double latitude;
+    private Double longitude;
+    private Double geofenceRadiusMeters;
 }

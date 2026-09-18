@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
+import com.buildtrack.ai.exception.UnauthorizedException;
 
 @RestController
 @RequestMapping("/api/projects")
@@ -141,8 +142,15 @@ public class ProjectController {
     @GetMapping("/eligible-users")
     public ResponseEntity<ApiResponse<List<EligibleUserResponse>>> eligibleUsers(@RequestParam String role) {
         User actor = tenantAccessService.currentUser();
-        tenantAccessService.requireCompanyAdmin(actor);
-        return ResponseEntity.ok(ApiResponse.success(projectService.eligibleUsers(tenantAccessService.currentCompany().getId(), role).stream()
+        Long companyId = actor.getCompanyId();
+        if (companyId == null) {
+            if (tenantAccessService.isSuperAdmin(actor)) {
+                companyId = 1L;
+            } else {
+                throw new UnauthorizedException("This account is not assigned to a company");
+            }
+        }
+        return ResponseEntity.ok(ApiResponse.success(projectService.eligibleUsers(companyId, role).stream()
                 .map(u -> new EligibleUserResponse(u.getId(), (u.getFirstName()+" "+u.getLastName()).trim(), u.getEmail(), role.toUpperCase())).toList()));
     }
 
@@ -161,7 +169,9 @@ public class ProjectController {
         return new ProjectSummaryResponse(
                 p.getId(), p.getName(), p.getCode(), p.getLocation(), p.getDescription(),
                 p.getBudget(), p.getSpent(), p.getProgressPercentage(), p.getStatus(),
-                p.getStartDate(), p.getEstEndDate(), companyId, companyName, pmName, assignments
+                p.getStartDate(), p.getEstEndDate(), companyId, companyName, pmName,
+                p.getLatitude(), p.getLongitude(), p.getGeofenceRadiusMeters(),
+                assignments
         );
     }
     private ProjectAssignmentResponse assignment(ProjectAssignment a) {

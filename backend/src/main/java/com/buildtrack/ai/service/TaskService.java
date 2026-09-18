@@ -12,6 +12,7 @@ public interface TaskService {
     List<TaskResponse> getTasksForUser(User user);
     List<TaskResponse> getTasksByProject(Long projectId, User user);
     TaskResponse createTask(TaskCreateRequest request, User actor);
+    TaskResponse createContractorTask(TaskCreateRequest request, User actor);
     TaskResponse updateTaskProgress(Long taskId, TaskProgressRequest request, User actor);
     TaskResponse assignTask(Long taskId, Long assigneeUserId, User actor);
 }

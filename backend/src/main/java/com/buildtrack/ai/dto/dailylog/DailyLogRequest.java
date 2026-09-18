@@ -11,5 +11,7 @@ public record DailyLogRequest(
     @Size(max = 5000) String blockers,
     @Size(max = 5000) String safetyNotes,
     @Size(max = 255) String weather,
-    @Min(0) @Max(100) Integer progressPercentage
+    @Min(0) @Max(100) Integer progressPercentage,
+    Double latitude,
+    Double longitude
 ) {}

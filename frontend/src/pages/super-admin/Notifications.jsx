@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Bell, Search, CheckCheck, Megaphone, Clock, AlertTriangle, Info, CheckCircle2, X } from 'lucide-react';
+import { Bell, Search, CheckCheck, Megaphone, Clock, AlertTriangle, Info, CheckCircle2, X, Trash2 } from 'lucide-react';
 import notificationService from '../../services/notificationService';
 import { realtimeBus } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -27,6 +27,7 @@ export default function Notifications() {
   const { user } = useAuth();
   const role = user?.role || 'SUPER_ADMIN';
   const [notifications, setNotifications] = useState([]);
+  const [selectedIds, setSelectedIds] = useState(new Set());
   const [activeTab, setActiveTab] = useState('all');
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('ALL');
@@ -82,8 +83,32 @@ export default function Notifications() {
     }
   };
 
-  const deleteNotif = (id) => {
+  const deleteNotif = async (id, e) => {
+    if (e) e.stopPropagation();
     setNotifications(prev => prev.filter(n => n.id !== id));
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+    try {
+      await notificationService.deleteNotification(id);
+    } catch (err) {
+      console.error('Failed to delete notification:', err);
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedIds.size === 0) return;
+    const ids = Array.from(selectedIds);
+    setNotifications(prev => prev.filter(n => !selectedIds.has(n.id)));
+    setSelectedIds(new Set());
+    try {
+      await notificationService.deleteNotifications(ids);
+      notify(`${ids.length} notifications deleted.`);
+    } catch (err) {
+      console.error('Failed to delete notifications:', err);
+    }
   };
 
   const sendBroadcast = async (e) => {
@@ -117,15 +142,55 @@ export default function Notifications() {
     });
   }, [notifications, search, typeFilter, activeTab]);
 
+  const isAllSelected = filtered.length > 0 && filtered.every(n => selectedIds.has(n.id));
+
+  const handleToggleSelectAll = () => {
+    if (isAllSelected) setSelectedIds(new Set());
+    else setSelectedIds(new Set(filtered.map(n => n.id)));
+  };
+
+  const handleToggleSelect = (id, e) => {
+    e.stopPropagation();
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   return (
     <div className="dashboard-page">
       <section className="hero-row">
         <div>
           <p className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--blue)', fontWeight: 700 }}>
             <Bell size={14} /> Notifications
+            {unreadCount > 0 && (
+              <span style={{ fontSize: '11px', background: 'rgba(239,68,68,0.12)', color: 'var(--red)', padding: '1px 6px', borderRadius: 10, fontWeight: 700 }}>
+                {unreadCount} unread
+              </span>
+            )}
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          {selectedIds.size > 0 && (
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={handleDeleteSelected}
+              style={{
+                fontSize: '12px',
+                padding: '6px 12px',
+                color: 'var(--red)',
+                borderColor: 'rgba(239,68,68,0.3)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+              }}
+            >
+              <Trash2 size={13} /> Delete ({selectedIds.size})
+            </button>
+          )}
           <button type="button" className="secondary-button" onClick={markAllRead} disabled={unreadCount === 0}>
             <CheckCheck size={15} /> Mark All Read
           </button>
@@ -184,6 +249,38 @@ export default function Notifications() {
 
       {/* ── Notification Feed ── */}
       <div style={{ marginTop: '20px' }}>
+        {filtered.length > 0 && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '8px 12px',
+              background: 'var(--panel-soft)',
+              borderRadius: '8px',
+              border: '1px solid var(--border)',
+              marginBottom: '10px',
+              fontSize: '12px',
+              color: 'var(--muted)',
+            }}
+          >
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none', fontWeight: 600, color: 'var(--text)' }}>
+              <input
+                type="checkbox"
+                checked={isAllSelected}
+                onChange={handleToggleSelectAll}
+                style={{ cursor: 'pointer', accentColor: 'var(--blue)', width: 14, height: 14 }}
+              />
+              <span>Select All ({filtered.length})</span>
+            </label>
+            {selectedIds.size > 0 && (
+              <span style={{ fontSize: '11px', color: 'var(--muted)' }}>
+                {selectedIds.size} selected
+              </span>
+            )}
+          </div>
+        )}
+
         {filtered.length === 0 ? (
           <div className="panel" style={{ textAlign: 'center', padding: '60px 24px', color: 'var(--muted)' }}>
             <Bell size={44} style={{ marginBottom: '12px', color: 'var(--muted)' }} />
@@ -200,32 +297,58 @@ export default function Notifications() {
               const nType = String(notif.type || 'INFO').toUpperCase();
               const ts = TYPE_STYLES[nType] || TYPE_STYLES['INFO'];
               const readState = !isUnread(notif);
+              const isSelected = selectedIds.has(notif.id);
               const createdAt = notif.createdAt || notif.timestamp;
               return (
                 <div key={notif.id}
-                  style={{ display: 'flex', alignItems: 'flex-start', gap: '14px', padding: '16px', background: readState ? 'var(--panel)' : ts.bg, borderRadius: '12px', border: `1px solid ${readState ? 'var(--border)' : ts.color}`, cursor: 'pointer', transition: 'all 0.2s' }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '12px',
+                    padding: '12px 14px',
+                    background: isSelected ? 'rgba(37,99,235,0.04)' : (readState ? 'var(--panel)' : ts.bg),
+                    borderRadius: '10px',
+                    border: `1px solid ${isSelected ? 'var(--blue)' : (readState ? 'var(--border)' : ts.color)}`,
+                    borderLeft: `3.5px solid ${readState ? (isSelected ? 'var(--blue)' : 'transparent') : ts.color}`,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                  }}
                   onClick={() => markRead(notif.id)}>
-                  <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: `${ts.color}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={(e) => handleToggleSelect(notif.id, e)}
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      cursor: 'pointer',
+                      accentColor: 'var(--blue)',
+                      width: 14,
+                      height: 14,
+                      marginTop: 6,
+                      flexShrink: 0,
+                    }}
+                  />
+                  <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: `${ts.color}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
                     {ts.icon}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px', gap: '8px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                        <strong style={{ fontSize: '14px', color: 'var(--text)' }}>{notif.title || notif.subject || 'Notification'}</strong>
-                        {!readState && <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: ts.color, display: 'inline-block', flexShrink: 0 }} />}
-                        <span style={{ padding: '2px 7px', borderRadius: '6px', fontSize: '10px', fontWeight: 700, background: ts.bg, color: ts.color, flexShrink: 0 }}>{nType}</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2px', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flexWrap: 'wrap' }}>
+                        <strong style={{ fontSize: '13px', color: 'var(--text)' }}>{notif.title || notif.subject || 'Notification'}</strong>
+                        {!readState && <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: ts.color, display: 'inline-block', flexShrink: 0 }} />}
+                        <span style={{ padding: '1px 6px', borderRadius: '4px', fontSize: '9.5px', fontWeight: 700, background: ts.bg, color: ts.color, flexShrink: 0 }}>{nType}</span>
                       </div>
-                      <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexShrink: 0 }}>
                         {!readState && (
-                          <button type="button" onClick={(e) => { e.stopPropagation(); markRead(notif.id); }} className="secondary-button" style={{ fontSize: '11px', padding: '4px 8px' }}>Read</button>
+                          <button type="button" onClick={(e) => { e.stopPropagation(); markRead(notif.id); }} className="secondary-button" style={{ fontSize: '10.5px', padding: '3px 7px' }}>Read</button>
                         )}
-                        <button type="button" onClick={(e) => { e.stopPropagation(); deleteNotif(notif.id); }} className="secondary-button" style={{ color: 'var(--muted)', padding: '4px 7px' }}>
-                          <X size={12} />
+                        <button type="button" title="Delete notification" onClick={(e) => deleteNotif(notif.id, e)} className="secondary-button" style={{ color: 'var(--muted)', padding: '3px 6px' }}>
+                          <Trash2 size={12} />
                         </button>
                       </div>
                     </div>
-                    <p style={{ fontSize: '13px', color: 'var(--muted)', margin: '0 0 6px 0', lineHeight: '1.5' }}>{notif.message || notif.body}</p>
-                    <div style={{ display: 'flex', gap: '12px', fontSize: '11px', color: 'var(--muted)' }}>
+                    <p style={{ fontSize: '12px', color: 'var(--muted)', margin: '2px 0 4px 0', lineHeight: '1.45' }}>{notif.message || notif.body}</p>
+                    <div style={{ display: 'flex', gap: '10px', fontSize: '11px', color: 'var(--muted)' }}>
                       {(notif.senderName || notif.from) && <span>From: <strong style={{ color: 'var(--text)' }}>{notif.senderName || notif.from}</strong></span>}
                       {notif.recipientEmail && <span>Target: <strong style={{ color: 'var(--text)' }}>{notif.recipientEmail}</strong></span>}
                       {createdAt && <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}><Clock size={10} /> {new Date(createdAt).toLocaleString('en-IN')}</span>}

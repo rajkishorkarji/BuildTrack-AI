@@ -1,9 +1,10 @@
 import { useEffect, useState, useMemo } from 'react';
-import { UserCheck, QrCode, CheckCircle2, XCircle, Clock, Search, RefreshCw, AlertTriangle, ShieldCheck, CheckCheck, Award } from 'lucide-react';
+import { UserCheck, QrCode, CheckCircle2, XCircle, Clock, Search, RefreshCw, AlertTriangle, ShieldCheck, CheckCheck, Award, MapPin } from 'lucide-react';
 import attendanceService from '../../services/attendanceService';
 import projectService from '../../services/projectService';
 import { realtimeBus } from '../../services/api';
 import { getAttendanceWorkflowCategory } from '../../utils/attendanceWorkflow';
+import { getCurrentGpsCoordinates, formatDistance } from '../../utils/geo';
 
 const INPUT = { width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--panel-soft)', color: 'var(--text)', fontSize: 13, boxSizing: 'border-box' };
 
@@ -50,9 +51,16 @@ export default function SEAttendance() {
     setScanning(true);
     setError('');
     try {
-      await attendanceService.checkInByQr({ qrCodeToken: token.trim(), projectId: Number(projectId) });
+      const gps = await getCurrentGpsCoordinates();
+      await attendanceService.checkInByQr({
+        qrCodeToken: token.trim(),
+        projectId: Number(projectId),
+        latitude: gps.success ? gps.latitude : undefined,
+        longitude: gps.success ? gps.longitude : undefined,
+        accuracy: gps.success ? gps.accuracy : undefined,
+      });
       setToken('');
-      setNotice('Worker checked in (Attendance Session OPEN) successfully!');
+      setNotice('Worker checked in (Attendance Session OPEN & Location Verified) successfully!');
       setTimeout(() => setNotice(''), 3000);
       await load();
     } catch (e) {
@@ -129,9 +137,11 @@ export default function SEAttendance() {
             <UserCheck size={14} /> Site Attendance & Shift Workflow
           </p>
         </div>
-        <button type="button" className="secondary-button" onClick={load} disabled={loading}>
-          <RefreshCw size={14} style={loading ? { animation: 'spin 1s linear infinite' } : {}} /> Refresh
-        </button>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button type="button" className="secondary-button" onClick={load} disabled={loading}>
+            <RefreshCw size={14} style={loading ? { animation: 'spin 1s linear infinite' } : {}} /> Refresh
+          </button>
+        </div>
       </section>
 
       {notice && (
@@ -180,7 +190,7 @@ export default function SEAttendance() {
           </div>
           <div>
             <label style={{ display: 'block', fontSize: 12, fontWeight: 700, marginBottom: 6, color: 'var(--muted)' }}>Scan / Input Worker QR Code Token *</label>
-            <input required style={INPUT} placeholder="e.g. QR-WRK-90812 or Worker ID" value={token} onChange={e => setToken(e.target.value)} />
+            <input required style={INPUT} placeholder="e.g. QRWRK900001 or Worker ID" value={token} onChange={e => setToken(e.target.value)} />
           </div>
           <button type="submit" className="primary-button" disabled={scanning || !token.trim()}>
             {scanning ? 'Opening Session...' : 'Check-In (Open Session)'}
@@ -208,18 +218,18 @@ export default function SEAttendance() {
       {/* Table */}
       <div className="panel" style={{ marginTop: 14, padding: 0, overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', minWidth: 920, borderCollapse: 'collapse', fontSize: 13 }}>
+          <table style={{ width: '100%', minWidth: 960, borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: 'var(--panel-soft)', borderBottom: '1px solid var(--border)', color: 'var(--muted)' }}>
-                {['Worker', 'Project Site', 'Check In', 'Check Out', 'Hours Worked', 'Work Duration / Category', 'Status', 'Verification', 'Actions'].map(h => (
+                {['Worker', 'Project Site', 'Location Verified', 'Check In', 'Check Out', 'Hours Worked', 'Shift Category', 'Status', 'Verification', 'Actions'].map(h => (
                   <th key={h} style={{ padding: '14px 16px', textAlign: 'left', fontWeight: 600 }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {loading && <tr><td colSpan={9} style={{ padding: 30, textAlign: 'center', color: 'var(--muted)' }}>Loading site attendance…</td></tr>}
+              {loading && <tr><td colSpan={10} style={{ padding: 30, textAlign: 'center', color: 'var(--muted)' }}>Loading site attendance…</td></tr>}
               {!loading && filtered.length === 0 && (
-                <tr><td colSpan={9} style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>No attendance records found.</td></tr>
+                <tr><td colSpan={10} style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>No attendance records found.</td></tr>
               )}
               {!loading && filtered.map(r => {
                 const cat = getAttendanceWorkflowCategory(r);
@@ -227,6 +237,17 @@ export default function SEAttendance() {
                   <tr key={r.id} style={{ borderTop: '1px solid var(--border)' }}>
                     <td style={{ padding: '14px 16px', fontWeight: 700 }}>{r.workerName || '—'}</td>
                     <td style={{ padding: 14, color: 'var(--blue)', fontWeight: 600 }}>{r.projectName || '—'}</td>
+                    <td style={{ padding: 14 }}>
+                      {r.locationVerified ? (
+                        <span style={{ padding: '3px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700, background: 'rgba(34,197,94,0.12)', color: 'var(--green)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <MapPin size={12} /> Verified ({r.checkInDistanceMeters != null ? `${Math.round(r.checkInDistanceMeters)}m` : 'On Site'})
+                        </span>
+                      ) : (
+                        <span style={{ padding: '3px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700, background: 'rgba(100,116,139,0.12)', color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <MapPin size={12} /> Standard
+                        </span>
+                      )}
+                    </td>
                     <td style={{ padding: 14, color: 'var(--green)', fontWeight: 600 }}>{r.checkIn ? new Date(r.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}</td>
                     <td style={{ padding: 14, color: r.checkOut ? 'var(--muted)' : 'var(--blue)', fontWeight: 600 }}>{r.checkOut ? new Date(r.checkOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Active On Site'}</td>
                     <td style={{ padding: 14, fontWeight: 700 }}>{r.hoursWorked != null ? `${r.hoursWorked} hrs` : (r.checkOut ? '—' : 'In Progress')}</td>

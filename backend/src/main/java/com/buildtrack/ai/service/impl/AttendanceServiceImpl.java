@@ -14,8 +14,10 @@ import com.buildtrack.ai.repository.ProjectAssignmentRepository;
 import com.buildtrack.ai.repository.ProjectRepository;
 import com.buildtrack.ai.repository.WorkerRepository;
 import com.buildtrack.ai.service.AttendanceService;
+import com.buildtrack.ai.service.DynamicQrService;
 import com.buildtrack.ai.service.RealtimePublisher;
 import com.buildtrack.ai.service.TenantAccessService;
+import com.buildtrack.ai.util.GeoLocationUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +28,7 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -37,6 +40,7 @@ public class AttendanceServiceImpl implements AttendanceService {
     private final RealtimePublisher realtimePublisher;
     private final DomainEventPublisher domainEventPublisher;
     private final TenantAccessService tenantAccessService;
+    private final DynamicQrService dynamicQrService;
 
     @Override
     @Transactional
@@ -72,18 +76,62 @@ public class AttendanceServiceImpl implements AttendanceService {
         assertWorkerTenant(worker, actor);
         Project project = resolveProject(request.getProjectId(), worker, actor);
         assertCanManageAttendance(actor, project, worker);
-        return createCheckIn(worker, project, request.getStatus(), actor);
+        return createCheckIn(worker, project, request.getStatus(), actor, request.getLatitude(), request.getLongitude());
     }
 
     @Override
     @Transactional
     public Attendance checkInByQr(AttendanceQrCheckInRequest request, User actor) {
         String token = request.getQrCodeToken() != null ? request.getQrCodeToken().trim() : "";
+        
+        // Check if token is a dynamic rotating QR token
+        if (dynamicQrService.isDynamicToken(token)) {
+            if (!dynamicQrService.validateDynamicToken(token, request.getProjectId())) {
+                throw new BadRequestException("Dynamic QR code has expired or is invalid. Please scan the current code on the site display.");
+            }
+            Worker worker;
+            if ("WORKER".equalsIgnoreCase(primaryRole(actor))) {
+                worker = workerRepository.findByUserId(actor.getId())
+                        .orElseGet(() -> autoCreateOrLinkWorkerForUser(actor));
+            } else {
+                throw new BadRequestException("Only worker accounts can scan dynamic site QR codes");
+            }
+            assertWorkerTenant(worker, actor);
+            Project project = resolveProject(request.getProjectId(), worker, actor);
+            return createCheckIn(worker, project, null, actor, request.getLatitude(), request.getLongitude());
+        }
+
+        // Standard static QR code / worker badge token
         Worker worker = workerRepository.findByQrCodeToken(token)
+                .or(() -> {
+                    // Try without hyphens
+                    String stripped = token.replace("-", "");
+                    return workerRepository.findByQrCodeToken(stripped);
+                })
+                .or(() -> {
+                    if (token.startsWith("QRWRK") && token.length() > 5) {
+                        String digits = token.substring(5);
+                        try {
+                            if (digits.length() > 5) {
+                                String userPart = digits.substring(digits.length() - 5);
+                                Long userId = Long.parseLong(userPart);
+                                Optional<Worker> byUser = workerRepository.findByUserId(userId);
+                                if (byUser.isPresent()) return byUser;
+                                Optional<Worker> byId = workerRepository.findById(userId);
+                                if (byId.isPresent()) return byId;
+                            }
+                            Long num = Long.parseLong(digits);
+                            Optional<Worker> byUser = workerRepository.findByUserId(num);
+                            if (byUser.isPresent()) return byUser;
+                            return workerRepository.findById(num);
+                        } catch (Exception ignored) {}
+                    }
+                    return java.util.Optional.empty();
+                })
                 .or(() -> {
                     try {
                         Long id = Long.parseLong(token);
-                        return workerRepository.findById(id);
+                        return workerRepository.findById(id).or(() -> workerRepository.findByUserId(id));
                     } catch (Exception e) {
                         return java.util.Optional.empty();
                     }
@@ -103,10 +151,10 @@ public class AttendanceServiceImpl implements AttendanceService {
         } else {
             assertCanManageAttendance(actor, project, worker);
         }
-        return createCheckIn(worker, project, null, actor);
+        return createCheckIn(worker, project, null, actor, request.getLatitude(), request.getLongitude());
     }
 
-    private Attendance createCheckIn(Worker worker, Project project, String requestedStatus, User actor) {
+    private Attendance createCheckIn(Worker worker, Project project, String requestedStatus, User actor, Double lat, Double lon) {
         if (worker.getStatus() != Worker.WorkerStatus.ACTIVE) {
             worker.setStatus(Worker.WorkerStatus.ACTIVE);
             workerRepository.save(worker);
@@ -117,6 +165,25 @@ public class AttendanceServiceImpl implements AttendanceService {
             throw new BadRequestException("Worker already has an open attendance session. Please check out first.");
         });
 
+        Double distance = null;
+        boolean locationVerified = false;
+
+        // GPS Geofence boundary verification
+        if (project.getLatitude() != null && project.getLongitude() != null) {
+            double allowedRadius = project.getGeofenceRadiusMeters() != null ? project.getGeofenceRadiusMeters() : GeoLocationUtil.DEFAULT_GEOFENCE_RADIUS_METERS;
+            if (lat != null && lon != null) {
+                distance = GeoLocationUtil.calculateDistanceMeters(project.getLatitude(), project.getLongitude(), lat, lon);
+                if (distance > allowedRadius) {
+                    throw new BadRequestException("Location verification failed: You are " + GeoLocationUtil.formatDistance(distance) +
+                            " away from " + project.getName() + " (Allowed site radius: " + String.format("%.0f", allowedRadius) + "m). You must be physically at the job site.");
+                }
+                locationVerified = true;
+            } else if ("WORKER".equalsIgnoreCase(primaryRole(actor))) {
+                throw new BadRequestException("Physical GPS Location Required: Project \"" + project.getName() +
+                        "\" requires verified on-site presence within " + String.format("%.0f", allowedRadius) + "m. Please turn on device GPS.");
+            }
+        }
+
         Attendance.AttendanceStatus status = parseStatus(requestedStatus);
         Attendance saved = attendanceRepository.save(Attendance.builder()
                 .worker(worker)
@@ -124,8 +191,12 @@ public class AttendanceServiceImpl implements AttendanceService {
                 .checkIn(LocalDateTime.now())
                 .status(status)
                 .verificationStatus("PENDING")
+                .checkInLatitude(lat)
+                .checkInLongitude(lon)
+                .checkInDistanceMeters(distance != null ? BigDecimal.valueOf(distance).setScale(1, RoundingMode.HALF_UP).doubleValue() : null)
+                .locationVerified(locationVerified)
                 .build());
-        publish(saved, actor, "ATTENDANCE_CHECKED_IN", "Attendance session OPEN");
+        publish(saved, actor, "ATTENDANCE_CHECKED_IN", "Attendance session OPEN" + (locationVerified ? " (Location Verified)" : ""));
         return saved;
     }
 
@@ -192,7 +263,8 @@ public class AttendanceServiceImpl implements AttendanceService {
                 }
             }
         }
-        String qrToken = "QR-WRK-" + String.format("%05d", actor.getId());
+        Long compId = actor.getCompanyId() != null ? actor.getCompanyId() : 1L;
+        String qrToken = "QRWRK" + compId + String.format("%05d", actor.getId());
         Worker newWorker = Worker.builder()
                 .fullName(actor.getFullName() != null ? actor.getFullName() : actor.getEmail())
                 .phone(actor.getPhone() != null ? actor.getPhone() : "")

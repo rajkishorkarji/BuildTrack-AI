@@ -41,6 +41,15 @@ public class Attendance {
     private String verificationStatus = "PENDING";
     private String verifiedBy;
 
+    /** GPS and physical site location verification */
+    private Double checkInLatitude;
+    private Double checkInLongitude;
+    private Double checkInDistanceMeters;
+    private Boolean locationVerified = false;
+
+    private Double checkOutLatitude;
+    private Double checkOutLongitude;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

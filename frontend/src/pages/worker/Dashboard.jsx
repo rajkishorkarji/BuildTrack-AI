@@ -22,6 +22,7 @@ import materialService from '../../services/materialService';
 import projectService from '../../services/projectService';
 import { realtimeBus } from '../../services/api';
 import { getAttendanceWorkflowCategory } from '../../utils/attendanceWorkflow';
+import { getCurrentGpsCoordinates } from '../../utils/geo';
 
 export default function WorkerDashboard() {
   const { user } = useAuth();
@@ -46,7 +47,8 @@ export default function WorkerDashboard() {
   const [receivingId, setReceivingId] = useState(null);
 
   const workerName = user?.fullName || user?.name || 'Worker';
-  const qrToken = `QR-WRK-${String(user?.id || 1).padStart(5, '0')}`;
+  const compId = user?.companyId || user?.company?.id || 1;
+  const qrToken = `QRWRK${compId}${String(user?.id || 1).padStart(5, '0')}`;
 
   const loadData = async () => {
     setLoading(true);
@@ -148,19 +150,24 @@ export default function WorkerDashboard() {
     return allRequests.filter(r => r && (String(r.status || '').toUpperCase() === 'WORKER_RECEIVED' || String(r.status || '').toUpperCase() === 'CONFIRMED'));
   }, [allRequests]);
 
-  // Attendance Toggle (Check-in / Check-out)
+  // Attendance Toggle (Check-in / Check-out with GPS validation)
   const toggleAttendance = async () => {
     setBusyAction(true);
     setError('');
     try {
+      const coords = await getCurrentGpsCoordinates();
       if (checkedIn && activeAttendance) {
-        await attendanceService.checkOut(activeAttendance.id || 0);
+        await attendanceService.checkOut(activeAttendance.id || 0, coords?.latitude, coords?.longitude);
         setNotice('Checked out successfully! Worked duration & shift category calculated.');
       } else {
         const projId = activeAttendance?.projectId || projects[0]?.id || ctxProjects[0]?.id;
         if (!projId) throw new Error('No assigned project site available for check-in.');
-        await attendanceService.checkIn({ projectId: projId });
-        setNotice('Checked in successfully! Attendance Session is now OPEN.');
+        await attendanceService.checkIn({
+          projectId: projId,
+          latitude: coords?.latitude,
+          longitude: coords?.longitude
+        });
+        setNotice('Checked in successfully! Attendance Session is now OPEN & Geofence verified.');
       }
       await loadData();
       if (ctxRefresh) ctxRefresh();
@@ -172,11 +179,17 @@ export default function WorkerDashboard() {
     }
   };
 
-  // Start Task Action
+  // Start Task Action with GPS validation
   const startTask = async (taskId) => {
     try {
-      await taskService.updateProgress(taskId, { progress: 10, status: 'IN_PROGRESS' });
-      setNotice('Task marked as In Progress!');
+      const coords = await getCurrentGpsCoordinates();
+      await taskService.updateProgress(taskId, {
+        progress: 10,
+        status: 'IN_PROGRESS',
+        latitude: coords?.latitude,
+        longitude: coords?.longitude
+      });
+      setNotice('Task marked as In Progress (GPS Verified)!');
       setTimeout(() => setNotice(''), 3000);
       await loadData();
       if (ctxRefresh) ctxRefresh();

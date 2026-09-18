@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { FolderKanban, MapPin, Calendar, Users, X, CheckCircle2, Activity, UserCheck } from 'lucide-react';
+import { FolderKanban, MapPin, Calendar, Users, X, CheckCircle2, Activity, UserCheck, ShieldCheck } from 'lucide-react';
 import projectService from '../../services/projectService';
 import { formatINR } from '../../utils/currency';
 import { realtimeBus } from '../../services/api';
@@ -181,13 +181,44 @@ export default function ProjectManagerProjects() {
                   <h3 style={{ margin: 0, fontSize: 16 }}>{p.name}</h3>
                   <small style={{ color: 'var(--blue)', fontWeight: 600 }}>{p.code || `PRJ-${p.id}`}</small>
                 </div>
-                <span style={{ padding: '3px 10px', borderRadius: 8, background: 'rgba(34,197,94,0.12)', color: 'var(--green)', fontSize: 11, fontWeight: 700 }}>
-                  {p.status}
-                </span>
+                {(() => {
+                  const pct = Number(p.progressPercentage != null ? p.progressPercentage : (p.progress || 0));
+                  let label = 'PLANNED';
+                  let color = '#64748b';
+                  let bg = 'rgba(100,116,139,0.14)';
+
+                  if (pct >= 100 || String(p.status).toUpperCase() === 'COMPLETED') {
+                    label = 'COMPLETED';
+                    color = 'var(--green)';
+                    bg = 'rgba(34,197,94,0.14)';
+                  } else if (pct >= 75) {
+                    label = 'FINISHING';
+                    color = '#8b5cf6';
+                    bg = 'rgba(139,92,246,0.14)';
+                  } else if (pct >= 25) {
+                    label = 'IN PROGRESS';
+                    color = 'var(--blue)';
+                    bg = 'rgba(37,99,235,0.14)';
+                  } else if (pct > 0) {
+                    label = 'EARLY STAGE';
+                    color = 'var(--orange)';
+                    bg = 'rgba(245,158,11,0.14)';
+                  }
+                  return (
+                    <span style={{ padding: '3px 10px', borderRadius: 8, background: bg, color, fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center' }}>
+                      {label}
+                    </span>
+                  );
+                })()}
               </div>
               <p style={{ color: 'var(--muted)', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6, marginTop: 10 }}>
                 <MapPin size={14} style={{ color: 'var(--blue)' }} /> {p.location || 'No site location'}
               </p>
+              {p.latitude != null && p.longitude != null && (
+                <p style={{ color: 'var(--green)', fontSize: 11, display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, fontWeight: 600 }}>
+                  <ShieldCheck size={13} /> GPS Geofence: {p.geofenceRadiusMeters || 100}m ({p.latitude.toFixed(4)}, {p.longitude.toFixed(4)})
+                </p>
+              )}
               <p style={{ color: 'var(--muted)', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
                 <Calendar size={14} /> {p.startDate || '—'} → {p.estEndDate || '—'}
               </p>
@@ -201,7 +232,11 @@ export default function ProjectManagerProjects() {
                 <div style={{ width: `${p.progressPercentage || p.progress || 0}%`, height: '100%', background: 'var(--blue)', borderRadius: 3 }} />
               </div>
             </div>
-
+            <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button className="secondary-button" style={{ fontSize: 12, padding: '6px 12px' }} onClick={() => openAssignments(p)}>
+                <Users size={13} /> Assign Personnel
+              </button>
+            </div>
           </article>
         ))}
       </div>

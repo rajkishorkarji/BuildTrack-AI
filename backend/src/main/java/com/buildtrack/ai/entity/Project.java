@@ -36,6 +36,11 @@ public class Project {
     private LocalDate startDate;
     private LocalDate estEndDate;
 
+    /** GPS Geofencing coordinates for site verification */
+    private Double latitude;
+    private Double longitude;
+    private Double geofenceRadiusMeters = 150.0;
+
     /** Email is retained so the assigned manager can be resolved without exposing another tenant's users. */
     private String assignedProjectManagerEmail;
 
@@ -68,6 +73,12 @@ public class Project {
     public void setStartDate(LocalDate startDate) { this.startDate = startDate; }
     public LocalDate getEstEndDate() { return estEndDate; }
     public void setEstEndDate(LocalDate estEndDate) { this.estEndDate = estEndDate; }
+    public Double getLatitude() { return latitude; }
+    public void setLatitude(Double latitude) { this.latitude = latitude; }
+    public Double getLongitude() { return longitude; }
+    public void setLongitude(Double longitude) { this.longitude = longitude; }
+    public Double getGeofenceRadiusMeters() { return geofenceRadiusMeters != null ? geofenceRadiusMeters : 150.0; }
+    public void setGeofenceRadiusMeters(Double geofenceRadiusMeters) { this.geofenceRadiusMeters = geofenceRadiusMeters; }
     public String getAssignedProjectManagerEmail() { return assignedProjectManagerEmail; }
     public void setAssignedProjectManagerEmail(String assignedProjectManagerEmail) { this.assignedProjectManagerEmail = assignedProjectManagerEmail; }
     public Company getCompany() { return company; }

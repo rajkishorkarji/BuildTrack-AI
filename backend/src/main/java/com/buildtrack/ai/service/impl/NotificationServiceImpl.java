@@ -38,14 +38,31 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     @Transactional
     public void markAllAsRead() {
-        notificationRepository.findAll().forEach(n -> n.setRead(true));
+        List<Notification> list = notificationRepository.findAll();
+        list.forEach(n -> n.setRead(true));
+        notificationRepository.saveAll(list);
         notificationRepository.flush();
+    }
+
+    @Override
+    @Transactional
+    public void markAllAsReadForUser(User user) {
+        if (user == null || user.getEmail() == null) return;
+        List<Notification> list = notificationRepository.findByRecipientEmailIgnoreCaseOrderByCreatedAtDesc(user.getEmail());
+        if (list.isEmpty()) return;
+        for (Notification n : list) {
+            n.setRead(true);
+        }
+        notificationRepository.saveAll(list);
+        notificationRepository.flush();
+        realtimePublisher.publishToUser(user.getEmail(), "notifications", "read_all", null);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<Notification> getNotificationsForUser(User user) {
-        return notificationRepository.findByRecipientEmailOrderByCreatedAtDesc(user.getEmail());
+        if (user == null || user.getEmail() == null) return List.of();
+        return notificationRepository.findByRecipientEmailIgnoreCaseOrderByCreatedAtDesc(user.getEmail());
     }
 
     @Override
@@ -94,5 +111,44 @@ public class NotificationServiceImpl implements NotificationService {
         notification.setRead(true);
         Notification saved = notificationRepository.save(notification);
         realtimePublisher.publishToUser(user.getEmail(), "notifications", "read", saved);
+    }
+
+    @Override
+    @Transactional
+    public void deleteNotification(Long id, User user) {
+        Notification notification = notificationRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Notification not found"));
+        boolean isSuperAdmin = user.getRoles() != null && user.getRoles().stream().anyMatch(r -> "SUPER_ADMIN".equalsIgnoreCase(r.getRoleName()));
+        if (!isSuperAdmin && (notification.getRecipientEmail() == null || !notification.getRecipientEmail().equalsIgnoreCase(user.getEmail()))) {
+            throw new IllegalArgumentException("Notification does not belong to the current user");
+        }
+        notificationRepository.delete(notification);
+    }
+
+    @Override
+    @Transactional
+    public void deleteNotifications(List<Long> ids, User user) {
+        if (ids == null || ids.isEmpty() || user == null) return;
+        boolean isSuperAdmin = user.getRoles() != null && user.getRoles().stream().anyMatch(r -> "SUPER_ADMIN".equalsIgnoreCase(r.getRoleName()));
+        List<Notification> list = notificationRepository.findAllById(ids);
+        List<Notification> toDelete = list.stream()
+                .filter(n -> isSuperAdmin || (n.getRecipientEmail() != null && n.getRecipientEmail().equalsIgnoreCase(user.getEmail())))
+                .toList();
+        notificationRepository.deleteAll(toDelete);
+        notificationRepository.flush();
+    }
+
+    @Override
+    @Transactional
+    public void deleteAllNotificationsForUser(User user) {
+        if (user == null || user.getEmail() == null) return;
+        boolean isSuperAdmin = user.getRoles() != null && user.getRoles().stream().anyMatch(r -> "SUPER_ADMIN".equalsIgnoreCase(r.getRoleName()));
+        if (isSuperAdmin) {
+            notificationRepository.deleteAll();
+        } else {
+            List<Notification> list = notificationRepository.findByRecipientEmailIgnoreCaseOrderByCreatedAtDesc(user.getEmail());
+            notificationRepository.deleteAll(list);
+        }
+        notificationRepository.flush();
     }
 }
