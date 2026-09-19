@@ -42,13 +42,12 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .exceptionHandling(exception -> exception
-                .defaultAuthenticationEntryPointFor(
+                .authenticationEntryPoint(
                     (request, response, authException) -> {
                         response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED);
                         response.setContentType("application/json");
                         response.getWriter().write("{\"success\":false,\"message\":\"Session expired or unauthorized. Please log in again.\"}");
-                    },
-                    new org.springframework.security.web.util.matcher.AntPathRequestMatcher("/api/**")
+                    }
                 )
             )
             .authorizeHttpRequests(auth -> auth

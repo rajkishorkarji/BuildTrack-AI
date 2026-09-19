@@ -1,12 +1,16 @@
 import axios from 'axios';
 
 // Create central Axios instance for backend REST API calls
+const rawBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api';
+const cleanBaseUrl = rawBaseUrl.endsWith('/') ? rawBaseUrl.slice(0, -1) : rawBaseUrl;
+const apiBaseUrl = cleanBaseUrl.endsWith('/api') ? cleanBaseUrl : `${cleanBaseUrl}/api`;
+
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
+    baseURL: apiBaseUrl,
     headers: {
         'Content-Type': 'application/json',
     },
-    timeout: 10000,
+    timeout: 15000,
 });
 
 // Request interceptor to append JWT Bearer Token if logged in
