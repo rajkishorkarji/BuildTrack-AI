@@ -26,6 +26,7 @@ public class ProjectService {
     private final CompanyRepository companyRepository;
     private final UserRepository userRepository;
     private final ProjectAssignmentRepository assignmentRepository;
+    private final SubscriptionPlanService subscriptionPlanService;
 
     public List<Project> getAllProjects() { return projectRepository.findAll(); }
 
@@ -48,6 +49,7 @@ public class ProjectService {
     @Transactional
     public Project create(Long companyId, com.buildtrack.ai.dto.project.ProjectCreateRequest request) {
         Company company = companyRepository.findById(companyId).orElseThrow(() -> new ResourceNotFoundException("Company not found"));
+        subscriptionPlanService.validateProjectCreationAllowed(company);
         Project p = new Project();
         p.setCompany(company);
         p.setName(request.getName().trim());

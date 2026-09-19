@@ -9,4 +9,5 @@ import java.util.List;
 public interface ProjectRepository extends JpaRepository<Project, Long> {
     List<Project> findByCompanyId(Long companyId);
     List<Project> findByStatus(String status);
+    long countByCompanyId(Long companyId);
 }

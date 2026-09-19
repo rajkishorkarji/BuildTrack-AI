@@ -74,7 +74,6 @@ import OAuthRedirect from '../pages/OAuthRedirect';
 import Notifications from '../pages/Notifications';
 import Documents from '../pages/Documents';
 import Profile from '../pages/Profile';
-import Step7DailyLogs from '../pages/Step7DailyLogs';
 import AcceptInvitation from '../pages/AcceptInvitation';
 
 import ProtectedRoute from './ProtectedRoute';
@@ -246,7 +245,7 @@ function RoleAttendance() {
 function RoleDailyReport() {
   const { user } = useAuth();
   const map = {
-    COMPANY_ADMIN: Step7DailyLogs,
+    COMPANY_ADMIN: SEDailyProgressReport,
     SITE_ENGINEER: SEDailyProgressReport,
   };
   const Component = map[String(user?.role || '').toUpperCase()];

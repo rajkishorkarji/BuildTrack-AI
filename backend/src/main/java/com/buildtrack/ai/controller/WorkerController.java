@@ -1,7 +1,9 @@
 package com.buildtrack.ai.controller;
 
 import com.buildtrack.ai.auth.dto.ApiResponse;
+import com.buildtrack.ai.entity.Company;
 import com.buildtrack.ai.entity.Worker;
+import com.buildtrack.ai.service.SubscriptionPlanService;
 import com.buildtrack.ai.service.WorkerService;
 import com.buildtrack.ai.service.TenantAccessService;
 import com.buildtrack.ai.auth.entity.User;
@@ -18,10 +20,12 @@ public class WorkerController {
 
     private final WorkerService workerService;
     private final TenantAccessService tenantAccessService;
+    private final SubscriptionPlanService subscriptionPlanService;
 
-    WorkerController(WorkerService workerService, TenantAccessService tenantAccessService) {
+    WorkerController(WorkerService workerService, TenantAccessService tenantAccessService, SubscriptionPlanService subscriptionPlanService) {
         this.workerService = workerService;
         this.tenantAccessService = tenantAccessService;
+        this.subscriptionPlanService = subscriptionPlanService;
     }
 
     @GetMapping
@@ -37,8 +41,10 @@ public class WorkerController {
     public ResponseEntity<ApiResponse<Worker>> createWorker(@RequestBody Worker worker) {
         User user = tenantAccessService.currentUser();
         tenantAccessService.requireCompanyAdmin(user);
-        worker.setCompanyId(tenantAccessService.currentCompany().getId());
-        tenantAccessService.requireActiveSubscription(tenantAccessService.currentCompany());
+        Company company = tenantAccessService.currentCompany();
+        worker.setCompanyId(company.getId());
+        tenantAccessService.requireActiveSubscription(company);
+        subscriptionPlanService.validateWorkerCreationAllowed(company);
         return ResponseEntity.ok(ApiResponse.success(workerService.createWorker(worker)));
     }
 }

@@ -13,4 +13,5 @@ public interface WorkerRepository extends JpaRepository<Worker, Long> {
     List<Worker> findByCompanyId(Long companyId);
     Optional<Worker> findByQrCodeToken(String qrCodeToken);
     Optional<Worker> findByUserId(Long userId);
+    long countByCompanyId(Long companyId);
 }

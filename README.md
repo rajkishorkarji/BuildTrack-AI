@@ -702,7 +702,7 @@ docker compose up -d database kafka
 cd backend
 mvn spring-boot:run
 ```
-*Flyway will automatically execute all SQL migrations (001 through 021) and baseline the schema.*
+*Flyway will automatically execute all versioned SQL migrations and baseline the database schema.*
 
 #### 3. Run Gateway (Optional)
 ```powershell

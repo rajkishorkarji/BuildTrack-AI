@@ -1,1 +1,1 @@
-export { default } from '../Step7Documents';
+export { default } from '../site-engineer/Documents';

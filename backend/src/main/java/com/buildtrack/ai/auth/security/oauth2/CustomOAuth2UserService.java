@@ -36,9 +36,16 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
         if (userOptional.isPresent()) {
             User user = userOptional.get();
-            // Update name from Google profile if available
-            user.setFirstName(googleUser.getFirstName() != null ? googleUser.getFirstName() : user.getFirstName());
-            user.setLastName(googleUser.getLastName() != null ? googleUser.getLastName() : user.getLastName());
+            // Preserve the user's existing saved or updated name from password login/profile edits
+            boolean hasSavedName = (user.getFirstName() != null && !user.getFirstName().trim().isEmpty());
+            if (!hasSavedName) {
+                if (googleUser.getFirstName() != null && !googleUser.getFirstName().trim().isEmpty()) {
+                    user.setFirstName(googleUser.getFirstName().trim());
+                }
+                if (googleUser.getLastName() != null && !googleUser.getLastName().trim().isEmpty()) {
+                    user.setLastName(googleUser.getLastName().trim());
+                }
+            }
             user.setProvider(com.buildtrack.ai.auth.entity.AuthProvider.GOOGLE);
             userRepository.save(user);
         } else {

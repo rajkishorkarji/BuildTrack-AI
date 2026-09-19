@@ -31,6 +31,7 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
     private final JwtService jwtService;
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final com.buildtrack.ai.repository.CompanyRepository companyRepository;
 
     @Value("${app.frontend-url:http://localhost:5173}")
     private String frontendUrl;
@@ -65,11 +66,55 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
                 .build();
         refreshTokenRepository.save(refreshToken);
 
-        String targetUrl = UriComponentsBuilder.fromUriString(frontendUrl + "/oauth2/redirect")
+        String savedFullName = user.getFullName();
+        if (savedFullName == null || savedFullName.isBlank()) {
+            savedFullName = user.getEmail();
+        }
+
+        String companyName = "Platform";
+        if (user.getCompanyId() != null) {
+            companyName = companyRepository.findById(user.getCompanyId())
+                    .map(com.buildtrack.ai.entity.Company::getName).orElse("Platform");
+        }
+
+        String redirectBase = frontendUrl;
+        String forwardedHost = request.getHeader("X-Forwarded-Host");
+        String forwardedProto = request.getHeader("X-Forwarded-Proto");
+        if (forwardedHost != null && !forwardedHost.isBlank()) {
+            if (forwardedHost.contains(",")) {
+                forwardedHost = forwardedHost.split(",")[0].trim();
+            }
+            String scheme = "http";
+            if (forwardedProto != null && !forwardedProto.isBlank()) {
+                scheme = forwardedProto.split(",")[0].trim();
+            } else if (request.isSecure() || "443".equals(request.getHeader("X-Forwarded-Port"))) {
+                scheme = "https";
+            }
+            if (!"https".equalsIgnoreCase(scheme)) {
+                scheme = "http";
+            }
+            redirectBase = scheme + "://" + forwardedHost;
+        }
+
+        if (redirectBase == null || redirectBase.isBlank() || redirectBase.contains(",")) {
+            redirectBase = "http://localhost";
+        }
+
+        if (redirectBase.endsWith("/")) {
+            redirectBase = redirectBase.substring(0, redirectBase.length() - 1);
+        }
+
+        String targetUrl = UriComponentsBuilder.fromUriString(redirectBase + "/oauth2/redirect")
                 .queryParam("accessToken", accessToken)
                 .queryParam("refreshToken", refreshToken.getToken())
                 .queryParam("email", user.getEmail())
                 .queryParam("role", mainRole)
+                .queryParam("fullName", savedFullName)
+                .queryParam("firstName", user.getFirstName() != null ? user.getFirstName() : "")
+                .queryParam("lastName", user.getLastName() != null ? user.getLastName() : "")
+                .queryParam("companyName", companyName)
+                .queryParam("companyId", user.getCompanyId() != null ? String.valueOf(user.getCompanyId()) : "")
+                .queryParam("companyCode", user.getCompanyCode() != null ? user.getCompanyCode() : "")
                 .queryParam("provider", user.getProvider() != null ? user.getProvider().name() : "GOOGLE")
                 .build().toUriString();
 

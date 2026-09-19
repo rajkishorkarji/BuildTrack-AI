@@ -101,10 +101,10 @@ export function AuthProvider({ children }) {
 
     const updateUser = (updatedFields) => {
         setUser((previous) => {
-            if (!previous) return null;
+            const base = previous || {};
 
             const updated = normalizeUser({
-                ...previous,
+                ...base,
                 ...updatedFields,
             });
 

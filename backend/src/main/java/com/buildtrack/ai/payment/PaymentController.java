@@ -19,6 +19,7 @@ public class PaymentController {
     private final RazorpayService razorpayService;
     private final TenantAccessService tenantAccessService;
     private final ObjectMapper objectMapper;
+    private final com.buildtrack.ai.service.SubscriptionPlanService subscriptionPlanService;
 
     @GetMapping("/razorpay/plans")
     public ResponseEntity<ApiResponse<Map<String, Object>>> plans() {
@@ -54,12 +55,22 @@ public class PaymentController {
     public ResponseEntity<ApiResponse<Map<String, Object>>> subscription() {
         tenantAccessService.requireCompanyAdmin(tenantAccessService.currentUser());
         var company = tenantAccessService.currentCompany();
-        return ResponseEntity.ok(ApiResponse.success(Map.of(
-                "plan", company.getPlan(),
-                "status", company.getSubscriptionStatus(),
-                "activatedAt", company.getSubscriptionActivatedAt() == null
-                        ? "" : company.getSubscriptionActivatedAt().toString()
-        )));
+        var tier = subscriptionPlanService.getPlanTier(company);
+        long currentProjects = subscriptionPlanService.getProjectCount(company.getId());
+        long currentWorkers = subscriptionPlanService.getWorkerCount(company.getId());
+
+        Map<String, Object> data = new java.util.LinkedHashMap<>();
+        data.put("plan", company.getPlan());
+        data.put("status", company.getSubscriptionStatus());
+        data.put("activatedAt", company.getSubscriptionActivatedAt() == null
+                ? "" : company.getSubscriptionActivatedAt().toString());
+        data.put("tier", tier.name());
+        data.put("currentProjects", currentProjects);
+        data.put("maxProjects", tier.getMaxProjects() == Integer.MAX_VALUE ? "Unlimited" : tier.getMaxProjects());
+        data.put("currentWorkers", currentWorkers);
+        data.put("maxWorkers", tier.getMaxWorkers() == Integer.MAX_VALUE ? "Unlimited" : tier.getMaxWorkers());
+
+        return ResponseEntity.ok(ApiResponse.success(data));
     }
 
     @GetMapping("/company")

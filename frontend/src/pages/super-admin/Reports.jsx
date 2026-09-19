@@ -1,1 +1,1 @@
-export { default } from '../Step7Reports';
+export { default } from '../company-admin/Reports';

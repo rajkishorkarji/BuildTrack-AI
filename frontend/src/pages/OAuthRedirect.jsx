@@ -5,24 +5,41 @@ import { useAuth } from '../context/AuthContext';
 export default function OAuthRedirect() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { updateUser } = useAuth();
+  const { login } = useAuth();
 
   useEffect(() => {
     const accessToken = searchParams.get('accessToken');
     const refreshToken = searchParams.get('refreshToken');
     const email = searchParams.get('email');
     const role = searchParams.get('role') || 'COMPANY_ADMIN';
+    const fullName = searchParams.get('fullName');
+    const firstName = searchParams.get('firstName');
+    const lastName = searchParams.get('lastName');
+    const companyName = searchParams.get('companyName') || 'Platform';
+    const companyId = searchParams.get('companyId');
+    const companyCode = searchParams.get('companyCode');
     const provider = searchParams.get('provider') || 'GOOGLE';
 
-    if (accessToken && refreshToken) {
+    if (accessToken && refreshToken && email) {
       localStorage.setItem('accessToken', accessToken);
       localStorage.setItem('refreshToken', refreshToken);
 
-      updateUser({
+      // Preserve the user's existing saved name from the database
+      const resolvedFullName = fullName && fullName.trim() !== ''
+        ? fullName.trim()
+        : (firstName ? `${firstName} ${lastName || ''}`.trim() : email.split('@')[0]);
+
+      login({
         email,
         role: role.toUpperCase(),
         roleLabel: role.replace(/_/g, ' '),
-        fullName: email ? email.split('@')[0] : 'Google User',
+        fullName: resolvedFullName,
+        name: resolvedFullName,
+        firstName: firstName || '',
+        lastName: lastName || '',
+        companyName: companyName,
+        companyId: companyId ? Number(companyId) : null,
+        companyCode: companyCode || '',
         provider: provider,
       });
 
@@ -30,7 +47,7 @@ export default function OAuthRedirect() {
     } else {
       navigate('/login', { replace: true });
     }
-  }, [searchParams, navigate, updateUser]);
+  }, [searchParams, navigate, login]);
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>

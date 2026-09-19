@@ -11,6 +11,7 @@ import com.buildtrack.ai.dto.project.ProjectCreateRequest;
 import com.buildtrack.ai.entity.Company;
 import com.buildtrack.ai.entity.Project;
 import com.buildtrack.ai.service.ProjectService;
+import com.buildtrack.ai.service.SubscriptionPlanService;
 import com.buildtrack.ai.service.TenantAccessService;
 
 import jakarta.validation.Valid;
@@ -59,6 +60,7 @@ public class CompanyAdminController {
     private final UserRepository userRepository;
 
     private final EmailService emailService;
+    private final SubscriptionPlanService subscriptionPlanService;
 
 
     // ============================================================
@@ -232,6 +234,10 @@ public class CompanyAdminController {
                     "CONTRACTOR and WORKER can be invited " +
                     "by Company Admin"
             );
+        }
+
+        if ("WORKER".equalsIgnoreCase(role)) {
+            subscriptionPlanService.validateWorkerCreationAllowed(company);
         }
 
 

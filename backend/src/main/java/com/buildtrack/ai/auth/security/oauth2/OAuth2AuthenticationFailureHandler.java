@@ -22,7 +22,34 @@ public class OAuth2AuthenticationFailureHandler extends SimpleUrlAuthenticationF
             throws IOException, ServletException {
         String errorMessage = exception.getMessage() != null ? exception.getMessage() : "Google authentication failed.";
 
-        String targetUrl = UriComponentsBuilder.fromUriString(frontendUrl + "/login")
+        String redirectBase = frontendUrl;
+        String forwardedHost = request.getHeader("X-Forwarded-Host");
+        String forwardedProto = request.getHeader("X-Forwarded-Proto");
+        if (forwardedHost != null && !forwardedHost.isBlank()) {
+            if (forwardedHost.contains(",")) {
+                forwardedHost = forwardedHost.split(",")[0].trim();
+            }
+            String scheme = "http";
+            if (forwardedProto != null && !forwardedProto.isBlank()) {
+                scheme = forwardedProto.split(",")[0].trim();
+            } else if (request.isSecure() || "443".equals(request.getHeader("X-Forwarded-Port"))) {
+                scheme = "https";
+            }
+            if (!"https".equalsIgnoreCase(scheme)) {
+                scheme = "http";
+            }
+            redirectBase = scheme + "://" + forwardedHost;
+        }
+
+        if (redirectBase == null || redirectBase.isBlank() || redirectBase.contains(",")) {
+            redirectBase = "http://localhost";
+        }
+
+        if (redirectBase.endsWith("/")) {
+            redirectBase = redirectBase.substring(0, redirectBase.length() - 1);
+        }
+
+        String targetUrl = UriComponentsBuilder.fromUriString(redirectBase + "/login")
                 .queryParam("error", errorMessage)
                 .build().toUriString();
 

@@ -1,0 +1,67 @@
+services:
+  # ============================================================
+  # 1. Spring Boot Backend API (Free Web Service)
+  # ============================================================
+  - type: web
+    name: buildtrack-backend
+    runtime: docker
+    dockerContext: ./backend
+    dockerfilePath: ./backend/Dockerfile
+    plan: free
+    region: singapore
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: DB_HOST
+        fromDatabase:
+          name: buildtrack-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: buildtrack-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: buildtrack-db
+          property: database
+      - key: DB_USERNAME
+        fromDatabase:
+          name: buildtrack-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: buildtrack-db
+          property: password
+      - key: JWT_SECRET
+        generateValue: true
+      - key: SUPER_ADMIN_EMAIL
+        value: admin@buildtrack.ai
+      - key: SUPER_ADMIN_PASSWORD
+        value: ChangeMeNow!123
+      - key: FRONTEND_URL
+        fromService:
+          type: static
+          name: buildtrack-frontend
+          property: host
+
+  # ============================================================
+  # 2. React SPA Frontend (Free Static Site - 24/7 Global CDN)
+  # ============================================================
+  - type: static
+    name: buildtrack-frontend
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+# ============================================================
+# 3. Free PostgreSQL Database
+# ============================================================
+databases:
+  - name: buildtrack-db
+    plan: free
+    region: singapore
+    databaseName: buildtrack_ai
+    user: buildtrack
