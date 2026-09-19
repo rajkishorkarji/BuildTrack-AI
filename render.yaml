@@ -5,24 +5,16 @@ services:
   - type: web
     name: buildtrack-backend
     runtime: docker
-    dockerContext: ./backend
     dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
     plan: free
     region: singapore
     healthCheckPath: /actuator/health
     envVars:
-      - key: DB_HOST
+      - key: DB_URL
         fromDatabase:
           name: buildtrack-db
-          property: host
-      - key: DB_PORT
-        fromDatabase:
-          name: buildtrack-db
-          property: port
-      - key: DB_NAME
-        fromDatabase:
-          name: buildtrack-db
-          property: database
+          property: connectionString
       - key: DB_USERNAME
         fromDatabase:
           name: buildtrack-db
@@ -37,17 +29,13 @@ services:
         value: admin@buildtrack.ai
       - key: SUPER_ADMIN_PASSWORD
         value: ChangeMeNow!123
-      - key: FRONTEND_URL
-        fromService:
-          type: static
-          name: buildtrack-frontend
-          property: host
 
   # ============================================================
-  # 2. React SPA Frontend (Free Static Site - 24/7 Global CDN)
+  # 2. React SPA Frontend (Free Static Site)
   # ============================================================
-  - type: static
+  - type: web
     name: buildtrack-frontend
+    runtime: static
     rootDir: frontend
     buildCommand: npm install && npm run build
     staticPublishPath: dist
