@@ -9,8 +9,9 @@ services:
     dockerContext: ./backend
     plan: free
     region: singapore
-    healthCheckPath: /actuator/health
     envVars:
+      - key: PORT
+        value: 8080
       - key: DB_URL
         fromDatabase:
           name: buildtrack-db
