@@ -1,17 +1,36 @@
 import axios from 'axios';
 
 // Create central Axios instance for backend REST API calls
-const rawBaseUrl = (import.meta.env.VITE_API_BASE_URL || '/api').trim();
-let cleanBaseUrl = rawBaseUrl;
+export function resolveApiBaseUrl() {
+    const raw = (import.meta.env.VITE_API_BASE_URL || '/api').trim();
+    if (!raw || raw === '/api' || raw === 'api') {
+        return '/api';
+    }
 
-// Ensure protocol is present if a bare hostname was supplied in production env
-if (cleanBaseUrl && !cleanBaseUrl.startsWith('http://') && !cleanBaseUrl.startsWith('https://') && !cleanBaseUrl.startsWith('/')) {
-    cleanBaseUrl = `https://${cleanBaseUrl}`;
+    let url = raw;
+
+    // Detect if host is a Render private service slug like "buildtrack-backend-fy94" or "buildtrack-backend"
+    // Render's blueprint "fromService: ... property: host" produces only the slug without .onrender.com
+    const withoutProtocol = url.replace(/^https?:\/\//, '');
+    const hostPart = withoutProtocol.split('/')[0].split(':')[0];
+
+    // If hostPart has no dot (not a public FQDN) and is not localhost
+    if (hostPart && !hostPart.includes('.') && hostPart !== 'localhost') {
+        url = url.replace(hostPart, `${hostPart}.onrender.com`);
+    }
+
+    if (!url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('/')) {
+        url = `https://${url}`;
+    }
+
+    if (url.endsWith('/')) {
+        url = url.slice(0, -1);
+    }
+
+    return url.endsWith('/api') ? url : `${url}/api`;
 }
-if (cleanBaseUrl.endsWith('/')) {
-    cleanBaseUrl = cleanBaseUrl.slice(0, -1);
-}
-const apiBaseUrl = cleanBaseUrl.endsWith('/api') ? cleanBaseUrl : `${cleanBaseUrl}/api`;
+
+export const apiBaseUrl = resolveApiBaseUrl();
 
 const api = axios.create({
     baseURL: apiBaseUrl,

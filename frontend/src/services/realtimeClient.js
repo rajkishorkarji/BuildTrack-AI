@@ -1,13 +1,20 @@
-import { realtimeBus } from './api';
+import { realtimeBus, apiBaseUrl } from './api';
 
 const TOPICS = ['updates', 'projects', 'tasks', 'workers', 'attendance', 'equipment', 'reports', 'ai'];
 
 function resolveSocketUrl() {
-  if (import.meta.env.VITE_WS_URL) return import.meta.env.VITE_WS_URL;
+  if (import.meta.env.VITE_WS_URL) {
+    let wsUrl = import.meta.env.VITE_WS_URL.trim();
+    const withoutWs = wsUrl.replace(/^wss?:\/\//, '');
+    const hostPart = withoutWs.split('/')[0].split(':')[0];
+    if (hostPart && !hostPart.includes('.') && hostPart !== 'localhost') {
+      wsUrl = wsUrl.replace(hostPart, `${hostPart}.onrender.com`);
+    }
+    return wsUrl;
+  }
 
-  const apiUrl = import.meta.env.VITE_API_BASE_URL;
-  if (apiUrl && /^https?:\/\//.test(apiUrl)) {
-    const url = new URL(apiUrl);
+  if (apiBaseUrl && /^https?:\/\//.test(apiBaseUrl)) {
+    const url = new URL(apiBaseUrl);
     url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
     url.pathname = '/ws-native';
     url.search = '';
@@ -110,6 +117,8 @@ class RealtimeClient {
 
   scheduleReconnect() {
     if (this.manualDisconnect || this.reconnectTimer) return;
+    // Avoid loop spamming reconnection while unauthenticated on the login page
+    if (!localStorage.getItem('accessToken') && window.location.pathname === '/login') return;
     const delay = Math.min(30000, 1000 * (2 ** this.reconnectAttempts));
     this.reconnectAttempts += 1;
     this.reconnectTimer = window.setTimeout(() => {

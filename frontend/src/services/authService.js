@@ -1,4 +1,4 @@
-import api from './api';
+import api, { apiBaseUrl } from './api';
 
 export const authService = {
     async login(email, password) {
@@ -78,18 +78,13 @@ export const authService = {
     },
 
     getGoogleLoginUrl() {
-    const baseUrl =
-        import.meta.env.VITE_API_BASE_URL || '/api';
+        if (apiBaseUrl && /^https?:\/\//.test(apiBaseUrl)) {
+            const gatewayOrigin = new URL(apiBaseUrl).origin;
+            return `${gatewayOrigin}/oauth2/authorization/google`;
+        }
 
-    const origin = window.location.origin;
-
-    if (baseUrl.startsWith('http')) {
-        const gatewayOrigin = new URL(baseUrl).origin;
-        return `${gatewayOrigin}/oauth2/authorization/google`;
-    }
-
-    return `${origin}/oauth2/authorization/google`;
-},
+        return `${window.location.origin}/oauth2/authorization/google`;
+    },
 
     async logout() {
         const refreshToken = localStorage.getItem('refreshToken');
