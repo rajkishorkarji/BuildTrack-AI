@@ -1,8 +1,16 @@
 import axios from 'axios';
 
 // Create central Axios instance for backend REST API calls
-const rawBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api';
-const cleanBaseUrl = rawBaseUrl.endsWith('/') ? rawBaseUrl.slice(0, -1) : rawBaseUrl;
+const rawBaseUrl = (import.meta.env.VITE_API_BASE_URL || '/api').trim();
+let cleanBaseUrl = rawBaseUrl;
+
+// Ensure protocol is present if a bare hostname was supplied in production env
+if (cleanBaseUrl && !cleanBaseUrl.startsWith('http://') && !cleanBaseUrl.startsWith('https://') && !cleanBaseUrl.startsWith('/')) {
+    cleanBaseUrl = `https://${cleanBaseUrl}`;
+}
+if (cleanBaseUrl.endsWith('/')) {
+    cleanBaseUrl = cleanBaseUrl.slice(0, -1);
+}
 const apiBaseUrl = cleanBaseUrl.endsWith('/api') ? cleanBaseUrl : `${cleanBaseUrl}/api`;
 
 const api = axios.create({
@@ -10,7 +18,7 @@ const api = axios.create({
     headers: {
         'Content-Type': 'application/json',
     },
-    timeout: 15000,
+    timeout: 60000,
 });
 
 // Request interceptor to append JWT Bearer Token if logged in
@@ -80,6 +88,13 @@ api.interceptors.response.use(
                     window.location.href = '/login';
                 }
             }
+        }
+
+        // Normalize raw timeout and network errors to prevent leaking raw technical messages
+        if (error.code === 'ECONNABORTED' || (error.message && error.message.toLowerCase().includes('timeout'))) {
+            error.message = 'The server is taking longer than expected to respond (it may be waking up from sleep mode). Please wait a moment and try again.';
+        } else if (!error.response && (error.code === 'ERR_NETWORK' || (error.message && error.message.toLowerCase().includes('network')))) {
+            error.message = 'Unable to connect to the server. Please check your internet connection or verify the server status.';
         }
 
         return Promise.reject(error);

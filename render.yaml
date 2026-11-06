@@ -30,6 +30,10 @@ services:
         value: admin@buildtrack.ai
       - key: SUPER_ADMIN_PASSWORD
         value: ChangeMeNow!123
+      - key: JAVA_TOOL_OPTIONS
+        value: "-XX:+UseSerialGC -Xss512k -XX:MaxRAMPercentage=75.0"
+      - key: KAFKA_AUTO_STARTUP
+        value: "false"
 
   # ============================================================
   # 2. React SPA Frontend (Free Static Site)
@@ -44,6 +48,12 @@ services:
       - type: rewrite
         source: /*
         destination: /index.html
+    envVars:
+      - key: VITE_API_BASE_URL
+        fromService:
+          type: web
+          name: buildtrack-backend
+          property: host
 
 # ============================================================
 # 3. Free PostgreSQL Database

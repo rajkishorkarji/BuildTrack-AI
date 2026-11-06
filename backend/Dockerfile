@@ -11,4 +11,5 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf 
 WORKDIR /app
 COPY --from=builder /app/target/buildtrack-ai-0.0.1-SNAPSHOT.jar app.jar
 EXPOSE 8080 10000
-ENTRYPOINT ["java","-jar","app.jar"]
+ENV JAVA_OPTS="-XX:+UseSerialGC -Xss512k -XX:MaxRAMPercentage=75.0"
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]

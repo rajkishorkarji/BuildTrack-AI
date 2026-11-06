@@ -26,12 +26,24 @@ export const authService = {
 
         return data.user;
     } catch (error) {
-        const message =
+        let message =
             error.response?.data?.message ||
-            error.message ||
-            'Unable to sign in.';
+            error.response?.data?.error;
 
-        throw new Error(message);
+        if (!message) {
+            if (error.code === 'ECONNABORTED' || (error.message && error.message.toLowerCase().includes('timeout'))) {
+                message = 'The server took too long to respond. It may be waking up from sleep mode—please wait a few moments and try again.';
+            } else if (!error.response) {
+                message = 'Unable to reach the server. Please verify your connection or try again shortly.';
+            } else {
+                message = error.message || 'Unable to sign in.';
+            }
+        }
+
+        const customError = new Error(message);
+        customError.response = error.response;
+        customError.code = error.code;
+        throw customError;
     }
 },
 

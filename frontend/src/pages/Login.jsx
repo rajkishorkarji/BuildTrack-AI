@@ -129,30 +129,43 @@ export default function Login() {
         error?.response?.data?.message ||
         error?.response?.data?.error;
 
-      let errorMessage =
-        backendMessage ||
-        error?.message ||
-        'Invalid email or password.';
+      const rawMessage = error?.message || '';
+      const isTimeout =
+        error?.code === 'ECONNABORTED' ||
+        /timeout/i.test(rawMessage);
+      const isNetworkError =
+        !error?.response &&
+        (/network/i.test(rawMessage) ||
+         /failed to fetch/i.test(rawMessage) ||
+         /connection/i.test(rawMessage));
 
-      // Handle common HTTP errors more professionally
-      if (error?.response?.status === 401) {
+      let errorMessage;
+
+      if (backendMessage) {
+        errorMessage = backendMessage;
+      } else if (isTimeout) {
+        errorMessage =
+          'Server is waking up from sleep mode or taking longer than expected. Please wait 10-15 seconds and try again.';
+      } else if (isNetworkError) {
+        errorMessage =
+          'Unable to connect to BuildTrack AI backend. Please verify your internet connection or check backend status.';
+      } else if (error?.response?.status === 401) {
         errorMessage =
           'Invalid email or password.';
-      }
-
-      if (error?.response?.status === 403) {
+      } else if (error?.response?.status === 403) {
         errorMessage =
           'Your account does not have permission to access BuildTrack AI.';
-      }
-
-      if (error?.response?.status === 404) {
+      } else if (error?.response?.status === 404) {
         errorMessage =
-          'Authentication service is unavailable.';
-      }
-
-      if (error?.response?.status >= 500) {
+          'Authentication service is unavailable. Please verify backend deployment.';
+      } else if (error?.response?.status >= 500) {
         errorMessage =
-          'Server error. Please try again after the backend is running.';
+          'Server error. The service may still be starting up. Please try again shortly.';
+      } else {
+        errorMessage =
+          rawMessage && !/15000|timeout/i.test(rawMessage)
+            ? rawMessage
+            : 'Unable to sign in. Please verify your credentials and try again.';
       }
 
       setMessage({
