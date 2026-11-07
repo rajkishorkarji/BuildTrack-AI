@@ -264,7 +264,7 @@ public class SuperAdminController {
             savedCompany.getId()
     );
 
-    String invitationUrl = frontendUrl + "/accept-invitation?token=" + token;
+    String invitationUrl = resolveFrontendUrl() + "/accept-invitation?token=" + token;
     Map<String, Object> result = new HashMap<>();
     result.put("id", savedCompany.getId());
     result.put("name", savedCompany.getName());
@@ -513,4 +513,36 @@ public ResponseEntity<ApiResponse<Company>> approveCompany(
             )
     );
 }
+
+    private String resolveFrontendUrl() {
+        String base = frontendUrl;
+        if (base != null && !base.isBlank() && !base.contains("localhost") && !base.contains("127.0.0.1")) {
+            if (!base.startsWith("http://") && !base.startsWith("https://")) {
+                if (!base.contains(".")) {
+                    base = base + ".onrender.com";
+                }
+                base = "https://" + base;
+            }
+            return base.endsWith("/") ? base.substring(0, base.length() - 1) : base;
+        }
+        try {
+            org.springframework.web.context.request.ServletRequestAttributes attrs =
+                    (org.springframework.web.context.request.ServletRequestAttributes)
+                            org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
+            if (attrs != null) {
+                jakarta.servlet.http.HttpServletRequest req = attrs.getRequest();
+                String origin = req.getHeader("Origin");
+                if (origin != null && !origin.isBlank()) {
+                    return origin.endsWith("/") ? origin.substring(0, origin.length() - 1) : origin;
+                }
+                String referer = req.getHeader("Referer");
+                if (referer != null && !referer.isBlank()) {
+                    java.net.URI uri = new java.net.URI(referer);
+                    return uri.getScheme() + "://" + uri.getAuthority();
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return frontendUrl;
+    }
 }

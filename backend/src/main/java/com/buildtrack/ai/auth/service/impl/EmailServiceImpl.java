@@ -28,9 +28,29 @@ public class EmailServiceImpl implements EmailService {
     @Value("${spring.mail.username:noreply@buildtrack.ai}")
     private String fromEmail;
 
+    private final java.util.concurrent.ExecutorService emailExecutor = java.util.concurrent.Executors.newCachedThreadPool();
+
+    @jakarta.annotation.PreDestroy
+    public void cleanup() {
+        try {
+            emailExecutor.shutdown();
+        } catch (Exception ignored) {
+        }
+    }
+
     private String getEffectiveFrontendUrl() {
-        if (frontendUrl != null && !frontendUrl.contains("localhost") && !frontendUrl.contains("127.0.0.1")) {
-            return frontendUrl;
+        String base = frontendUrl;
+        if (base != null && !base.isBlank() && !base.contains("localhost") && !base.contains("127.0.0.1")) {
+            if (!base.startsWith("http://") && !base.startsWith("https://")) {
+                if (!base.contains(".")) {
+                    base = base + ".onrender.com";
+                }
+                base = "https://" + base;
+            }
+            if (base.endsWith("/")) {
+                base = base.substring(0, base.length() - 1);
+            }
+            return base;
         }
         try {
             ServletRequestAttributes attrs = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
@@ -38,7 +58,7 @@ public class EmailServiceImpl implements EmailService {
                 HttpServletRequest request = attrs.getRequest();
                 String origin = request.getHeader("Origin");
                 if (origin != null && !origin.isBlank()) {
-                    return origin;
+                    return origin.endsWith("/") ? origin.substring(0, origin.length() - 1) : origin;
                 }
                 String referer = request.getHeader("Referer");
                 if (referer != null && !referer.isBlank()) {
@@ -207,20 +227,23 @@ public class EmailServiceImpl implements EmailService {
             log.warn("MAIL_USERNAME is not configured. Email to {} will likely fail. "
                     + "Set MAIL_USERNAME in .env to your Gmail address.", to);
         }
-        try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-            helper.setFrom(senderAddr, "BuildTrack AI");
-            helper.setReplyTo(senderAddr, "BuildTrack AI");
-            helper.setTo(to);
-            helper.setSubject(subject);
-            helper.setText(body, true);
-            mailSender.send(message);
-            log.info("Email successfully sent to {} from {}", to, senderAddr);
-        } catch (Exception e) {
-            log.error("Failed to send email to {} from {}. Error: {}",
-                    to, senderAddr, e.getMessage(), e);
-        }
+
+        emailExecutor.submit(() -> {
+            try {
+                MimeMessage message = mailSender.createMimeMessage();
+                MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+                helper.setFrom(senderAddr, "BuildTrack AI");
+                helper.setReplyTo(senderAddr, "BuildTrack AI");
+                helper.setTo(to);
+                helper.setSubject(subject);
+                helper.setText(body, true);
+                mailSender.send(message);
+                log.info("Email successfully sent to {} from {}", to, senderAddr);
+            } catch (Exception e) {
+                log.error("Failed to send email to {} from {}. Error: {}",
+                        to, senderAddr, e.getMessage(), e);
+            }
+        });
     }
 
     

@@ -34,6 +34,11 @@ services:
         value: "-XX:+UseSerialGC -Xss512k -XX:MaxRAMPercentage=75.0"
       - key: KAFKA_AUTO_STARTUP
         value: "false"
+      - key: FRONTEND_URL
+        fromService:
+          type: web
+          name: buildtrack-frontend
+          property: host
 
   # ============================================================
   # 2. React SPA Frontend (Free Static Site)
