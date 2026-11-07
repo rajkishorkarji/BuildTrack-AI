@@ -328,6 +328,84 @@ private String generateCompanyCode(
         return ResponseEntity.ok(ApiResponse.success(companyRepository.findAll()));
     }
 
+    /**
+     * Resend an invitation email to the Company Admin of a given company.
+     * This refreshes the token so the 24h expiry restarts.
+     * Also logs the full invitation link so you can retrieve it from Render logs if email fails.
+     */
+    @PostMapping("/companies/{id}/resend-invitation")
+    @Transactional
+    public ResponseEntity<ApiResponse<Map<String, Object>>> resendInvitation(@PathVariable Long id) {
+        tenantAccessService.requireSuperAdmin(tenantAccessService.currentUser());
+
+        Company company = companyRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Company not found: " + id));
+
+        String adminEmail = company.getAdminEmail();
+        if (adminEmail == null || adminEmail.isBlank()) {
+            throw new IllegalArgumentException("Company does not have an admin email set.");
+        }
+
+        // Find or create pending invitation for the admin
+        UserInvitation invitation = userInvitationRepository
+                .findByEmailIgnoreCaseAndCompanyId(adminEmail, company.getId())
+                .orElseGet(UserInvitation::new);
+
+        // Refresh the token so they get a fresh 24h window
+        String token = UUID.randomUUID().toString();
+        invitation.setEmail(adminEmail);
+        invitation.setRole("COMPANY_ADMIN");
+        invitation.setCompanyId(company.getId());
+        invitation.setToken(token);
+        invitation.setClaimed(false);
+        invitation.setExpiresAt(LocalDateTime.now().plusHours(24));
+
+        if (invitation.getFullName() == null || invitation.getFullName().isBlank()) {
+            invitation.setFullName(company.getAdminName() != null ? company.getAdminName() : adminEmail);
+        }
+
+        userInvitationRepository.save(invitation);
+
+        String invitationUrl = resolveFrontendUrl() + "/accept-invitation?token=" + token;
+
+        // Log the invitation link so it's always visible in Render logs (regardless of email delivery)
+        org.slf4j.LoggerFactory.getLogger(SuperAdminController.class).info(
+            "\n╔══════════════════════════════════════════════════════════╗\n" +
+            "║           COMPANY ADMIN INVITATION RESENT               ║\n" +
+            "╠══════════════════════════════════════════════════════════╣\n" +
+            "║  Company  : {}\n" +
+            "║  Admin    : {}\n" +
+            "║  Link     : {}\n" +
+            "╚══════════════════════════════════════════════════════════╝",
+            company.getName(), adminEmail, invitationUrl
+        );
+
+        emailService.sendCompanyAdminInvitation(adminEmail, invitation.getFullName(), company.getName(), token);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("companyId", company.getId());
+        result.put("companyName", company.getName());
+        result.put("adminEmail", adminEmail);
+        result.put("invitationUrl", invitationUrl);
+        result.put("message", "Invitation email resent to " + adminEmail + ". Check Render logs for the direct link if email doesn't arrive.");
+
+        return ResponseEntity.ok(ApiResponse.success("Invitation resent successfully.", result));
+    }
+
+    /**
+     * Debug endpoint: test email delivery by sending a plain test email to the Super Admin.
+     * Check Render backend logs for SMTP success/failure details.
+     */
+    @PostMapping("/email/test")
+    public ResponseEntity<ApiResponse<String>> testEmailDelivery() {
+        tenantAccessService.requireSuperAdmin(tenantAccessService.currentUser());
+        String adminEmail = tenantAccessService.currentUser().getEmail();
+        emailService.sendVerificationEmail(adminEmail,
+            "test-token-" + UUID.randomUUID().toString().substring(0, 8));
+        return ResponseEntity.ok(ApiResponse.success(
+            "Test email dispatched to " + adminEmail + ". Check Render backend logs for SMTP result."));
+    }
+
     @DeleteMapping("/companies/{identifier}")
     @Transactional
     public ResponseEntity<ApiResponse<Map<String, String>>> deleteCompany(@PathVariable String identifier) {

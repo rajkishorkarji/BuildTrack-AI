@@ -35,10 +35,7 @@ services:
       - key: KAFKA_AUTO_STARTUP
         value: "false"
       - key: FRONTEND_URL
-        fromService:
-          type: web
-          name: buildtrack-frontend
-          property: host
+        value: "https://buildtrack-frontend-3sl8.onrender.com"
       - key: MAIL_HOST
         value: smtp.gmail.com
       - key: MAIL_PORT

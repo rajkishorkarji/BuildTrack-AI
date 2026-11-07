@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useData } from '../../context/DataContext';
-import { Building2, Plus, Search, X, Mail, Phone, MapPin, UserRound } from 'lucide-react';
+import { Building2, Plus, Search, X, Mail, Phone, MapPin, UserRound, RefreshCw } from 'lucide-react';
+import api from '../../services/api';
 
 export default function SuperAdminCompanies() {
   const {
@@ -304,6 +305,35 @@ export default function SuperAdminCompanies() {
           error?.message ||
           'Failed to update company status.'
       );
+    }
+  };
+
+  // ============================================================
+  // RESEND INVITATION
+  // ============================================================
+
+  const [resendingId, setResendingId] = useState(null);
+
+  const handleResendInvitation = async (company) => {
+    const confirmed = window.confirm(
+      `Resend invitation email to:\n\n${company.adminEmail}\n\nThis will generate a new 24-hour invitation link.`
+    );
+    if (!confirmed) return;
+
+    setResendingId(company.id);
+    try {
+      await api.post(`/superadmin/companies/${company.id}/resend-invitation`);
+      window.alert(
+        `Invitation resent to ${company.adminEmail}.\n\nIf the email doesn't arrive, check the Render backend logs — the invitation link is printed there for manual sharing.`
+      );
+    } catch (error) {
+      window.alert(
+        error?.response?.data?.message ||
+          error?.message ||
+          'Failed to resend invitation.'
+      );
+    } finally {
+      setResendingId(null);
     }
   };
 
@@ -658,10 +688,16 @@ export default function SuperAdminCompanies() {
                             background:
                               subscriptionStatus === 'ACTIVE'
                                 ? 'rgba(34,197,94,0.12)'
+                                : subscriptionStatus === 'SUSPENDED'
+                                ? 'rgba(239,68,68,0.10)'
+                                : subscriptionStatus === 'EXPIRED'
+                                ? 'rgba(239,68,68,0.10)'
                                 : 'rgba(245,158,11,0.12)',
                             color:
                               subscriptionStatus === 'ACTIVE'
                                 ? 'var(--green)'
+                                : subscriptionStatus === 'SUSPENDED' || subscriptionStatus === 'EXPIRED'
+                                ? 'var(--red)'
                                 : 'var(--orange)',
                             fontWeight: 700,
                             fontSize: '11px',
@@ -669,6 +705,10 @@ export default function SuperAdminCompanies() {
                         >
                           {subscriptionStatus === 'ACTIVE'
                             ? 'Active'
+                            : subscriptionStatus === 'SUSPENDED'
+                            ? 'Suspended'
+                            : subscriptionStatus === 'EXPIRED'
+                            ? 'Expired'
                             : 'Pending'}
                         </span>
                       </td>
@@ -703,8 +743,34 @@ export default function SuperAdminCompanies() {
                             display: 'flex',
                             gap: '7px',
                             justifyContent: 'flex-end',
+                            flexWrap: 'wrap',
                           }}
                         >
+                          {/* Resend Invitation — only shown when admin hasn't activated yet */}
+                          {company.adminEmail && subscriptionStatus !== 'ACTIVE' && (
+                            <button
+                              type="button"
+                              className="secondary-button"
+                              disabled={resendingId === company.id}
+                              style={{
+                                padding: '5px 10px',
+                                fontSize: '11px',
+                                fontWeight: 650,
+                                color: 'var(--blue)',
+                                borderColor: 'rgba(37,99,235,0.3)',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                opacity: resendingId === company.id ? 0.6 : 1,
+                              }}
+                              onClick={() => handleResendInvitation(company)}
+                              title="Resend invitation email to company admin"
+                            >
+                              <RefreshCw size={11} />
+                              {resendingId === company.id ? 'Sending…' : 'Resend Invite'}
+                            </button>
+                          )}
+
                           <button
                             type="button"
                             className="secondary-button"

@@ -115,6 +115,22 @@ public class AuthServiceImpl implements AuthService {
             );
         }
 
+        // For company users (non-SUPER_ADMIN), verify their company is active
+        boolean isSuperAdmin = user.getRoles().stream()
+                .anyMatch(r -> "SUPER_ADMIN".equalsIgnoreCase(r.getRoleName()));
+
+        if (!isSuperAdmin && user.getCompanyId() != null) {
+            Company company = companyRepository.findById(user.getCompanyId()).orElse(null);
+            if (company != null) {
+                String companyStatus = company.getStatus();
+                if ("SUSPENDED".equalsIgnoreCase(companyStatus)) {
+                    throw new DisabledException(
+                            "Your company account has been suspended. Please contact your BuildTrack AI platform administrator."
+                    );
+                }
+            }
+        }
+
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         request.email(),
@@ -223,6 +239,15 @@ public class AuthServiceImpl implements AuthService {
                             .findById(user.getCompanyId())
                             .map(Company::getName)
                             .orElse(null);
+        }
+
+        // Also surface subscription status and company status for the frontend
+        if (user.getCompanyId() != null) {
+            Company company = companyRepository.findById(user.getCompanyId()).orElse(null);
+            if (company != null) {
+                extraClaims.put("subscriptionStatus", company.getSubscriptionStatus());
+                extraClaims.put("companyStatus", company.getStatus());
+            }
         }
 
         String fullName =
