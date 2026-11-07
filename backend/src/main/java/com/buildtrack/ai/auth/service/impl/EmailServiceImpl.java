@@ -152,6 +152,15 @@ public class EmailServiceImpl implements EmailService {
                     </a>
                 </div>
 
+                <div style="text-align:center;margin:16px 0 24px 0;">
+                    <p style="font-size:13px;color:#64748b;margin:0 0 6px 0;">
+                        Or copy and paste this invitation link directly into your browser:
+                    </p>
+                    <a href="%s" style="color:#2563eb;font-size:13px;word-break:break-all;text-decoration:underline;font-weight:600;">
+                        %s
+                    </a>
+                </div>
+
                 <div style="border-top:1px solid #f1f5f9;padding-top:16px;margin-top:28px;text-align:center;">
                     <p style="font-size:12px;color:#94a3b8;margin:0;">
                         This invitation link is valid for 24 hours. If you did not expect this invitation, please ignore this email.
@@ -161,6 +170,8 @@ public class EmailServiceImpl implements EmailService {
             """.formatted(
                 adminName,
                 companyName,
+                invitationUrl,
+                invitationUrl,
                 invitationUrl
             );
 
@@ -204,13 +215,22 @@ public class EmailServiceImpl implements EmailService {
                     </a>
                 </div>
 
+                <div style="text-align:center;margin:16px 0 24px 0;">
+                    <p style="font-size:13px;color:#64748b;margin:0 0 6px 0;">
+                        Or copy and paste this invitation link directly into your browser:
+                    </p>
+                    <a href="%s" style="color:#2563eb;font-size:13px;word-break:break-all;text-decoration:underline;font-weight:600;">
+                        %s
+                    </a>
+                </div>
+
                 <div style="border-top:1px solid #f1f5f9;padding-top:16px;margin-top:28px;text-align:center;">
                     <p style="font-size:12px;color:#94a3b8;margin:0;">
                         This invitation link is valid for 24 hours. If you did not expect this invitation, please ignore this email.
                     </p>
                 </div>
             </div>
-            """.formatted(fullName, companyName, role.replace('_', ' '), invitationUrl);
+            """.formatted(fullName, companyName, role.replace('_', ' '), invitationUrl, invitationUrl, invitationUrl);
         sendHtmlEmail(toEmail, subject, content);
     }
 

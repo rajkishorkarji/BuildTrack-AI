@@ -39,6 +39,14 @@ services:
           type: web
           name: buildtrack-frontend
           property: host
+      - key: MAIL_HOST
+        value: smtp.gmail.com
+      - key: MAIL_PORT
+        value: 587
+      - key: MAIL_USERNAME
+        value: rajkishorkarji07@gmail.com
+      - key: MAIL_PASSWORD
+        value: "bpni xcfj jxzr qiul"
 
   # ============================================================
   # 2. React SPA Frontend (Free Static Site)

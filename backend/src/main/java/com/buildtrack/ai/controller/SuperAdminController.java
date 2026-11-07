@@ -159,10 +159,12 @@ public class SuperAdminController {
      * The company has been approved because the
      * Super Admin created it directly.
      *
-     * Subscription remains PENDING until activated.
+     * Subscription is marked ACTIVE with the selected plan.
      */
     company.setStatus("ACTIVE");
-    company.setSubscriptionStatus("PENDING");
+    company.setSubscriptionStatus("ACTIVE");
+    company.setSubscriptionActivatedAt(LocalDateTime.now());
+    company.setSubscriptionActivatedAt(LocalDateTime.now());
 
     Company savedCompany =
             companyRepository.save(company);
@@ -371,7 +373,19 @@ private String generateCompanyCode(
         if (company == null) {
             throw new IllegalArgumentException("Company not found: " + identifier);
         }
-        company.setStatus(body.getOrDefault("status", company.getStatus()));
+        String newStatus = body.getOrDefault("status", company.getStatus());
+        company.setStatus(newStatus);
+        if ("ACTIVE".equalsIgnoreCase(newStatus)) {
+            company.setSubscriptionStatus("ACTIVE");
+            if (company.getSubscriptionActivatedAt() == null) {
+                company.setSubscriptionActivatedAt(LocalDateTime.now());
+            }
+        } else if ("SUSPENDED".equalsIgnoreCase(newStatus)) {
+            company.setSubscriptionStatus("SUSPENDED");
+        }
+        if (body.containsKey("subscriptionStatus")) {
+            company.setSubscriptionStatus(body.get("subscriptionStatus"));
+        }
         Company saved = companyRepository.save(company);
         realtimePublisher.publish("companies", "updated", saved.getId());
         return ResponseEntity.ok(ApiResponse.success(saved));
@@ -425,6 +439,7 @@ public ResponseEntity<ApiResponse<Company>> approveCompany(
     company.setAdminEmail(adminEmail);
     company.setStatus("ACTIVE");
     company.setSubscriptionStatus("ACTIVE");
+    company.setSubscriptionActivatedAt(LocalDateTime.now());
 
     Company savedCompany =
             companyRepository.save(company);

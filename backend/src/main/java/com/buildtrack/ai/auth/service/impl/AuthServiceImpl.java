@@ -684,6 +684,16 @@ public ApiResponse<String> acceptInvitation(AcceptInvitationRequest request) {
     invitation.setClaimed(true);
     userInvitationRepository.save(invitation);
 
+    if ("COMPANY_ADMIN".equalsIgnoreCase(invitation.getRole())) {
+        company.setStatus("ACTIVE");
+        company.setSubscriptionStatus("ACTIVE");
+        if (company.getSubscriptionActivatedAt() == null) {
+            company.setSubscriptionActivatedAt(LocalDateTime.now());
+        }
+        companyRepository.save(company);
+        realtimePublisher.publish("companies", "updated", company.getId());
+    }
+
     return ApiResponse.success("Invitation accepted successfully. You can now sign in.");
 }
 }

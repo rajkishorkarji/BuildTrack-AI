@@ -26,6 +26,13 @@ export default function SuperAdminFinance() {
   }, [refresh]);
 
   const PLAN_PRICES = { STARTER: 9999, PROFESSIONAL: 29999, ENTERPRISE: 99999 };
+  const getPlanPrice = (plan) => {
+    const upper = String(plan || '').toUpperCase();
+    if (upper.includes('ENTERPRISE')) return 99999;
+    if (upper.includes('PROFESSIONAL')) return 29999;
+    if (upper.includes('STARTER')) return 9999;
+    return PLAN_PRICES[upper] || 29999;
+  };
 
   const getCompanyName = (f) => {
     if (f.companyName && f.companyName !== '—') return f.companyName;
@@ -46,7 +53,7 @@ export default function SuperAdminFinance() {
   const paidSubscriptionRevenue = completedPayments.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
 
   const activeCompanies = (companies || []).filter(c => String(c.status || '').toUpperCase() === 'ACTIVE');
-  const estimatedActiveRevenue = activeCompanies.reduce((s, c) => s + (PLAN_PRICES[String(c.plan || '').toUpperCase()] || 0), 0);
+  const estimatedActiveRevenue = activeCompanies.reduce((s, c) => s + getPlanPrice(c.plan), 0);
 
   const totalPaid = paidSubscriptionRevenue > 0 ? paidSubscriptionRevenue : estimatedActiveRevenue;
   const totalPlatformBilled = totalPaid + finances.reduce((s, f) => s + (parseFloat(f.amount || f.totalAmount) || 0), 0);
@@ -127,14 +134,14 @@ export default function SuperAdminFinance() {
                   return compName === c.name || f.companyId === c.id;
                 })
                 .reduce((s, f) => s + (parseFloat(f.amount || f.totalAmount) || 0), 0);
-              const subRevenue = PLAN_PRICES[String(c.plan || '').toUpperCase()] || 0;
+              const subRevenue = getPlanPrice(c.plan);
               const companyTotal = invoiceRevenue > 0 ? invoiceRevenue + subRevenue : subRevenue;
 
               const maxRevenue = Math.max(...companies.map(co => {
                 const invRev = finances
                   .filter(f => getCompanyName(f) === co.name || f.companyId === co.id)
                   .reduce((s, f) => s + (parseFloat(f.amount || f.totalAmount) || 0), 0);
-                const sRev = PLAN_PRICES[String(co.plan || '').toUpperCase()] || 0;
+                const sRev = getPlanPrice(co.plan);
                 return invRev > 0 ? invRev + sRev : sRev;
               }), 1);
 

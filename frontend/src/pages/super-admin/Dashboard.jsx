@@ -33,13 +33,20 @@ export default function SuperAdminDashboard() {
 
   // Platform Revenue represents total successful payments collected from all companies for BuildTrack AI subscriptions
   const PLAN_PRICES = { STARTER: 9999, PROFESSIONAL: 29999, ENTERPRISE: 99999 };
+  const getPlanPrice = (plan) => {
+    const upper = String(plan || '').toUpperCase();
+    if (upper.includes('ENTERPRISE')) return 99999;
+    if (upper.includes('PROFESSIONAL')) return 29999;
+    if (upper.includes('STARTER')) return 9999;
+    return PLAN_PRICES[upper] || 29999;
+  };
+
   const completedSubscriptionPayments = (payments || [])
     .filter(p => String(p.status || '').toUpperCase() === 'COMPLETED' || String(p.status || '').toUpperCase() === 'CAPTURED' || String(p.status || '').toUpperCase() === 'PAID')
     .reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
 
   const estimatedActiveSubscriptionRevenue = activeCompanies.reduce((sum, c) => {
-    const code = String(c.plan || '').toUpperCase();
-    return sum + (PLAN_PRICES[code] || 0);
+    return sum + getPlanPrice(c.plan);
   }, 0);
 
   const platformRevenue = completedSubscriptionPayments > 0
