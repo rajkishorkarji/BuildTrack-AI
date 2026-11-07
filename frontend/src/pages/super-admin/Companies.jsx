@@ -210,14 +210,7 @@ export default function SuperAdminCompanies() {
 
       const createdCo = await addCompany(payload);
 
-      const raw = createdCo?.data || createdCo;
-      const invLink = raw?.invitationUrl || raw?.company?.invitationUrl;
-
-      let msg = `Company "${companyName}" created successfully.\n\nAn invitation email has been sent to ${adminEmail}.`;
-      if (invLink) {
-        msg += `\n\nDirect Invitation Link:\n${invLink}\n\n(You can also share this link directly with the Company Admin).`;
-      }
-
+      const msg = `Company "${companyName}" created successfully.\n\nAn invitation email has been sent to ${adminEmail}.`;
       window.alert(msg);
 
       setShowCreate(false);

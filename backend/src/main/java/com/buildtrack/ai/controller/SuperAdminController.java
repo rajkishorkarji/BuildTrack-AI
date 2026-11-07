@@ -530,16 +530,6 @@ public ResponseEntity<ApiResponse<Company>> approveCompany(
 }
 
     private String resolveFrontendUrl() {
-        String base = frontendUrl;
-        if (base != null && !base.isBlank() && !base.contains("localhost") && !base.contains("127.0.0.1")) {
-            if (!base.startsWith("http://") && !base.startsWith("https://")) {
-                if (!base.contains(".")) {
-                    base = base + ".onrender.com";
-                }
-                base = "https://" + base;
-            }
-            return base.endsWith("/") ? base.substring(0, base.length() - 1) : base;
-        }
         try {
             org.springframework.web.context.request.ServletRequestAttributes attrs =
                     (org.springframework.web.context.request.ServletRequestAttributes)
@@ -547,7 +537,7 @@ public ResponseEntity<ApiResponse<Company>> approveCompany(
             if (attrs != null) {
                 jakarta.servlet.http.HttpServletRequest req = attrs.getRequest();
                 String origin = req.getHeader("Origin");
-                if (origin != null && !origin.isBlank()) {
+                if (origin != null && !origin.isBlank() && !origin.equals("null")) {
                     return origin.endsWith("/") ? origin.substring(0, origin.length() - 1) : origin;
                 }
                 String referer = req.getHeader("Referer");
@@ -558,6 +548,17 @@ public ResponseEntity<ApiResponse<Company>> approveCompany(
             }
         } catch (Exception ignored) {
         }
-        return frontendUrl;
+
+        String base = frontendUrl;
+        if (base != null && !base.isBlank()) {
+            if (!base.startsWith("http://") && !base.startsWith("https://")) {
+                if (!base.contains(".") && !base.contains("localhost")) {
+                    base = base + ".onrender.com";
+                }
+                base = "https://" + base;
+            }
+            return base.endsWith("/") ? base.substring(0, base.length() - 1) : base;
+        }
+        return "http://localhost:5173";
     }
 }

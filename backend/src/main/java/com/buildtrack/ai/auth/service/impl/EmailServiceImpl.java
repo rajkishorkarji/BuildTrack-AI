@@ -39,25 +39,12 @@ public class EmailServiceImpl implements EmailService {
     }
 
     private String getEffectiveFrontendUrl() {
-        String base = frontendUrl;
-        if (base != null && !base.isBlank() && !base.contains("localhost") && !base.contains("127.0.0.1")) {
-            if (!base.startsWith("http://") && !base.startsWith("https://")) {
-                if (!base.contains(".")) {
-                    base = base + ".onrender.com";
-                }
-                base = "https://" + base;
-            }
-            if (base.endsWith("/")) {
-                base = base.substring(0, base.length() - 1);
-            }
-            return base;
-        }
         try {
             ServletRequestAttributes attrs = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
             if (attrs != null) {
                 HttpServletRequest request = attrs.getRequest();
                 String origin = request.getHeader("Origin");
-                if (origin != null && !origin.isBlank()) {
+                if (origin != null && !origin.isBlank() && !origin.equals("null")) {
                     return origin.endsWith("/") ? origin.substring(0, origin.length() - 1) : origin;
                 }
                 String referer = request.getHeader("Referer");
@@ -68,7 +55,21 @@ public class EmailServiceImpl implements EmailService {
             }
         } catch (Exception ignored) {
         }
-        return frontendUrl;
+
+        String base = frontendUrl;
+        if (base != null && !base.isBlank()) {
+            if (!base.startsWith("http://") && !base.startsWith("https://")) {
+                if (!base.contains(".") && !base.contains("localhost")) {
+                    base = base + ".onrender.com";
+                }
+                base = "https://" + base;
+            }
+            if (base.endsWith("/")) {
+                base = base.substring(0, base.length() - 1);
+            }
+            return base;
+        }
+        return "http://localhost:5173";
     }
 
 
@@ -235,33 +236,45 @@ public class EmailServiceImpl implements EmailService {
     }
 
     private String getFromAddress() {
-        if (fromEmail != null && !fromEmail.isBlank()) {
-            return fromEmail;
+        if (fromEmail != null && !fromEmail.isBlank() && fromEmail.contains("@") && !fromEmail.contains("noreply")) {
+            return fromEmail.trim();
         }
-        return "noreply@buildtrack.ai";
+        return "rajkishorkarji07@gmail.com";
     }
 
     private void sendHtmlEmail(String to, String subject, String body) {
         String senderAddr = getFromAddress();
-        if (senderAddr.equals("noreply@buildtrack.ai")) {
-            log.warn("MAIL_USERNAME is not configured. Email to {} will likely fail. "
-                    + "Set MAIL_USERNAME in .env to your Gmail address.", to);
-        }
 
         emailExecutor.submit(() -> {
-            try {
-                MimeMessage message = mailSender.createMimeMessage();
-                MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-                helper.setFrom(senderAddr, "BuildTrack AI");
-                helper.setReplyTo(senderAddr, "BuildTrack AI");
-                helper.setTo(to);
-                helper.setSubject(subject);
-                helper.setText(body, true);
-                mailSender.send(message);
-                log.info("Email successfully sent to {} from {}", to, senderAddr);
-            } catch (Exception e) {
-                log.error("Failed to send email to {} from {}. Error: {}",
-                        to, senderAddr, e.getMessage(), e);
+            int maxAttempts = 2;
+            for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+                try {
+                    MimeMessage message = mailSender.createMimeMessage();
+                    MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+                    helper.setFrom(senderAddr, "BuildTrack AI");
+                    helper.setReplyTo(senderAddr, "BuildTrack AI");
+                    helper.setTo(to);
+                    helper.setSubject(subject);
+
+                    String plainText = body.replaceAll("<style[^>]*>.*?</style>", "")
+                                           .replaceAll("<[^>]*>", " ")
+                                           .replaceAll("&nbsp;", " ")
+                                           .replaceAll("\\s+", " ")
+                                           .trim();
+                    helper.setText(plainText, body);
+                    mailSender.send(message);
+                    log.info("Email successfully sent to {} from {} (attempt {})", to, senderAddr, attempt);
+                    return;
+                } catch (Exception e) {
+                    log.error("Failed to send email to {} from {} (attempt {}/{}). Error: {}",
+                            to, senderAddr, attempt, maxAttempts, e.getMessage(), e);
+                    if (attempt < maxAttempts) {
+                        try {
+                            Thread.sleep(2000);
+                        } catch (InterruptedException ignored) {
+                        }
+                    }
+                }
             }
         });
     }

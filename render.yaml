@@ -46,7 +46,7 @@ services:
       - key: MAIL_USERNAME
         value: rajkishorkarji07@gmail.com
       - key: MAIL_PASSWORD
-        value: "bpni xcfj jxzr qiul"
+        value: "bpnixcfjjxzrqiul"
 
   # ============================================================
   # 2. React SPA Frontend (Free Static Site)
