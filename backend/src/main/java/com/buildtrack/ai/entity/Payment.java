@@ -30,6 +30,7 @@ public class Payment {
     @Column(nullable = false, precision = 15, scale = 2)
     private BigDecimal amount;
 
+    @Builder.Default
     @Column(nullable = false, length = 10)
     private String currency = "INR";
 

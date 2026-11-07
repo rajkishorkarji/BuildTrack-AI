@@ -47,6 +47,7 @@ public class Worker {
 
     private String contractorName;
     private String siteEngineerName;
+    @Builder.Default
     private String assignmentType = "DIRECT_PROJECT";
 
     @OneToOne(fetch = FetchType.LAZY)

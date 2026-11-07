@@ -16,6 +16,7 @@ import com.buildtrack.ai.entity.Worker;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.security.authentication.AuthenticationManager;
+import com.buildtrack.ai.service.RealtimePublisher;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -49,6 +50,7 @@ public class AuthServiceImpl implements AuthService {
     private final CompanyRepository companyRepository;
     private final UserInvitationRepository userInvitationRepository;
     private final WorkerRepository workerRepository;
+    private final RealtimePublisher realtimePublisher;
 
     // ============================================================
     // VERIFY EMAIL

@@ -27,12 +27,14 @@ public class SiteIssue {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    @Builder.Default
     @Column(nullable = false, length = 32)
     private String severity = "HIGH";
 
     @Column(length = 255)
     private String location;
 
+    @Builder.Default
     @Column(nullable = false, length = 32)
     private String status = "OPEN";
 

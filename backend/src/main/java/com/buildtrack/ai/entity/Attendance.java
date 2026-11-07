@@ -38,6 +38,7 @@ public class Attendance {
     @Column(nullable = false)
     private AttendanceStatus status;
 
+    @Builder.Default
     private String verificationStatus = "PENDING";
     private String verifiedBy;
 
@@ -45,6 +46,7 @@ public class Attendance {
     private Double checkInLatitude;
     private Double checkInLongitude;
     private Double checkInDistanceMeters;
+    @Builder.Default
     private Boolean locationVerified = false;
 
     private Double checkOutLatitude;

@@ -44,6 +44,7 @@ public class DailyLog {
     private String weather;
     private Integer progressPercentage;
 
+    @Builder.Default
     @Column(nullable = false, length = 32)
     private String status = "SUBMITTED";
 
