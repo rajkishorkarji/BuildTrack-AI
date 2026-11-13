@@ -592,15 +592,14 @@ public class AuthServiceImpl implements AuthService {
 public ApiResponse<Object> getInvitation(
         String token
 ) {
+    if (token == null || token.isBlank()) {
+        throw new IllegalArgumentException("Invalid invitation");
+    }
 
-    UserInvitation invitation =
-            userInvitationRepository
-                    .findByToken(token)
-                    .orElseThrow(() ->
-                            new IllegalArgumentException(
-                                    "Invalid invitation"
-                            )
-                    );
+    String cleanToken = token.trim();
+    UserInvitation invitation = userInvitationRepository.findByToken(cleanToken)
+            .orElseGet(() -> userInvitationRepository.findByTokenIgnoreCase(cleanToken)
+                    .orElseThrow(() -> new IllegalArgumentException("Invalid invitation")));
 
     if (invitation.isClaimed()) {
         throw new IllegalArgumentException(
@@ -666,8 +665,14 @@ public ApiResponse<String> acceptInvitation(AcceptInvitationRequest request) {
         throw new IllegalArgumentException("Passwords do not match");
     }
 
-    UserInvitation invitation = userInvitationRepository.findByToken(request.token())
-            .orElseThrow(() -> new IllegalArgumentException("Invalid invitation"));
+    if (request.token() == null || request.token().isBlank()) {
+        throw new IllegalArgumentException("Invalid invitation");
+    }
+
+    String cleanToken = request.token().trim();
+    UserInvitation invitation = userInvitationRepository.findByToken(cleanToken)
+            .orElseGet(() -> userInvitationRepository.findByTokenIgnoreCase(cleanToken)
+                    .orElseThrow(() -> new IllegalArgumentException("Invalid invitation")));
 
     if (invitation.isClaimed()) {
         throw new IllegalArgumentException("This invitation has already been used");

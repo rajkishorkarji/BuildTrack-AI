@@ -129,7 +129,8 @@ export default function AcceptInvitation() {
         setLoadingInvitation(true);
         setInvitationError('');
 
-        const response = await api.get('/auth/invitations/' + token);
+        const cleanToken = String(token || '').trim();
+        const response = await api.get('/auth/invitations/' + encodeURIComponent(cleanToken));
 
         if (cancelled) return;
 
@@ -212,8 +213,9 @@ export default function AcceptInvitation() {
     try {
       setSubmitting(true);
 
+      const cleanToken = String(token || '').trim();
       await api.post('/auth/invitations/accept', {
-        token,
+        token: cleanToken,
         password,
         confirmPassword,
       });

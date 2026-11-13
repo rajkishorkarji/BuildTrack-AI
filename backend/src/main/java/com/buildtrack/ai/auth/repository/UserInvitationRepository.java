@@ -18,6 +18,9 @@ public interface UserInvitationRepository
     Optional<UserInvitation>
     findByToken(String token);
 
+    Optional<UserInvitation>
+    findByTokenIgnoreCase(String token);
+
     List<UserInvitation> findAllByCompanyIdOrderByCreatedAtDesc(
         Long companyId
 );
