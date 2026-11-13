@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Calendar, Eye, FolderKanban, Plus, Search, Trash2, Users, X, MapPin, Edit3, ShieldCheck } from 'lucide-react';
+import { Calendar, Eye, FolderKanban, Plus, Search, Trash2, Users, X, MapPin, Edit3, ShieldCheck, CreditCard, Sparkles } from 'lucide-react';
 import projectService from '../../services/projectService';
+import { getSubscriptionStatus, startSubscriptionPayment } from '../../services/razorpayService';
 import { formatINR } from '../../utils/currency';
 import LocationMapPicker from '../../components/common/LocationMapPicker';
 
@@ -61,6 +62,30 @@ export default function CompanyAdminProjects() {
   const [eligible, setEligible] = useState([]);
   const [role, setRole] = useState('PROJECT_MANAGER');
   const [selectedUser, setSelectedUser] = useState('');
+  const [subscription, setSubscription] = useState(null);
+  const [paying, setPaying] = useState(false);
+
+  const loadSubscription = async () => {
+    try {
+      const data = await getSubscriptionStatus();
+      setSubscription(data);
+    } catch (_) {}
+  };
+
+  const handleActivateSubscription = async () => {
+    setPaying(true);
+    setError('');
+    try {
+      const planCode = subscription?.tier || 'PROFESSIONAL';
+      await startSubscriptionPayment(planCode, subscription?.plan);
+      await loadSubscription();
+      await loadProjects();
+    } catch (err) {
+      setError(err?.message || 'Subscription payment could not be processed.');
+    } finally {
+      setPaying(false);
+    }
+  };
 
   const loadProjects = async () => {
     setLoading(true); setError('');
@@ -76,7 +101,10 @@ export default function CompanyAdminProjects() {
     finally { setLoading(false); }
   };
 
-  useEffect(() => { loadProjects(); }, []);
+  useEffect(() => {
+    loadProjects();
+    loadSubscription();
+  }, []);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -185,8 +213,82 @@ export default function CompanyAdminProjects() {
         <div>
           <p className="eyebrow" style={{display:'inline-flex',alignItems:'center',gap:6,color:'var(--blue)',fontWeight:700}}><FolderKanban size={14}/> Projects</p>
         </div>
-        <button className="primary-button" onClick={() => { setForm(emptyForm); setShowCreate(true); }}><Plus size={16}/> Create Project</button>
+        <button
+          className="primary-button"
+          onClick={() => {
+            if (subscription && subscription.status !== 'ACTIVE') {
+              handleActivateSubscription();
+              return;
+            }
+            setForm(emptyForm);
+            setShowCreate(true);
+          }}
+        >
+          <Plus size={16}/> Create Project
+        </button>
       </section>
+
+      {subscription && subscription.status !== 'ACTIVE' && (
+        <div
+          className="panel"
+          style={{
+            marginTop: 16,
+            padding: '20px 24px',
+            border: '1px solid rgba(245, 158, 11, 0.35)',
+            background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(37, 99, 235, 0.05) 100%)',
+            borderRadius: 12,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 20,
+            flexWrap: 'wrap',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 10,
+                background: 'rgba(245, 158, 11, 0.15)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--orange)',
+                flexShrink: 0,
+              }}
+            >
+              <CreditCard size={22} />
+            </div>
+            <div>
+              <h4 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>
+                Subscription Activation Required
+              </h4>
+              <p style={{ margin: '4px 0 0 0', fontSize: 13, color: 'var(--muted)', lineHeight: 1.5 }}>
+                Your enterprise tier <strong>({subscription.plan || 'Plan'})</strong> is pending payment. Activate your subscription to provision site projects and workforce.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="primary-button"
+            disabled={paying}
+            onClick={handleActivateSubscription}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '10px 18px',
+              fontSize: 13,
+              fontWeight: 700,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            <Sparkles size={15} />
+            {paying ? 'Processing Checkout…' : 'Activate via Razorpay'}
+          </button>
+        </div>
+      )}
 
       {error && <div className="panel" style={{marginTop:16,borderColor:'var(--orange)',color:'var(--orange)'}}>{error}</div>}
 

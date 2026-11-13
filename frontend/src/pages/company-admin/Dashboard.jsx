@@ -1,9 +1,11 @@
+import { useState, useEffect } from 'react';
 import { useData } from '../../context/DataContext';
 import { useAuth } from '../../context/AuthContext';
 import { formatINR } from '../../utils/currency';
+import { getSubscriptionStatus, startSubscriptionPayment } from '../../services/razorpayService';
 import {
   Building2, FolderKanban, Users, CreditCard, Bot, TrendingUp,
-  Activity, CheckCircle2, AlertTriangle, Wrench, Clock, XCircle
+  Activity, CheckCircle2, AlertTriangle, Wrench, Clock, XCircle, Sparkles
 } from 'lucide-react';
 
 const PROJECT_STATUS_META = {
@@ -29,6 +31,29 @@ function isProjectActive(status) {
 export default function CompanyAdminDashboard() {
   const { projects = [], workers = [], equipment = [], finances = [], issues = [] } = useData();
   const { user } = useAuth();
+
+  const [subscription, setSubscription] = useState(null);
+  const [paying, setPaying] = useState(false);
+
+  useEffect(() => {
+    getSubscriptionStatus()
+      .then(setSubscription)
+      .catch(() => {});
+  }, []);
+
+  const handleActivate = async () => {
+    setPaying(true);
+    try {
+      const planCode = subscription?.tier || 'PROFESSIONAL';
+      await startSubscriptionPayment(planCode, subscription?.plan);
+      const updated = await getSubscriptionStatus();
+      setSubscription(updated);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setPaying(false);
+    }
+  };
 
   const totalBudget = projects.reduce((s, p) => s + (parseFloat(p.budget) || 0), 0);
   const totalSpent = finances
@@ -61,6 +86,69 @@ export default function CompanyAdminDashboard() {
           </button>
         </div>
       </section>
+
+      {/* Subscription Activation Banner */}
+      {subscription && subscription.status !== 'ACTIVE' && (
+        <div
+          className="panel"
+          style={{
+            marginTop: 20,
+            padding: '20px 24px',
+            border: '1px solid rgba(245, 158, 11, 0.35)',
+            background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(37, 99, 235, 0.05) 100%)',
+            borderRadius: 12,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 20,
+            flexWrap: 'wrap',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 10,
+                background: 'rgba(245, 158, 11, 0.15)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--orange)',
+                flexShrink: 0,
+              }}
+            >
+              <CreditCard size={22} />
+            </div>
+            <div>
+              <h4 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>
+                Enterprise Subscription Pending Activation
+              </h4>
+              <p style={{ margin: '4px 0 0 0', fontSize: 13, color: 'var(--muted)', lineHeight: 1.5 }}>
+                Your allocated tenant plan <strong>({subscription.plan || 'Plan'})</strong> is awaiting payment. Complete payment via Razorpay to activate full project tracking, live AI analytics, and workforce automation.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="primary-button"
+            disabled={paying}
+            onClick={handleActivate}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '10px 18px',
+              fontSize: 13,
+              fontWeight: 700,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            <Sparkles size={15} />
+            {paying ? 'Processing Checkout…' : 'Complete Activation with Razorpay'}
+          </button>
+        </div>
+      )}
 
       {/* 1. Company KPIs */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginTop: '20px' }}>

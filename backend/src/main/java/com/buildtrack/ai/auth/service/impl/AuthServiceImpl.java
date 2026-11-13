@@ -718,10 +718,7 @@ public ApiResponse<String> acceptInvitation(AcceptInvitationRequest request) {
 
     if ("COMPANY_ADMIN".equalsIgnoreCase(invitation.getRole())) {
         company.setStatus("ACTIVE");
-        company.setSubscriptionStatus("ACTIVE");
-        if (company.getSubscriptionActivatedAt() == null) {
-            company.setSubscriptionActivatedAt(LocalDateTime.now());
-        }
+        // Tenant account is activated, but subscription plan remains PENDING until paid via Razorpay
         companyRepository.save(company);
         realtimePublisher.publish("companies", "updated", company.getId());
     }
