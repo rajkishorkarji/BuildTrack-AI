@@ -156,15 +156,13 @@ public class SuperAdminController {
     company.setAdminEmail(adminEmail);
 
     /*
-     * The company has been approved because the
-     * Super Admin created it directly.
-     *
-     * Subscription is marked ACTIVE with the selected plan.
+     * The company account is created as ACTIVE,
+     * but subscriptionStatus starts as PENDING until the Company Admin
+     * accepts the invitation and activates their account.
      */
     company.setStatus("ACTIVE");
-    company.setSubscriptionStatus("ACTIVE");
-    company.setSubscriptionActivatedAt(LocalDateTime.now());
-    company.setSubscriptionActivatedAt(LocalDateTime.now());
+    company.setSubscriptionStatus("PENDING");
+    company.setSubscriptionActivatedAt(null);
 
     Company savedCompany =
             companyRepository.save(company);
@@ -516,8 +514,8 @@ public ResponseEntity<ApiResponse<Company>> approveCompany(
 
     company.setAdminEmail(adminEmail);
     company.setStatus("ACTIVE");
-    company.setSubscriptionStatus("ACTIVE");
-    company.setSubscriptionActivatedAt(LocalDateTime.now());
+    company.setSubscriptionStatus("PENDING");
+    company.setSubscriptionActivatedAt(null);
 
     Company savedCompany =
             companyRepository.save(company);

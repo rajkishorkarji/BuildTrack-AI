@@ -316,15 +316,22 @@ export default function SuperAdminCompanies() {
 
   const handleResendInvitation = async (company) => {
     const confirmed = window.confirm(
-      `Resend invitation email to:\n\n${company.adminEmail}\n\nThis will generate a new 24-hour invitation link.`
+      `Resend invitation email to:\n\n${company.adminEmail}\n\nThis will generate a fresh 24-hour invitation link.`
     );
     if (!confirmed) return;
 
     setResendingId(company.id);
     try {
-      await api.post(`/superadmin/companies/${company.id}/resend-invitation`);
+      const res = await api.post(`/superadmin/companies/${company.id}/resend-invitation`);
+      const link = res?.data?.data?.invitationUrl;
+      if (link && navigator.clipboard) {
+        try {
+          await navigator.clipboard.writeText(link);
+        } catch (_) {}
+      }
       window.alert(
-        `Invitation resent to ${company.adminEmail}.\n\nIf the email doesn't arrive, check the Render backend logs — the invitation link is printed there for manual sharing.`
+        `Invitation email sent to ${company.adminEmail}!` +
+          (link ? `\n\nThe invitation link has also been copied to your clipboard:\n\n${link}` : '')
       );
     } catch (error) {
       window.alert(
@@ -746,8 +753,8 @@ export default function SuperAdminCompanies() {
                             flexWrap: 'wrap',
                           }}
                         >
-                          {/* Resend Invitation — only shown when admin hasn't activated yet */}
-                          {company.adminEmail && subscriptionStatus !== 'ACTIVE' && (
+                          {/* Resend Invitation & Copy Link */}
+                          {company.adminEmail && (
                             <button
                               type="button"
                               className="secondary-button"
@@ -764,7 +771,7 @@ export default function SuperAdminCompanies() {
                                 opacity: resendingId === company.id ? 0.6 : 1,
                               }}
                               onClick={() => handleResendInvitation(company)}
-                              title="Resend invitation email to company admin"
+                              title="Resend invitation email and copy invitation link"
                             >
                               <RefreshCw size={11} />
                               {resendingId === company.id ? 'Sending…' : 'Resend Invite'}
