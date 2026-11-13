@@ -119,7 +119,9 @@ class RealtimeClient {
     if (this.manualDisconnect || this.reconnectTimer) return;
     // Avoid loop spamming reconnection while unauthenticated on the login page
     if (!localStorage.getItem('accessToken') && window.location.pathname === '/login') return;
-    const delay = Math.min(30000, 1000 * (2 ** this.reconnectAttempts));
+    // Exponential backoff: 2s, 4s, 8s, 16s, 30s max
+    // Longer base delay to avoid hammering backend during cold start (503)
+    const delay = Math.min(30000, 2000 * (2 ** this.reconnectAttempts));
     this.reconnectAttempts += 1;
     this.reconnectTimer = window.setTimeout(() => {
       this.reconnectTimer = null;
