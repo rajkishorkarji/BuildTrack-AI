@@ -44,6 +44,10 @@ services:
         value: rajkishorkarji07@gmail.com
       - key: MAIL_PASSWORD
         value: "bpnixcfjjxzrqiul"
+      - key: BREVO_API_KEY
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
 
   # ============================================================
   # 2. React SPA Frontend (Free Static Site)

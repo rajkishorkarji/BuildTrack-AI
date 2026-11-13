@@ -28,6 +28,16 @@ public class EmailServiceImpl implements EmailService {
     @Value("${spring.mail.username:noreply@buildtrack.ai}")
     private String fromEmail;
 
+    @Value("${brevo.api-key:${BREVO_API_KEY:}}")
+    private String brevoApiKey;
+
+    @Value("${resend.api-key:${RESEND_API_KEY:}}")
+    private String resendApiKey;
+
+    private final java.net.http.HttpClient httpClient = java.net.http.HttpClient.newBuilder()
+            .connectTimeout(java.time.Duration.ofSeconds(10))
+            .build();
+
     private final java.util.concurrent.ExecutorService emailExecutor = java.util.concurrent.Executors.newCachedThreadPool();
 
     @jakarta.annotation.PreDestroy
@@ -246,6 +256,29 @@ public class EmailServiceImpl implements EmailService {
         String senderAddr = getFromAddress();
 
         emailExecutor.submit(() -> {
+            // Priority 1: Brevo HTTP API (Port 443 - never blocked by cloud hosts like Render)
+            if (brevoApiKey != null && !brevoApiKey.isBlank()) {
+                try {
+                    sendViaBrevo(to, subject, body, senderAddr);
+                    log.info("Email successfully sent via Brevo HTTPS API to {}", to);
+                    return;
+                } catch (Exception e) {
+                    log.error("Failed to send email via Brevo API to {}. Error: {}", to, e.getMessage(), e);
+                }
+            }
+
+            // Priority 2: Resend HTTP API (Port 443)
+            if (resendApiKey != null && !resendApiKey.isBlank()) {
+                try {
+                    sendViaResend(to, subject, body, senderAddr);
+                    log.info("Email successfully sent via Resend HTTPS API to {}", to);
+                    return;
+                } catch (Exception e) {
+                    log.error("Failed to send email via Resend API to {}. Error: {}", to, e.getMessage(), e);
+                }
+            }
+
+            // Priority 3: Fallback to standard SMTP (Port 587/465)
             int maxAttempts = 2;
             for (int attempt = 1; attempt <= maxAttempts; attempt++) {
                 try {
@@ -277,6 +310,59 @@ public class EmailServiceImpl implements EmailService {
                 }
             }
         });
+    }
+
+    private void sendViaBrevo(String to, String subject, String body, String senderAddr) throws Exception {
+        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        java.util.Map<String, Object> payload = new java.util.HashMap<>();
+        payload.put("sender", java.util.Map.of("name", "BuildTrack AI", "email", senderAddr));
+        payload.put("to", java.util.List.of(java.util.Map.of("email", to)));
+        payload.put("subject", subject);
+        payload.put("htmlContent", body);
+
+        String jsonPayload = mapper.writeValueAsString(payload);
+
+        java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
+                .uri(java.net.URI.create("https://api.brevo.com/v3/smtp/email"))
+                .header("api-key", brevoApiKey.trim())
+                .header("Content-Type", "application/json")
+                .header("Accept", "application/json")
+                .POST(java.net.http.HttpRequest.BodyPublishers.ofString(jsonPayload, java.nio.charset.StandardCharsets.UTF_8))
+                .timeout(java.time.Duration.ofSeconds(15))
+                .build();
+
+        java.net.http.HttpResponse<String> response = httpClient.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() >= 400) {
+            throw new RuntimeException("Brevo API returned status " + response.statusCode() + ": " + response.body());
+        }
+    }
+
+    private void sendViaResend(String to, String subject, String body, String senderAddr) throws Exception {
+        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        java.util.Map<String, Object> payload = new java.util.HashMap<>();
+        // If domain is not verified on Resend, onboarding@resend.dev must be used
+        String from = senderAddr.contains("@") && !senderAddr.endsWith("@gmail.com") 
+                ? "BuildTrack AI <" + senderAddr + ">" 
+                : "BuildTrack AI <onboarding@resend.dev>";
+        payload.put("from", from);
+        payload.put("to", java.util.List.of(to));
+        payload.put("subject", subject);
+        payload.put("html", body);
+
+        String jsonPayload = mapper.writeValueAsString(payload);
+
+        java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
+                .uri(java.net.URI.create("https://api.resend.com/emails"))
+                .header("Authorization", "Bearer " + resendApiKey.trim())
+                .header("Content-Type", "application/json")
+                .POST(java.net.http.HttpRequest.BodyPublishers.ofString(jsonPayload, java.nio.charset.StandardCharsets.UTF_8))
+                .timeout(java.time.Duration.ofSeconds(15))
+                .build();
+
+        java.net.http.HttpResponse<String> response = httpClient.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() >= 400) {
+            throw new RuntimeException("Resend API returned status " + response.statusCode() + ": " + response.body());
+        }
     }
 
     
