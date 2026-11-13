@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useData } from '../../context/DataContext';
-import { Building2, Plus, Search, X, Mail, Phone, MapPin, UserRound, RefreshCw } from 'lucide-react';
+import { Building2, Plus, Search, X, Mail, Phone, MapPin, UserRound } from 'lucide-react';
 import api from '../../services/api';
 
 export default function SuperAdminCompanies() {
@@ -211,11 +211,14 @@ export default function SuperAdminCompanies() {
 
       const createdCo = await addCompany(payload);
 
-      const msg = `Company "${companyName}" created successfully.\n\nAn invitation email has been sent to ${adminEmail}.`;
-      window.alert(msg);
-
       setShowCreate(false);
       resetForm();
+
+      setBannerMessage({
+        type: 'success',
+        text: `Company "${companyName}" registered successfully. An invitation email has been dispatched to ${adminEmail}.`
+      });
+      setTimeout(() => setBannerMessage(null), 8000);
 
       await refreshFromServer?.();
     } catch (error) {
@@ -226,10 +229,10 @@ export default function SuperAdminCompanies() {
         error?.response?.data?.error ||
         error?.message;
 
-      window.alert(
-        backendMessage ||
-          'Failed to create company. Please check the backend logs.'
-      );
+      setBannerMessage({
+        type: 'error',
+        text: backendMessage || 'Failed to create company. Please check the backend logs.'
+      });
     } finally {
       setCreating(false);
     }
@@ -308,41 +311,7 @@ export default function SuperAdminCompanies() {
     }
   };
 
-  // ============================================================
-  // RESEND INVITATION
-  // ============================================================
-
-  const [resendingId, setResendingId] = useState(null);
-
-  const handleResendInvitation = async (company) => {
-    const confirmed = window.confirm(
-      `Resend invitation email to:\n\n${company.adminEmail}\n\nThis will generate a fresh 24-hour invitation link.`
-    );
-    if (!confirmed) return;
-
-    setResendingId(company.id);
-    try {
-      const res = await api.post(`/superadmin/companies/${company.id}/resend-invitation`);
-      const link = res?.data?.data?.invitationUrl;
-      if (link && navigator.clipboard) {
-        try {
-          await navigator.clipboard.writeText(link);
-        } catch (_) {}
-      }
-      window.alert(
-        `Invitation email sent to ${company.adminEmail}!` +
-          (link ? `\n\nThe invitation link has also been copied to your clipboard:\n\n${link}` : '')
-      );
-    } catch (error) {
-      window.alert(
-        error?.response?.data?.message ||
-          error?.message ||
-          'Failed to resend invitation.'
-      );
-    } finally {
-      setResendingId(null);
-    }
-  };
+  const [bannerMessage, setBannerMessage] = useState(null);
 
   // ============================================================
   // RENDER
@@ -399,6 +368,40 @@ export default function SuperAdminCompanies() {
           Register New Tenant
         </button>
       </section>
+
+      {bannerMessage && (
+        <div
+          style={{
+            marginTop: '16px',
+            padding: '12px 18px',
+            borderRadius: '10px',
+            background: bannerMessage.type === 'error' ? 'rgba(239,68,68,0.12)' : 'rgba(34,197,94,0.12)',
+            border: `1px solid ${bannerMessage.type === 'error' ? 'rgba(239,68,68,0.25)' : 'rgba(34,197,94,0.25)'}`,
+            color: bannerMessage.type === 'error' ? 'var(--red)' : 'var(--green)',
+            fontSize: '13px',
+            fontWeight: 600,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <span>{bannerMessage.text}</span>
+          <button
+            type="button"
+            onClick={() => setBannerMessage(null)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'inherit',
+              cursor: 'pointer',
+              padding: '0 4px',
+              fontSize: '14px',
+            }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* ========================================================
           SEARCH
@@ -753,31 +756,6 @@ export default function SuperAdminCompanies() {
                             flexWrap: 'wrap',
                           }}
                         >
-                          {/* Resend Invitation & Copy Link */}
-                          {company.adminEmail && (
-                            <button
-                              type="button"
-                              className="secondary-button"
-                              disabled={resendingId === company.id}
-                              style={{
-                                padding: '5px 10px',
-                                fontSize: '11px',
-                                fontWeight: 650,
-                                color: 'var(--blue)',
-                                borderColor: 'rgba(37,99,235,0.3)',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '4px',
-                                opacity: resendingId === company.id ? 0.6 : 1,
-                              }}
-                              onClick={() => handleResendInvitation(company)}
-                              title="Resend invitation email and copy invitation link"
-                            >
-                              <RefreshCw size={11} />
-                              {resendingId === company.id ? 'Sending…' : 'Resend Invite'}
-                            </button>
-                          )}
-
                           <button
                             type="button"
                             className="secondary-button"
