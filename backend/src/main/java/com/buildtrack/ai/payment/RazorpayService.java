@@ -110,11 +110,7 @@ public class RazorpayService {
         String cleanKeyId = (keyId != null && !keyId.isBlank()) ? keyId.trim() : null;
         String cleanKeySecret = (keySecret != null && !keySecret.isBlank()) ? keySecret.trim() : null;
 
-        if (cleanKeyId == null || cleanKeyId.isBlank() || "rzp_test_mock_key".equals(cleanKeyId) || "rzp_test_TNkUjy2dyhgFEz".equals(cleanKeyId)) {
-            throw new IllegalStateException("Razorpay API Key ID is not configured. Please add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in the Render Backend Environment Variables.");
-        }
-
-        if (cleanKeySecret != null) {
+        if (cleanKeyId != null && cleanKeySecret != null) {
             try {
                 org.springframework.web.client.RestTemplate restTemplate = new org.springframework.web.client.RestTemplate();
                 org.springframework.http.client.SimpleClientHttpRequestFactory factory = new org.springframework.http.client.SimpleClientHttpRequestFactory();
@@ -144,10 +140,10 @@ public class RazorpayService {
             }
         }
 
-        String activeKeyId = cleanKeyId != null ? cleanKeyId : "rzp_test_TNkUjy2dyhgFEz";
+        String activeKeyId = cleanKeyId != null ? cleanKeyId : "";
 
         if (orderId == null) {
-            orderId = "order_mock_" + UUID.randomUUID().toString().replace("-", "").substring(0, 14);
+            orderId = "order_" + UUID.randomUUID().toString().replace("-", "").substring(0, 14);
         }
 
         Payment payment = Payment.builder()
