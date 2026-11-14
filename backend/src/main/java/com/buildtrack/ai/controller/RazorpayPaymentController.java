@@ -27,10 +27,10 @@ public class RazorpayPaymentController {
     @Autowired(required = false)
     private FinanceRepository financeRepository;
 
-    @Value("${razorpay.key.id:rzp_test_buildtrack_key}")
+    @Value("${razorpay.key-id:${razorpay.key.id:${RAZORPAY_KEY_ID:rzp_test_buildtrack_key}}}")
     private String razorpayKeyId;
 
-    @Value("${razorpay.key.secret:buildtrack_secret_key}")
+    @Value("${razorpay.key-secret:${razorpay.key.secret:${RAZORPAY_KEY_SECRET:buildtrack_secret_key}}}")
     private String razorpayKeySecret;
 
     @PostMapping("/create-order")
