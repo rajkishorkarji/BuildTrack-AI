@@ -51,6 +51,10 @@ public class RazorpayService {
 
     private final RestClient restClient = RestClient.builder()
             .baseUrl("https://api.razorpay.com/v1")
+            .requestFactory(new org.springframework.http.client.SimpleClientHttpRequestFactory() {{
+                setConnectTimeout(java.time.Duration.ofSeconds(5));
+                setReadTimeout(java.time.Duration.ofSeconds(5));
+            }})
             .build();
 
     private static final Map<String, Plan> PLANS = Map.of(
