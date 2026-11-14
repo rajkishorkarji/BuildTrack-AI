@@ -36,9 +36,9 @@ const PLAN_BENEFITS = {
 };
 
 const DEFAULT_PLANS = {
-  STARTER: { code: 'STARTER', name: 'Starter', amount: 9999, currency: 'INR' },
-  PROFESSIONAL: { code: 'PROFESSIONAL', name: 'Professional', amount: 29999, currency: 'INR' },
-  ENTERPRISE: { code: 'ENTERPRISE', name: 'Enterprise', amount: 99999, currency: 'INR' },
+  STARTER: { code: 'STARTER', name: 'Starter', amount: 1499, currency: 'INR' },
+  PROFESSIONAL: { code: 'PROFESSIONAL', name: 'Professional', amount: 4999, currency: 'INR' },
+  ENTERPRISE: { code: 'ENTERPRISE', name: 'Enterprise', amount: 12999, currency: 'INR' },
 };
 
 export default function CompanyAdminFinance() {

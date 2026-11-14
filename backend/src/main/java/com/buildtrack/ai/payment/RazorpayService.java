@@ -60,9 +60,9 @@ public class RazorpayService {
             .build();
 
     private static final Map<String, Plan> PLANS = Map.of(
-            "STARTER", new Plan("STARTER", "Starter", new BigDecimal("9999.00")),
-            "PROFESSIONAL", new Plan("PROFESSIONAL", "Professional", new BigDecimal("29999.00")),
-            "ENTERPRISE", new Plan("ENTERPRISE", "Enterprise", new BigDecimal("99999.00"))
+            "STARTER", new Plan("STARTER", "Starter", new BigDecimal("1499.00")),
+            "PROFESSIONAL", new Plan("PROFESSIONAL", "Professional", new BigDecimal("4999.00")),
+            "ENTERPRISE", new Plan("ENTERPRISE", "Enterprise", new BigDecimal("12999.00"))
     );
 
     private Plan resolvePlan(String planCode) {

@@ -32,13 +32,13 @@ export default function SuperAdminDashboard() {
   const activeCompanies = uniqueCompanies.filter(c => String(c.status || '').toUpperCase() === 'ACTIVE');
 
   // Platform Revenue represents total successful payments collected from all companies for BuildTrack AI subscriptions
-  const PLAN_PRICES = { STARTER: 9999, PROFESSIONAL: 29999, ENTERPRISE: 99999 };
+  const PLAN_PRICES = { STARTER: 1499, PROFESSIONAL: 4999, ENTERPRISE: 12999 };
   const getPlanPrice = (plan) => {
     const upper = String(plan || '').toUpperCase();
-    if (upper.includes('ENTERPRISE')) return 99999;
-    if (upper.includes('PROFESSIONAL')) return 29999;
-    if (upper.includes('STARTER')) return 9999;
-    return PLAN_PRICES[upper] || 29999;
+    if (upper.includes('ENTERPRISE')) return 12999;
+    if (upper.includes('PROFESSIONAL')) return 4999;
+    if (upper.includes('STARTER')) return 1499;
+    return PLAN_PRICES[upper] || 4999;
   };
 
   const completedSubscriptionPayments = (payments || [])
