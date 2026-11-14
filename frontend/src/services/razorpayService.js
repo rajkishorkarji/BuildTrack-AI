@@ -45,9 +45,10 @@ export async function startSubscriptionPayment(planCode, planName) {
     user = JSON.parse(localStorage.getItem('buildtrack_user') || '{}');
   } catch {}
 
-  const activeKey = (order.keyId && order.keyId !== 'rzp_test_mock_key')
-    ? order.keyId
-    : (import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TNkUjy2dyhgFEz');
+  const activeKey = order.keyId || import.meta.env.VITE_RAZORPAY_KEY_ID;
+  if (!activeKey || activeKey === 'rzp_test_mock_key' || activeKey === 'rzp_test_TNkUjy2dyhgFEz') {
+    throw new Error('Razorpay API Key is not configured. Please add RAZORPAY_KEY_ID in your Render Backend Environment Variables.');
+  }
 
   return new Promise((resolve, reject) => {
     const options = {

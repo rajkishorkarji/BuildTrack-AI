@@ -25,7 +25,7 @@ services:
           name: buildtrack-db
           property: password
       - key: JWT_SECRET
-        generateValue: true
+        sync: false
       - key: SUPER_ADMIN_EMAIL
         value: admin@buildtrack.ai
       - key: SUPER_ADMIN_PASSWORD
