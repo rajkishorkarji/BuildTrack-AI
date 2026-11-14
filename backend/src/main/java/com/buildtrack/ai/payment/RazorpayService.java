@@ -140,7 +140,7 @@ public class RazorpayService {
             }
         }
 
-        String activeKeyId = cleanKeyId != null ? cleanKeyId : "rzp_test_mock_key";
+        String activeKeyId = cleanKeyId != null ? cleanKeyId : "rzp_test_TNkUjy2dyhgFEz";
 
         if (orderId == null) {
             orderId = "order_mock_" + UUID.randomUUID().toString().replace("-", "").substring(0, 14);

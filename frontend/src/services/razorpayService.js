@@ -37,17 +37,7 @@ export async function startSubscriptionPayment(planCode, planName) {
     throw new Error('Razorpay order was not created');
   }
 
-  // Pure mock mode only when no real Razorpay key is configured
-  const isMockKey = !order.keyId || order.keyId === 'rzp_test_mock_key';
-  if (isMockKey && order.orderId?.startsWith('order_mock_')) {
-    const verifyResponse = await api.post('/payments/razorpay/verify', {
-      razorpayOrderId: order.orderId,
-      razorpayPaymentId: 'pay_mock_' + Date.now(),
-      razorpaySignature: 'mock_valid_signature',
-    });
-    return verifyResponse.data?.data || { status: 'SUCCESS' };
-  }
-
+  // Always load official Razorpay Checkout SDK (no direct bypass)
   await loadCheckoutScript();
 
   let user = null;
@@ -55,9 +45,13 @@ export async function startSubscriptionPayment(planCode, planName) {
     user = JSON.parse(localStorage.getItem('buildtrack_user') || '{}');
   } catch {}
 
+  const activeKey = (order.keyId && order.keyId !== 'rzp_test_mock_key')
+    ? order.keyId
+    : (import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TNkUjy2dyhgFEz');
+
   return new Promise((resolve, reject) => {
     const options = {
-      key: order.keyId,
+      key: activeKey,
       amount: order.amount,
       currency: order.currency || 'INR',
       name: 'BuildTrack AI',
@@ -65,7 +59,7 @@ export async function startSubscriptionPayment(planCode, planName) {
       prefill: {
         name: user?.fullName || user?.name || '',
         email: user?.email || '',
-        contact: user?.phone || user?.phoneNumber || '',
+        contact: user?.phone || user?.phoneNumber || '+91 84803 81984',
       },
       theme: {
         color: '#2563eb',
@@ -79,7 +73,7 @@ export async function startSubscriptionPayment(planCode, planName) {
           const verifyResponse = await api.post('/payments/razorpay/verify', {
             razorpayOrderId: paymentResponse.razorpay_order_id || order.orderId,
             razorpayPaymentId: paymentResponse.razorpay_payment_id,
-            razorpaySignature: paymentResponse.razorpay_signature || 'mock_valid_signature',
+            razorpaySignature: paymentResponse.razorpay_signature || 'test_signature',
           });
 
           resolve(verifyResponse.data?.data || paymentResponse);
@@ -93,7 +87,7 @@ export async function startSubscriptionPayment(planCode, planName) {
         }
       },
       modal: {
-        ondismiss: () => reject(new Error('Payment checkout closed')),
+        ondismiss: () => reject(new Error('Payment window closed')),
       },
     };
 
