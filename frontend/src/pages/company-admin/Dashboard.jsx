@@ -34,6 +34,7 @@ export default function CompanyAdminDashboard() {
 
   const [subscription, setSubscription] = useState(null);
   const [paying, setPaying] = useState(false);
+  const [activationMsg, setActivationMsg] = useState(null);
 
   useEffect(() => {
     getSubscriptionStatus()
@@ -43,13 +44,23 @@ export default function CompanyAdminDashboard() {
 
   const handleActivate = async () => {
     setPaying(true);
+    setActivationMsg(null);
     try {
       const planCode = subscription?.tier || 'PROFESSIONAL';
       await startSubscriptionPayment(planCode, subscription?.plan);
       const updated = await getSubscriptionStatus();
       setSubscription(updated);
+      setActivationMsg({
+        type: 'success',
+        text: 'Subscription payment completed successfully! Your enterprise plan is now ACTIVE.',
+      });
     } catch (e) {
-      console.error(e);
+      if (e?.message !== 'Payment window closed') {
+        setActivationMsg({
+          type: 'error',
+          text: e?.message || 'Payment verification could not be completed.',
+        });
+      }
     } finally {
       setPaying(false);
     }
@@ -147,6 +158,22 @@ export default function CompanyAdminDashboard() {
             <Sparkles size={15} />
             {paying ? 'Processing Checkout…' : 'Complete Activation with Razorpay'}
           </button>
+        </div>
+      )}
+
+      {activationMsg && (
+        <div
+          className="panel"
+          style={{
+            marginTop: 16,
+            borderColor: activationMsg.type === 'success' ? 'var(--green)' : 'var(--orange)',
+            color: activationMsg.type === 'success' ? 'var(--green)' : 'var(--orange)',
+            padding: '12px 16px',
+            fontSize: 13,
+            fontWeight: 600,
+          }}
+        >
+          {activationMsg.text}
         </div>
       )}
 

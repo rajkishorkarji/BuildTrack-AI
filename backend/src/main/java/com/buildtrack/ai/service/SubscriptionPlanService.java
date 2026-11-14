@@ -78,6 +78,12 @@ public class SubscriptionPlanService {
 
     public void validateProjectCreationAllowed(Company company) {
         if (company == null) return;
+
+        if (company.getSubscriptionStatus() != null && !"ACTIVE".equalsIgnoreCase(company.getSubscriptionStatus())) {
+            throw new BadRequestException("Subscription is currently " + company.getSubscriptionStatus() +
+                    ". Please complete your subscription payment via Razorpay to unlock project creation.");
+        }
+
         PlanTier tier = getPlanTier(company);
         if (tier == PlanTier.ENTERPRISE) return;
 
@@ -93,6 +99,12 @@ public class SubscriptionPlanService {
 
     public void validateWorkerCreationAllowed(Company company) {
         if (company == null) return;
+
+        if (company.getSubscriptionStatus() != null && !"ACTIVE".equalsIgnoreCase(company.getSubscriptionStatus())) {
+            throw new BadRequestException("Subscription is currently " + company.getSubscriptionStatus() +
+                    ". Please complete your subscription payment via Razorpay to register workforce.");
+        }
+
         PlanTier tier = getPlanTier(company);
         if (tier == PlanTier.ENTERPRISE) return;
 

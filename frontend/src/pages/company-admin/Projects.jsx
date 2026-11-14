@@ -81,7 +81,9 @@ export default function CompanyAdminProjects() {
       await loadSubscription();
       await loadProjects();
     } catch (err) {
-      setError(err?.message || 'Subscription payment could not be processed.');
+      if (err?.message !== 'Payment window closed') {
+        setError(err?.message || 'Subscription payment could not be processed.');
+      }
     } finally {
       setPaying(false);
     }
